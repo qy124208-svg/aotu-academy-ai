@@ -1953,7 +1953,7 @@ function genEventPreviews(locPool,count,genFn,opts={}){
           narration:`💫 ${cpData?.n||''} · Day ${G.day}\n\n`+ev.x,
           choices:ev.c,
           teaser:`💫 ${cpData?.n||''} · ${ev.t||''}`,
-          isCP:true,cpKey:key,cpStage:stage,
+          isCP:true,cp:key,stage:stage,cpKey:key,cpStage:stage,
         };
         // 有概率替换已有事件或追加（如果不够count）
         if(previews.length>=count&&Math.random()<0.7){
