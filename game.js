@@ -2074,8 +2074,8 @@ function execChoice(ev,chIdx){
   const changes=[];
   if(ch.a){ch.a.forEach(a=>{
     let val=Math.round(a.v||dv(3));
-    // ─── CP事件：好感度写入G.cpAff（助攻线），不影响个人好感 ───
-    if(ev.cp){
+    // ─── CP事件：好感度写入G.cpAff（告白/里程碑事件不加好感）───
+    if(ev.cp&&ev.type!=='cp_confess'){
       // 检查CP是否已被恋人选锁定
       if(G.flags['cp_locked_'+ev.cp]){changes.push({id:ev.cp,n:CP[ev.cp]?.n||ev.cp,e:'🔒',old:G.cpAff[ev.cp]||0,val:0,isCP:true,locked:true});}
       else{
