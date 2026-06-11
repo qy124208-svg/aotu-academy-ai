@@ -1578,7 +1578,7 @@ function genRandomEvent(locId){
   }
 
   // ─── 角色个性化覆盖（AI优先 → 静态对话回退 → 通用模板）───
-  if(mc&&!CH[mc.id]?.c==='教师'){ // 教师不触发AI
+  if(mc&&CH[mc.id]?.c!=='教师'){ // 教师不触发AI
     const aff=G.aff[mc.id]||0;
     const cacheKey=`${mc.id}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
     // 1. 优先检查AI缓存
