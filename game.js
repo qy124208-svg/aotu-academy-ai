@@ -2386,6 +2386,7 @@ function buildShell(content){
     <button class="btn btn-menu" onclick="window._nav('journal')" title="日记">📓<span class="btxt">日记</span></button>
     <span style="color:#444;margin:0 2px">│</span>
     <button class="btn btn-menu" id="aiToggleBtn" onclick="window._toggleAI()" title="AI对话开关" style="${AI_ENABLED_global?'border-color:var(--purple);color:var(--purple)':'opacity:0.4'}">🤖<span class="btxt">AI</span></button>
+    <button class="btn btn-menu" onclick="window._prewarm()" title="批量生成所有角色对话（一次性，之后永久离线）" style="font-size:0.65em">⚡<span class="btxt">预热</span></button>
     <button class="btn btn-menu" onclick="window._save()" title="快速存档">💾<span class="btxt">存档</span></button>
     <button class="btn btn-menu" onclick="window._nav('load')" title="读取存档">📂<span class="btxt">读档</span></button>
   </div>${content}`;
@@ -2396,6 +2397,41 @@ window._toggleAI=function(){
   AI_ENABLED_global=!AI_ENABLED_global;
   localStorage.setItem('aotu_ai_enabled',AI_ENABLED_global?'true':'false');
   render('play',{msg:AI_ENABLED_global?'🤖 AI对话已开启 —— 角色将根据性格实时生成个性化文本':'📋 AI对话已关闭 —— 使用静态对话模板',changes:[]});
+};
+
+// ⚡ 批量预生成：每个角色1次API调用，生成全部事件类型（18次总计~1分钟）
+window._prewarm=async function(){
+  const chars=Object.keys(CH).filter(k=>CH[k]&&CH[k].c!=='教师');
+  let done=0,errors=0;
+  render('play',{msg:`⚡ 批量生成中... ${done}/${chars.length} 角色`,changes:[]});
+
+  for(const charId of chars){
+    try{
+      const resp=await fetch('/api/batch',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({charId}),
+      });
+      if(resp.ok){
+        const data=await resp.json();
+        if(data.results){
+          for(const [key,val] of Object.entries(data.results)){
+            if(val&&val.narration){AI_CACHE[key]=val;}
+          }
+          saveAiCache();
+        }
+      }else{errors++;}
+    }catch(e){errors++;}
+    done++;
+    if(done%3===0||done===chars.length){
+      render('play',{msg:`⚡ 进度: ${done}/${chars.length} 角色 (${errors}失败)`,changes:[]});
+    }
+    // 速率限制
+    await new Promise(r=>setTimeout(r,1500));
+  }
+
+  saveAiCache();
+  const cacheCount=Object.keys(AI_CACHE).length;
+  render('play',{msg:`✅ 批量生成完成！\n📊 ${done} 角色 · 缓存总数 ${cacheCount} 条\n🔒 之后这些对话永久缓存，不再消耗API。`,changes:[]});
 };
 
 function rPlay(app,feedback){
