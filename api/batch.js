@@ -33,7 +33,7 @@ export default async function handler(req,res){
   const types=['chat','help','deep','fun','study','lunch','sports','hallway','walk_home'];
   const eventLabels={chat:'闲聊偶遇',help:'帮助他人',deep:'深度谈心',fun:'轻松搞笑',study:'一起学习',lunch:'午餐时间',sports:'体育活动',hallway:'走廊相遇',walk_home:'放学回家'};
 
-  const sp=base+'\n\n为以下10个场景各写1段叙事(40字内)和2个选项(10字内)。只输出JSON：\n{"chat":{"n":"叙事","c":["选项1","选项2"]},"help":{...},...共10个}\n用「」引号，用——停顿。不要输出其他内容。';
+  const sp=base+'\n\n⚠️第三人称！用角色名字称呼自己，不要用"我"！\n为以下10个场景各写1段叙事(40字内)和2个选项(10字内)。只输出JSON：\n{"chat":{"n":"叙事","c":["选项1","选项2"]},"help":{...},...共10个}\n用「」引号，用——停顿。';
   const up='场景：'+types.map(t=>eventLabels[t]||t).join('、');
 
   try{
