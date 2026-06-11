@@ -43,17 +43,35 @@ export default async function handler(req,res){
     });
     const d=await r.json();const t=d.choices?.[0]?.message?.content||'';
     let results={};
-    try{
-      const json=JSON.parse(t.match(/\{[\s\S]*\}/)?.[0]||t);
-      for(const [type,val] of Object.entries(json)){
-        if(val&&val.n){
-          for(const aff of [10,50,80]){
-            const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
-            results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+    const types=['chat','help','deep','fun','study','lunch','sports','hallway','walk_home','rain','sick','comfort','share','game','homework'];
+    // 逐行解析JSON对象
+    const jsonLines=t.match(/\{[^}]*"n"[^}]*"c"[^\]]*\][^}]*\}/g)||[];
+    for(const line of jsonLines){
+      try{
+        const obj=JSON.parse(line);
+        for(const [type,val] of Object.entries(obj)){
+          if(val&&val.n&&types.includes(type)){
+            for(const aff of [10,50,80]){
+              const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
+              results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+            }
           }
         }
-      }
-    }catch(e){}
+      }catch(e){}
+    }
+    if(Object.keys(results).length===0){
+      try{
+        const json=JSON.parse(t.match(/\{[\s\S]*\}/)?.[0]||t);
+        for(const [type,val] of Object.entries(json)){
+          if(val&&val.n){
+            for(const aff of [10,50,80]){
+              const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
+              results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+            }
+          }
+        }
+      }catch(e){}
+    }
     res.json({results});
   }catch(e){
     res.json({results:{},reason:e.message});
