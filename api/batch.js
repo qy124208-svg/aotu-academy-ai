@@ -30,16 +30,16 @@ export default async function handler(req,res){
   if(!charId)return res.json({results:{},reason:'no charId'});
 
   const base=CHAR_PROMPTS[charId]||'你是凹凸学园的学生。';
-  const types=['chat','help','deep','fun','study','lunch','sports','hallway','walk_home','rain','sick','comfort','share','game','homework'];
-  const eventLabels={chat:'闲聊偶遇',help:'需要帮助',deep:'深度谈心',fun:'轻松搞笑',study:'一起学习',lunch:'午餐时间',sports:'体育活动',hallway:'走廊相遇',walk_home:'放学回家',rain:'雨天',sick:'身体不舒服',comfort:'安慰时刻',share:'分享东西',game:'一起玩游戏',homework:'写作业'};
+  const types=['chat','help','deep','fun','study','lunch','sports','hallway','walk_home'];
+  const eventLabels={chat:'闲聊偶遇',help:'帮助他人',deep:'深度谈心',fun:'轻松搞笑',study:'一起学习',lunch:'午餐时间',sports:'体育活动',hallway:'走廊相遇',walk_home:'放学回家'};
 
-  const sp=base+'\n\n为以下15个场景各写1段叙事(50字内)和2个选项(12字内)。严格的JSON格式，只输出JSON：\n{"chat":{"n":"叙事","c":["选项1","选项2"]},"help":{...},...共15个}\n用「」引号，用——停顿。';
+  const sp=base+'\n\n为以下10个场景各写1段叙事(40字内)和2个选项(10字内)。只输出JSON：\n{"chat":{"n":"叙事","c":["选项1","选项2"]},"help":{...},...共10个}\n用「」引号，用——停顿。不要输出其他内容。';
   const up='场景：'+types.map(t=>eventLabels[t]||t).join('、');
 
   try{
     const r=await fetch('https://api.deepseek.com/v1/chat/completions',{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+AI_KEY},
-      body:JSON.stringify({model:'deepseek-chat',max_tokens:3000,temperature:0.9,messages:[{role:'system',content:sp},{role:'user',content:up}]}),
+      body:JSON.stringify({model:'deepseek-chat',max_tokens:2000,temperature:0.7,messages:[{role:'system',content:sp},{role:'user',content:up}]}),
     });
     const d=await r.json();const t=d.choices?.[0]?.message?.content||'';
     let results={};
