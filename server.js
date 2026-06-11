@@ -98,20 +98,37 @@ const server=http.createServer(async (req,res)=>{
           body:JSON.stringify({model:'deepseek-chat',max_tokens:3000,temperature:0.9,messages:[{role:'system',content:sp},{role:'user',content:up}]}),
         });
         const d=await r.json();const t=d.choices?.[0]?.message?.content||'';
-        console.log('Batch:',charId,t.slice(0,80));
-        // 解析JSON
+        console.log('Batch:',charId,t.slice(0,150));
+        // 逐行解析JSON（AI可能返回多行JSON对象）
         let results={};
-        try{
-          const json=JSON.parse(t.match(/\{[\s\S]*\}/)?.[0]||t);
-          for(const [type,val] of Object.entries(json)){
-            if(val&&val.n){
-              for(const aff of [10,50,80]){
-                const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
-                results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+        const jsonLines=t.match(/\{[^}]*"n"[^}]*"c"[^\]]*\][^}]*\}/g)||[];
+        for(const line of jsonLines){
+          try{
+            const obj=JSON.parse(line);
+            for(const [type,val] of Object.entries(obj)){
+              if(val&&val.n&&types.includes(type)){
+                for(const aff of [10,50,80]){
+                  const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
+                  results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+                }
               }
             }
-          }
-        }catch(e){console.log('JSON parse error:',e.message);}
+          }catch(e){}
+        }
+        if(Object.keys(results).length===0){
+          // fallback: 试试整段JSON
+          try{
+            const json=JSON.parse(t.match(/\{[\s\S]*\}/)?.[0]||t);
+            for(const [type,val] of Object.entries(json)){
+              if(val&&val.n){
+                for(const aff of [10,50,80]){
+                  const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
+                  results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+                }
+              }
+            }
+          }catch(e){console.log('Fallback parse error:',e.message);}
+        }
         res.writeHead(200,{'Content-Type':'application/json'});
         res.end(JSON.stringify({results}));
       }catch(e){
