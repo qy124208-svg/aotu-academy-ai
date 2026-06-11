@@ -1,6 +1,6 @@
 // 凹凸转学记 · AI增强服务器 (port 3000)
 const http=require('http');const fs=require('fs');const path=require('path');const crypto=require('crypto');
-const PORT=3000;
+const PORT=process.env.PORT||3000;
 const AI_KEY=process.env.AI_API_KEY||'sk-00cfb20115914b35960993b6b28ee2b4';
 const aiCache=new Map();
 
