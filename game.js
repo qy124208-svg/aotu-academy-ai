@@ -1102,7 +1102,26 @@ shenjinyao:{chat:{n:'走廊。神近耀🗡️靠着墙——手里的苦无在�
 // ╚══════════════════════════════════════════════════════════════╝
 
 let EMBEDDED_CACHE={};
-fetch('cache.json').then(r=>r.json()).then(d=>{EMBEDDED_CACHE=d;Object.assign(AI_CACHE,d);console.log('AI:',Object.keys(d).length,'条');}).catch(()=>{});
+// 将AI生成的第一人称叙事转换为第三人称
+function fixNarrationPerspective(text,charId){
+  if(!text)return text;
+  var name=CH[charId]?CH[charId].n:charId;
+  var emoji=CH[charId]?CH[charId].e:'';
+  // 替换"我"→角色名(emoji)
+  var fixed=text.replace(/^我/g,emoji+' '+name).replace(/「我/g,'「'+name).replace(/——我/g,'——'+name).replace(/，我/g,'，'+name+'。').replace(/。我/g,'。'+name).replace(/！我/g,'！'+name).replace(/你/g,'你');
+  // 修复可能的双标点
+  fixed=fixed.replace(/。。/g,'。').replace(/——/g,'——');
+  return fixed;
+}
+fetch('cache.json').then(r=>r.json()).then(d=>{
+  for(var k in d){
+    if(!d[k]||!d[k].narration)continue;
+    var charId=k.split('_')[0];
+    d[k].narration=fixNarrationPerspective(d[k].narration,charId);
+  }
+  EMBEDDED_CACHE=d;Object.assign(AI_CACHE,d);
+  console.log('AI:',Object.keys(d).length,'条');
+}).catch(function(){});
 const AI_CACHE=Object.assign({},JSON.parse(localStorage.getItem('aotu_ai_cache')||'{}'));
 
 const AI_ENABLED=localStorage.getItem('aotu_ai_enabled')!=='false'; // 默认开启
