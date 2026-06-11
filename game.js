@@ -2896,22 +2896,37 @@ window._rest=function(){
 function renderEvening(app){
   const hs=CH[G.homestay];if(!hs){advanceSlot();render('play');return;}
   G.energy=Math.max(0,G.energy-5);
-  // 50%概率触发晚间借宿事件（好感越高→可用事件越多）
-  if(Math.random()<0.5){
+  // 75%概率触发晚间借宿事件
+  if(Math.random()<0.75){
     const ev=genHomeEvent('evening');
     if(ev){curEv=ev;render('event');return;}
   }
   const home=G.homeInfo||getHomeInfo(G.homestay);
   const flav=getFlavor(G.homestay);
+  const aff=G.aff[G.homestay]||0;
   const homeLabel=home.isFamily?`${home.allEmoji} ${home.displayName}`:`${hs.e} ${hs.n}家`;
-  const msgs=[`🌙 回到${homeLabel}。`];
+  // 更丰富的晚间文本池（根据好感度和角色）
+  const lowMsgs=[
+    `回到${homeLabel}。灯亮着。`,`${homeLabel}的夜晚。`,`推开门——屋里很安静。`,`穿过走廊回了房间。`,`夜晚的${homeLabel}——窗外有虫鸣。`
+  ];
+  const midMsgs=[
+    `${hs.n}在客厅——「今天怎么样？」`,`${hs.n}从厨房探出头——「回来啦？」`,`${hs.n}放下手机看了你一眼。`,`${homeLabel}。电视开着——${hs.n}在等你。`
+  ];
+  const highMsgs=[
+    `${hs.n}在门口等——「怎么回来这么晚。」但语气不是责怪。`,`${hs.n}给你留了宵夜——放在桌上。`,`${hs.n}说「今天做了你爱吃的。」`,`走廊灯亮着——${hs.n}还没睡。`
+  ];
+  const msgs=[];
   if(flav&&Math.random()<0.6)msgs.push(flav.evening);
-  else if(home.isFamily&&home.otherMembers.length>0&&Math.random()<0.4){
+  else if(aff>=60)msgs.push(pk(highMsgs));
+  else if(aff>=30)msgs.push(pk(midMsgs));
+  else msgs.push(pk(lowMsgs));
+  // 安迷修→雷狮 恶党梗；凯莉→安莉洁 呆头鹅梗
+  if(hs.id==='anmixiu'&&Math.random()<0.4)msgs.push('安迷修在本子上记了什么——「今天某个恶党又没穿校服——」但笔没落下。');
+  else if(hs.id==='kaili'&&Math.random()<0.4)msgs.push('凯莉一边泡红茶一边念叨——「呆头鹅说今天不适合占卜——不过这种话你也信——」');
+  if(home.isFamily&&home.otherMembers.length>0&&Math.random()<0.3){
     const other=pk(home.otherMembers);
     msgs.push(`${other.e} ${other.n}在客厅——「今天怎么样？」`);
   }
-  else if(Math.random()<0.5)msgs.push(`${hs.n}在客厅——「今天怎么样？」`);
-  else msgs.push(`你轻手轻脚地进了门。一天的疲惫——在踏入玄关的瞬间消散了。`);
   if(G._tNight)msgs.push('（夜猫子天赋：晚间体力消耗减半）');
   app.innerHTML=buildShell(`<div class="panel fadein" style="text-align:center"><h2>🌙 晚间 · ${homeLabel}</h2><p style="color:var(--dim);line-height:2">${msgs.join('<br>')}</p>
     <p style="color:var(--dim);font-size:0.75em;margin-top:8px">睡前做什么？每晚只能选一件——</p>
