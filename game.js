@@ -1933,7 +1933,7 @@ function genEventPreviews(locPool,count,genFn,opts={}){
       if(!data[stage])return false;
       if(G.flags['cp_'+key+'_s'+stage+'_done'])return false; // 已触发过的不再出现
       const avg=cpAvg(key);
-      if(stage===1&&avg<10)return false;if(stage===2&&avg<25)return false;if(stage===3&&avg<45)return false;if(stage===4&&avg<60)return false;if(stage===5&&avg<75)return false;
+      if(stage===1&&avg<0)return false;if(stage===2&&avg<25)return false;if(stage===3&&avg<45)return false;if(stage===4&&avg<60)return false;if(stage===5&&avg<75)return false;
       return true;
     });
     if(avail.length>0){
@@ -2798,7 +2798,7 @@ window._goOut=function(locId){
       let stage=1;if(G.flags["cp_"+key+"_s1"])stage=2;if(G.flags["cp_"+key+"_s2"])stage=3;if(G.flags["cp_"+key+"_s3"])stage=4;if(G.flags["cp_"+key+"_s4"])stage=5;
       if(!data[stage])return false;
       const avg=cpAvg(key);
-      if(stage===1&&avg<10)return false;if(stage===2&&avg<25)return false;if(stage===3&&avg<45)return false;if(stage===4&&avg<60)return false;if(stage===5&&avg<75)return false;
+      if(stage===1&&avg<0)return false;if(stage===2&&avg<25)return false;if(stage===3&&avg<45)return false;if(stage===4&&avg<60)return false;if(stage===5&&avg<75)return false;
       return !G.flags['cp_'+key+'_s'+stage+'_done'];
     });
     if(avail.length>0){
@@ -2850,7 +2850,7 @@ window._go=function(locId){
       let stage=1;if(G.flags["cp_"+key+"_s1"])stage=2;if(G.flags["cp_"+key+"_s2"])stage=3;if(G.flags["cp_"+key+"_s3"])stage=4;if(G.flags["cp_"+key+"_s4"])stage=5;
       if(!data[stage])return false;
       const avg=cpAvg(key);
-      if(stage===1&&avg<10)return false;if(stage===2&&avg<25)return false;if(stage===3&&avg<45)return false;if(stage===4&&avg<60)return false;if(stage===5&&avg<75)return false;
+      if(stage===1&&avg<0)return false;if(stage===2&&avg<25)return false;if(stage===3&&avg<45)return false;if(stage===4&&avg<60)return false;if(stage===5&&avg<75)return false;
       return !G.flags['cp_'+key+'_s'+stage+'_done'];
     });
     if(avail.length>0){
