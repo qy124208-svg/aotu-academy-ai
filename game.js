@@ -1160,6 +1160,7 @@ function aiEnhanceEvent(mc,type,baseNarration,baseChoices){
   return null; // 本次仍用静态文本
 }
 
+// v6.1 — AI缓存修复 (2026-06-11)
 // 切换AI开关
 function toggleAI(){
   AI_ENABLED_global=!AI_ENABLED_global;
