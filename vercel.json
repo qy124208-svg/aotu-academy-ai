@@ -1,1 +1,10 @@
-{"functions":{"api/*.js":{"memory":512,"maxDuration":30}}}
+{
+  "outputDirectory": ".",
+  "cleanUrls": true,
+  "functions": {
+    "api/*.js": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  }
+}
