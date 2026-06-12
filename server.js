@@ -1,6 +1,6 @@
 // 凹凸转学记 · AI增强服务器 (port 3000)
 const http=require('http');const fs=require('fs');const path=require('path');const crypto=require('crypto');
-const PORT=3000;
+const PORT=process.env.PORT||3000;
 const AI_KEY=process.env.AI_API_KEY||'sk-00cfb20115914b35960993b6b28ee2b4';
 const aiCache=new Map();
 
@@ -47,7 +47,7 @@ const server=http.createServer(async (req,res)=>{
         const eventLabels={chat:'闲聊偶遇',help:'需要帮助',deep:'深度谈心',fun:'轻松搞笑',study:'一起学习',lunch:'午餐时间',sports:'体育活动',rain:'雨天',hallway:'走廊相遇',cleaning:'一起打扫',walk_home:'放学回家',game:'一起玩游戏',sick:'身体不舒服',comfort:'安慰时刻',share:'分享东西',rooftop:'天台',homework:'写作业',club:'社团活动'};
         const eventLabel=eventLabels[eventType]||eventType;
         const base=CHAR_PROMPTS[charId]||('你是凹凸学园的学生——'+charId+'。');
-        const sp=base+'\n\n用2-3句话写一段叙事（60字内），然后给2个对话选项（各15字内）。格式严格遵守：\n叙事：<文本>\n选项1：<文本>\n选项2：<文本>\n\n用「」做引号。用——做停顿。不要说「作为AI」。';
+        const sp=base+'\n\n⚠️第三人称！不要用"我"自称！用角色名字+emoji称呼自己。\n写一段叙事（60字内），给2个对话选项（各15字内）。格式：\n叙事：<文本>\n选项1：<文本>\n选项2：<文本>\n\n用「」做引号。用——做停顿。';
         const up='场景：'+eventLabel+'。好感度：'+affLabel+'。'+(context||'日常校园');
         const r=await fetch('https://api.deepseek.com/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+AI_KEY},
@@ -77,6 +77,79 @@ const server=http.createServer(async (req,res)=>{
       }catch(e){
         res.writeHead(200,{'Content-Type':'application/json'});
         res.end(JSON.stringify({narration:null,choices:null,reason:e.message}));
+      }
+    });return;
+  }
+
+  // ─── 批量预生成（一次API调用生成所有事件类型）───
+  if(reqPath==='/api/batch' && req.method==='POST'){
+    let body='';req.on('data',c=>body+=c);req.on('end',async ()=>{
+      try{
+        const reqBody=JSON.parse(body);
+        const charId=reqBody.charId;
+        const base=CHAR_PROMPTS[charId]||'你是凹凸学园的学生。';
+        const allTypes=['chat','help','deep','fun','study','lunch','sports','hallway','walk_home','rain','sick','comfort','share','game','homework','club','argue','dream','cleaning','photo','prepare','celebrate','promise','farewell','rumor','lost','injury','pet','rooftop','shoelocker','message','blackboard','nickname','detention','future_talk','ghost_story','star','thunder','transfer_talk','rooftop_lunch','festival_prep','valentine_make','diary_found','umbrella_lend','song_rec','final_words','wrong_message','bento_forgot','club_clash'];
+        const eventLabels={chat:'闲聊偶遇',help:'帮助他人',deep:'深度谈心',fun:'轻松搞笑',study:'一起学习',lunch:'午餐时间',sports:'体育活动',hallway:'走廊相遇',walk_home:'放学回家',rain:'雨天',sick:'身体不舒服',comfort:'安慰时刻',share:'分享东西',game:'一起玩游戏',homework:'写作业',club:'社团活动',argue:'争执',dream:'做梦',cleaning:'打扫',photo:'拍照',prepare:'准备考试',celebrate:'庆祝',promise:'约定',farewell:'告别',rumor:'流言',lost:'迷路',injury:'受伤',pet:'宠物',rooftop:'天台',shoelocker:'鞋柜',message:'发消息',blackboard:'黑板',nickname:'外号',detention:'留堂',future_talk:'未来',ghost_story:'鬼故事',star:'观星',thunder:'打雷',transfer_talk:'转学',rooftop_lunch:'天台午餐',festival_prep:'学园祭',valentine_make:'情人节',diary_found:'日记',umbrella_lend:'借伞',song_rec:'推荐歌',final_words:'最后的话',wrong_message:'发错消息',bento_forgot:'便当'};
+        // 取前25个或后25个
+        const round=reqBody.round||1;
+        const types=round===1?allTypes.slice(0,25):allTypes.slice(25);
+        const sp=base+'\n\n⚠️第三人称！用角色名字称呼自己，不要用"我"！\n为以下25个场景各写1段叙事(40字内)和2个选项(10字内)的JSON。格式：\n{"chat":{"n":"叙事","c":["选项1","选项2"]},"help":{...},...共25个}\n用「」引号，用——停顿。只输出JSON。';
+        const up='场景：'+types.map(t=>eventLabels[t]||t).join('、');
+        const r=await fetch('https://api.deepseek.com/v1/chat/completions',{
+          method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+AI_KEY},
+          body:JSON.stringify({model:'deepseek-chat',max_tokens:2000,temperature:0.7,messages:[{role:'system',content:sp},{role:'user',content:up}]}),
+        });
+        const d=await r.json();const t=d.choices?.[0]?.message?.content||'';
+        console.log('Batch:',charId,t.slice(0,100));
+        // 去除```json标记
+        const cleanT=t.replace(/```json\s*/g,'').replace(/```\s*/g,'');
+        let results={};
+
+        function processObj(obj){
+          for(const [type,val] of Object.entries(obj)){
+            if(!types.includes(type))continue;
+            if(Array.isArray(val)){
+              val.forEach((v,j)=>{
+                const aff=[10,50,80][j]||50;
+                const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
+                if(v&&v.n)results[k]={narration:v.n,choices:(v.c||[]).map(t=>({t}))};
+              });
+            }else if(val&&val.n){
+              for(const aff of [10,50,80]){
+                const k=`${charId}_${type}_${aff>=60?'hi':aff>=30?'mid':'lo'}`;
+                results[k]={narration:val.n,choices:(val.c||[]).map(t=>({t}))};
+              }
+            }
+          }
+        }
+
+        // 尝试解析：数组 or 单对象 or 多行对象
+        try{
+          const parsed=JSON.parse(cleanT);
+          if(Array.isArray(parsed)){
+            parsed.forEach(obj=>processObj(obj));
+          }else{
+            processObj(parsed);
+          }
+        }catch(e1){
+          // 多行JSON对象（每行一个）
+          const lines=cleanT.split('\n').filter(l=>l.trim().startsWith('{'));
+          for(const line of lines){
+            try{processObj(JSON.parse(line));}catch(e2){}
+          }
+          // 还不行：正则提取
+          if(Object.keys(results).length===0){
+            const matches=cleanT.match(/\{[^}]*"n"\s*:\s*"[^"]*"[^}]*"c"\s*:\s*\[[^\]]*\][^}]*\}/g)||[];
+            for(const m of matches){
+              try{processObj(JSON.parse(m));}catch(e3){}
+            }
+          }
+        }
+        res.writeHead(200,{'Content-Type':'application/json'});
+        res.end(JSON.stringify({results}));
+      }catch(e){
+        res.writeHead(200,{'Content-Type':'application/json'});
+        res.end(JSON.stringify({results:{},reason:e.message}));
       }
     });return;
   }
