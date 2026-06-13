@@ -2295,9 +2295,10 @@ function randomizeTalents(){
 }
 
 function rCreate(app){
-  const rndAttrs=randomizeAttrs();
-  const rndTalents=randomizeTalents();
-  const rndHome=pk(HOMESTAY_POOL);const rndHomeInfo=getHomeInfo(rndHome);
+  // 优先使用已保存的随机值（避免"换借宿"时覆盖天赋/属性）
+  const rndAttrs=window._rndAttrs||randomizeAttrs();
+  const rndTalents=window._rndTalents||randomizeTalents();
+  const rndHome=window._rndHome||pk(HOMESTAY_POOL);const rndHomeInfo=getHomeInfo(rndHome);
   const pickCount=loadKarma()>=100?3:2;
   window._rndAttrs=rndAttrs;
   window._rndTalents=rndTalents;window._rndPickCount=pickCount;
