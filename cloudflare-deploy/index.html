@@ -1,3 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凹凸学园 · 百日倒数 - Aotu Academy 100 Days</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --border:#e94560; --text:#e6edf3; --dim:#8b949e;
+  --accent:#e94560; --gold:#f0c040; --green:#3fb950; --blue:#58a6ff; --purple:#bc8cff;
+  --card:#1c2128; --hover:#252d38;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+#app{max-width:800px;margin:0 auto;padding:8px}
+.cdbanner{background:linear-gradient(135deg,#1a1a3e,#2d1a3e);border:2px solid var(--border);border-radius:16px;padding:14px 20px;text-align:center;margin:8px 0;position:relative;overflow:hidden}
+.cdbanner .daynum{font-size:3.5em;font-weight:900;color:var(--accent);line-height:1;text-shadow:0 0 20px rgba(233,69,96,0.5)}
+.cdbanner .daylabel{font-size:0.85em;color:var(--dim);letter-spacing:2px;margin-top:2px}
+.cdbanner .daysbar{height:3px;background:#333;border-radius:2px;margin-top:8px}
+.cdbanner .daysfill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s}
+.panel{background:var(--panel);border-radius:12px;padding:16px;margin:8px 0;border:1px solid #30363d}
+.panel h2{color:var(--accent);font-size:1em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.btn{display:inline-block;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-size:0.9em;font-weight:bold;transition:all 0.2s;margin:3px;font-family:inherit;position:relative;z-index:1}
+.btn:active{transform:scale(0.97)}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:#c0392b;transform:translateY(-1px)}
+.btn-s{background:var(--card);color:var(--text);border:1px solid #444}.btn-s:hover{background:var(--hover);border-color:#888}
+.btn-xs{padding:4px 10px;font-size:0.75em}
+.btn-menu{display:inline-flex;align-items:center;gap:3px;padding:4px 8px;border-radius:6px;border:1px solid #333;cursor:pointer;font-size:0.75em;font-family:inherit;background:var(--card);color:var(--text);transition:all 0.2s;white-space:nowrap}
+.btn-menu:hover{background:var(--hover);border-color:var(--accent)}
+.btn-menu:active{transform:scale(0.95)}
+.btn-menu .btxt{font-size:0.75em;color:var(--dim)}
+.btn-choice{background:var(--card);border:1px solid #444;color:var(--text);text-align:left;padding:13px 16px;width:100%;margin:4px 0;font-size:0.9em;border-radius:8px;cursor:pointer;transition:all 0.2s;line-height:1.5}
+.btn-choice:hover{border-color:var(--gold);background:#252d38}
+.btn-loc{background:var(--card);border:1px solid #333;color:var(--text);text-align:left;padding:12px 14px;border-radius:8px;width:100%;cursor:pointer;margin:3px 0;display:flex;align-items:center;gap:10px;transition:all 0.2s}
+.btn-loc:hover{border-color:var(--accent);background:var(--hover)}
+.btn-loc:active{transform:scale(0.97);border-color:var(--gold)}
+.btn-loc .locemoji{font-size:1.6em;flex-shrink:0}
+.btn-loc .locinfo{flex:1}
+.btn-loc .locname{font-weight:bold;font-size:0.9em}
+.btn-loc .lochars{font-size:0.7em;color:var(--dim);margin-top:2px}
+.statusbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:var(--card);border-radius:8px;margin:6px 0;font-size:0.75em;align-items:center}
+.stat{background:#1a1a2e;padding:3px 8px;border-radius:4px;white-space:nowrap}
+.stat s{color:var(--gold);font-weight:bold;font-style:normal}
+.eventbox{background:var(--card);border-radius:10px;padding:18px;margin:8px 0;border-left:3px solid var(--accent);line-height:1.9}
+.eventbox .narration{white-space:pre-line;color:var(--text);font-size:0.95em}
+.feedback{background:#0d2818;border:2px solid var(--green);border-radius:10px;padding:14px;margin:10px 0;animation:fadeIn 0.5s}
+.feedback .fbtitle{color:var(--gold);font-weight:bold;margin-bottom:4px;font-size:0.85em}
+.feedback .fbtext{line-height:1.8;white-space:pre-line;font-size:0.9em}
+.feedback .fbaff{font-size:0.8em;margin-top:8px;color:var(--dim)}
+.fbup{color:var(--green)}.fbdown{color:#f85149}
+.affgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}
+.affcard{background:var(--card);border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:7px}
+.affcard .affemoji{font-size:1.3em;flex-shrink:0;width:30px;text-align:center}
+.affcard .affinfo{flex:1;min-width:0}
+.affcard .affname{font-size:0.8em;font-weight:bold}
+.affcard .affbar{height:3px;background:#333;border-radius:2px;margin-top:3px}
+.affcard .afffill{height:100%;border-radius:2px;transition:width 0.5s}
+.affcard .affstage{font-size:0.65em;color:var(--dim);margin-top:1px}
+.endbox{text-align:center;padding:40px 20px}
+.endbox .endicon{font-size:6em;margin:20px 0}
+.endbox h2{font-size:1.8em;letter-spacing:3px;margin:15px 0}
+.endbox .endtext{line-height:2;max-width:500px;margin:15px auto;white-space:pre-line;font-size:0.95em}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fadein{animation:fadeIn 0.4s}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 rgba(240,192,64,0)}50%{box-shadow:0 0 15px rgba(240,192,64,0.4)}}
+.pulse{animation:pulse 2s infinite}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.shake{animation:shake 0.3s}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+.achtoast{position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#1a1a3e,#2d1a1e);border:2px solid var(--gold);border-radius:12px;padding:14px 18px;z-index:999;animation:slideIn 0.5s ease;max-width:320px}
+.achtoast .achicon{font-size:2em}
+.achtoast .achname{font-weight:bold;color:var(--gold);font-size:0.9em}
+.achtoast .achdesc{color:var(--dim);font-size:0.75em;margin-top:2px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#444;border-radius:3px}
+@media(max-width:600px){.affgrid{grid-template-columns:repeat(2,1fr)}.cdbanner .daynum{font-size:2.5em}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  凹凸学园 · 百日倒数 v5.7                                   ║
@@ -3868,3 +3948,8 @@ function renderBattleResult(){
 render('title');
 //# sourceURL=game.js
 
+
+</script>
+</body>
+</html>
+  
