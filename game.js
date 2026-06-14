@@ -2489,10 +2489,15 @@ function renderWitchDay(app){
   let title,narration,choices,isFinalBattle=false;
 
   switch(day){
+    case 0:
+      title='💎 零日 · 碎裂';
+      narration=`心魔幻境——崩塌了。\n\n黑影淹没了一切——教室、课桌、走廊——\n\n全部碎裂——化成光的残片——\n\n归于虚空。\n\n你输了。\n\n但你感觉到——胸腔里——有什么——在裂开。\n\n是灵魂宝石。\n\n从内部——被两个相悖的愿望——同时撕扯——\n\n「想回某某中学——与那些旧日的人重逢。」\n\n「不想离开凹凸学园——与这里的人分离。」\n\n两面镜子——越夹越紧——\n\n宝石——承受不住——\n\n碎了。\n\n在碎裂的那一瞬——愿望——扭曲了。\n\n「与分离的人终会重逢」——\n\n变成了——\n\n孵化者的声音——从很远很远的地方传来——\n\n「灵魂宝石碎裂之时——便是魔女诞生之日。」\n\n你的瞳孔——染上了暗红色。\n\n和溃离症发作时的安迷修一样——\n\n但你不会醒来了。\n\n不是死亡。是转化。\n\n你正在变成——\n\n性质为「溃离」的魔女。\n\n窗外——天空开始变色。\n\n结界——正在展开。`;
+      choices=[{t:'……胸腔里——碎片在跳。不是心跳。是诅咒。',a:[],f:''}];break;
+
     case 1:
-      title='🌑 第一日 · 觉醒';
-      narration=`心魔幻境崩塌的时候——\n\n你没有死。\n\n你的灵魂宝石——那颗承载着你全部存在的结晶——\n\n在最后一缕光熄灭之后——\n\n碎了。\n\n碎了的灵魂宝石——不叫灵魂宝石了。\n\n叫悲叹之种。\n\n孵化者说——灵魂宝石离开身体100米就会失效。\n\n但现在——你的身体是你的牢笼。\n\n不对——悲叹之种才是你的本体。身体只是容器。\n\n你在${homeLabel}的镜子里看到了自己。\n\n瞳孔——暗红色。和溃离症发作时的安迷修一样——\n\n但你不会醒来了。\n\n墙壁上——开始浮现看不懂的文字——扭曲的符文——\n\n那是魔女文字。\n\n你的性质——写在上面。\n\n「溃离」。\n\n害怕分离。害怕告别。害怕一百天后必须离开。\n\n所以——你要让整个世界——都留在你的结界里。\n\n窗外——天空变色。玻璃碎裂。\n\n你伸出手——\n\n结界——展开了。`;
-      choices=[{t:'……悲叹之种在胸腔里震动。不是心跳。是诅咒。',a:[],f:''}];break;
+      title='🌑 第一日 · 起源';
+      narration=`你在${homeLabel}的镜子里看到了自己。\n\n瞳孔——暗红色。\n\n但你想起了一切。\n\n——很久以前。\n\n你对孵化者许了一个愿望。\n\n「与分离的人——终会重逢。」\n\n你讨厌分离。讨厌告别。讨厌那些明明很重要的人——\n\n在某一天——就再也见不到了。\n\n孵化者实现了你的愿望。\n\n你获得了轮回的能力——\n\n每一次结束——都会在新的起点——与旧日的人们重逢。\n\n但轮回有一个代价——\n\n每一世的记忆——不会保留到下一世。\n\n你记得某某中学。记得那里的每一个人。\n\n那些羁绊——和这里一样深。\n\n但一百天后——凹凸学园的每一个人——\n\n也会被轮回——从你的记忆里抹去。\n\n灵魂宝石承载着愿望——它记得每一世。\n\n但你的心——只能活在当下——\n\n却装着两个世界的人。\n\n——然后。\n\n你转学到了凹凸学园。\n\n一百天。你有一百天。\n\n你认识了他们。金。格瑞。雷狮。安迷修。卡米尔。凯莉。安莉洁——\n\n还有更多人。\n\n每一天——羁绊都在加深。\n\n每一夜——你都知道——一百天后——你必须离开。\n\n但你不想走。\n\n你的愿望是「重逢」——可你更怕「分离」。\n\n你想回某某中学——那里有和你羁绊同样深的人。\n\n你不想离开凹凸学园——这里的人——同样重要。\n\n两所学校——两群人——在你心里——一样重。\n\n你没有偏袒任何一边。\n\n正因如此——哪边都舍不下。\n\n两个相悖的念头——像两面镜子——把你困在中间——\n\n越来越窄——越来越黑——\n\n你开始怀疑自己的愿望。\n\n「重逢」——也许从一开始——就只是孩子气的梦。\n\n白天你在笑——晚上你盯着天花板——\n\n灵魂宝石的颜色——一天比一天暗。\n\n压力——像水——一点一点——漫过你的头顶。\n\n直到心魔幻境崩塌的那一刻。\n\n你的灵魂宝石——那颗承载着愿望的结晶——\n\n在最后一缕光熄灭之后——\n\n碎了。\n\n不是被击碎的。\n\n是被你自己的绝望——压碎的。\n\n碎了的灵魂宝石——不叫灵魂宝石了。\n\n叫悲叹之种。\n\n愿望——扭曲了。\n\n「与分离的人终会重逢」——\n\n变成了——\n\n「不让任何人分离」。\n\n不是重逢。是困住。是永远。\n\n孵化者说过——灵魂宝石离开身体100米就会失效。\n\n但现在——你的身体是你的牢笼。\n\n不对——悲叹之种才是你的本体。身体只是容器。\n\n墙壁上——开始浮现看不懂的文字——扭曲的符文——\n\n那是魔女文字。\n\n你的性质——写在上面。\n\n「溃离」。\n\n害怕分离。害怕告别。\n\n害怕一百天后必须离开——\n\n害怕轮回之后——再也回不到这个世界——\n\n再也见不到这些人。\n\n所以——你要让整个世界——都留在你的结界里。\n\n窗外——天空变色。玻璃碎裂。\n\n你伸出手——\n\n结界——展开了。`;
+      choices=[{t:'……原来——不是被夺走。是自己——崩坏的。',a:[],f:''}];break;
 
     case 2:
       title='🕸️ 第二日 · 结界';
@@ -3533,18 +3538,32 @@ function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);}
 
 let battleCtx=null,battleAnim=null,player=null,enemies=[],bullets=[],particles=[];
 let battleScore=0,battleTime=60,battleWave=1,battleOver=false,battleWon=false;
+let battleIsMobile=false,battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null},battleCanvasScale=1;
 
 function startHeartDemonBattle(){
   const app=document.getElementById('app');
-  app.innerHTML='<canvas id="battleCanvas" width="800" height="500" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:crosshair"></canvas>';
+  battleIsMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
+  // 响应式Canvas：宽度自适应，保持800×500内部分辨率
+  const maxW=Math.min(window.innerWidth-16,800);
+  battleCanvasScale=maxW/800;
+  const displayH=maxW*500/800;
+  app.innerHTML=`<canvas id="battleCanvas" width="800" height="500" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:${battleIsMobile?'none':'crosshair'};width:${maxW}px;height:${displayH}px;touch-action:none"></canvas>`;
   const canvas=document.getElementById('battleCanvas');
   battleCtx=canvas.getContext('2d');
   battleScore=0;battleTime=60;battleWave=1;battleOver=false;battleWon=false;
   enemies=[];bullets=[];particles=[];
-  player={x:400,y:250,vx:0,vy:0,spd:2.5,hp:100,maxHp:100,shootCD:0,shootRate:Math.max(8,22-G.attr.INT*1.5),dmg:1+Math.floor(G.attr.STR/3),slow:0,silence:0,reverse:0,_flash:0,invincible:600};// 前10秒霸体(600帧)
+  battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
+  player={x:400,y:250,vx:0,vy:0,spd:2.5,hp:100,maxHp:100,shootCD:0,shootRate:Math.max(8,22-G.attr.INT*1.5),dmg:1+Math.floor(G.attr.STR/3),slow:0,silence:0,reverse:0,_flash:0,invincible:600};
   spawnWave();
-  document.addEventListener('keydown',battleKeyDown);document.addEventListener('keyup',battleKeyUp);
-  canvas.addEventListener('mousemove',battleMouseMove);canvas.addEventListener('click',battleClick);
+  if(!battleIsMobile){
+    document.addEventListener('keydown',battleKeyDown);document.addEventListener('keyup',battleKeyUp);
+    canvas.addEventListener('mousemove',battleMouseMove);canvas.addEventListener('click',battleClick);
+  }else{
+    canvas.addEventListener('touchstart',battleTouchStart,{passive:false});
+    canvas.addEventListener('touchmove',battleTouchMove,{passive:false});
+    canvas.addEventListener('touchend',battleTouchEnd);
+    canvas.addEventListener('touchcancel',battleTouchEnd);
+  }
   if(battleAnim)cancelAnimationFrame(battleAnim);
   battleLoop();
 }
@@ -3599,6 +3618,45 @@ function battleClick(e){
   player.shootCD=player.shootRate;
 }
 
+function battleTouchStart(e){
+  e.preventDefault();
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  for(const t of e.changedTouches){
+    const tx=(t.clientX-r.x)/battleCanvasScale,ty=(t.clientY-r.y)/battleCanvasScale;
+    // 左侧40%区域 = 虚拟摇杆
+    if(tx<320&&!battleJoystick.active){
+      battleJoystick.active=true;battleJoystick.tid=t.identifier;
+      battleJoystick.ox=tx;battleJoystick.oy=ty;
+      battleJoystick.dx=0;battleJoystick.dy=0;
+    }
+  }
+}
+function battleTouchMove(e){
+  e.preventDefault();
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  for(const t of e.changedTouches){
+    if(t.identifier===battleJoystick.tid&&battleJoystick.active){
+      const tx=(t.clientX-r.x)/battleCanvasScale,ty=(t.clientY-r.y)/battleCanvasScale;
+      battleJoystick.dx=tx-battleJoystick.ox;
+      battleJoystick.dy=ty-battleJoystick.oy;
+    }
+  }
+}
+function battleTouchEnd(e){
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  for(const t of e.changedTouches){
+    if(t.identifier===battleJoystick.tid){
+      battleJoystick.active=false;battleJoystick.tid=null;
+      battleJoystick.dx=0;battleJoystick.dy=0;
+    }
+  }
+}
+
 function battleLoop(){
   if(battleOver){renderBattleResult();return;}
   battleCtx.clearRect(0,0,800,500);
@@ -3609,20 +3667,32 @@ function battleLoop(){
   if(battleTime<=15&&battleWave===4)spawnWave();
 
   // Player movement
-  if(!player.reverse||player.reverse<=0){
-    if(battleKeys['w']||battleKeys['arrowup'])player.vy=-player.spd;
-    else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=player.spd;
-    else player.vy*=0.8;
-    if(battleKeys['a']||battleKeys['arrowleft'])player.vx=-player.spd;
-    else if(battleKeys['d']||battleKeys['arrowright'])player.vx=player.spd;
-    else player.vx*=0.8;
+  if(battleIsMobile){
+    // 虚拟摇杆移动（360度模拟）
+    if(battleJoystick.active){
+      const mag=Math.sqrt(battleJoystick.dx*battleJoystick.dx+battleJoystick.dy*battleJoystick.dy);
+      if(mag>8){
+        const rev=player.reverse>0?-1:1;
+        player.vx=(battleJoystick.dx/mag)*player.spd*rev;
+        player.vy=(battleJoystick.dy/mag)*player.spd*rev;
+      }else{player.vx*=0.8;player.vy*=0.8;}
+    }else{player.vx*=0.8;player.vy*=0.8;}
   }else{
-    if(battleKeys['w']||battleKeys['arrowup'])player.vy=player.spd;
-    else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=-player.spd;
-    else player.vy*=0.8;
-    if(battleKeys['a']||battleKeys['arrowleft'])player.vx=player.spd;
-    else if(battleKeys['d']||battleKeys['arrowright'])player.vx=-player.spd;
-    else player.vx*=0.8;
+    if(!player.reverse||player.reverse<=0){
+      if(battleKeys['w']||battleKeys['arrowup'])player.vy=-player.spd;
+      else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=player.spd;
+      else player.vy*=0.8;
+      if(battleKeys['a']||battleKeys['arrowleft'])player.vx=-player.spd;
+      else if(battleKeys['d']||battleKeys['arrowright'])player.vx=player.spd;
+      else player.vx*=0.8;
+    }else{
+      if(battleKeys['w']||battleKeys['arrowup'])player.vy=player.spd;
+      else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=-player.spd;
+      else player.vy*=0.8;
+      if(battleKeys['a']||battleKeys['arrowleft'])player.vx=player.spd;
+      else if(battleKeys['d']||battleKeys['arrowright'])player.vx=-player.spd;
+      else player.vx*=0.8;
+    }
   }
   const spdMul=player.slow>0?0.5:1;
   player.x=Math.max(15,Math.min(785,player.x+player.vx*spdMul));
@@ -3634,11 +3704,23 @@ function battleLoop(){
   if(player._flash>0)player._flash--;
   if(player.invincible>0)player.invincible--;
 
-  // Auto-shoot toward mouse
-  if(player.shootCD<=0&&player.mx!==undefined&&player.silence<=0){
-    const a=Math.atan2(player.my-player.y,player.mx-player.x);
-    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
-    player.shootCD=player.shootRate;
+  // Auto-shoot
+  if(player.shootCD<=0&&player.silence<=0){
+    if(battleIsMobile){
+      // 手机：自动瞄准最近敌人
+      let nearest=null,nd=Infinity;
+      enemies.forEach(e=>{const d=dist(player,e);if(d<nd){nd=d;nearest=e;}});
+      if(nearest){
+        const a=Math.atan2(nearest.y-player.y,nearest.x-player.x);
+        bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
+        player.shootCD=player.shootRate;
+      }
+    }else if(player.mx!==undefined){
+      // 桌面端：鼠标瞄准
+      const a=Math.atan2(player.my-player.y,player.mx-player.x);
+      bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
+      player.shootCD=player.shootRate;
+    }
   }
 
   // Update enemies
@@ -3810,6 +3892,29 @@ function battleLoop(){
     if(player.reverse>0){battleCtx.strokeStyle='#f8f';battleCtx.lineWidth=2;battleCtx.beginPath();battleCtx.arc(player.x,player.y,19,0,Math.PI*2);battleCtx.stroke();}
   }
 
+  // 虚拟摇杆（手机）
+  if(battleIsMobile&&battleJoystick.active){
+    const jx=battleJoystick.ox,jy=battleJoystick.oy;
+    const knobR=18,baseR=38;
+    // 底座
+    battleCtx.fillStyle='rgba(255,255,255,0.12)';battleCtx.strokeStyle='rgba(255,255,255,0.25)';battleCtx.lineWidth=2;
+    battleCtx.beginPath();battleCtx.arc(jx,jy,baseR,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
+    // 摇杆
+    const kx=jx+battleJoystick.dx,ky=jy+battleJoystick.dy;
+    const clampR=baseR-knobR;
+    const mag=Math.sqrt(battleJoystick.dx*battleJoystick.dx+battleJoystick.dy*battleJoystick.dy);
+    const ckx=mag>clampR?jx+battleJoystick.dx/mag*clampR:kx;
+    const cky=mag>clampR?jy+battleJoystick.dy/mag*clampR:ky;
+    battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.beginPath();battleCtx.arc(ckx,cky,knobR,0,Math.PI*2);battleCtx.fill();
+  }
+  // 半透明摇杆底座（始终显示）
+  if(battleIsMobile&&!battleJoystick.active){
+    battleCtx.fillStyle='rgba(255,255,255,0.06)';battleCtx.strokeStyle='rgba(255,255,255,0.12)';battleCtx.lineWidth=1;
+    battleCtx.beginPath();battleCtx.arc(120,300,42,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
+    battleCtx.fillStyle='rgba(255,255,255,0.2)';battleCtx.font='10px sans-serif';battleCtx.textAlign='center';
+    battleCtx.fillText('👆 移动',120,340);
+  }
+
   // HUD
   battleCtx.fillStyle='rgba(0,0,0,0.7)';battleCtx.fillRect(0,0,800,40);
   battleCtx.fillStyle='#fff';battleCtx.font='bold 16px sans-serif';battleCtx.textAlign='left';
@@ -3819,9 +3924,13 @@ function battleLoop(){
   battleCtx.fillStyle='#3fb950';battleCtx.fillText('❤️ '+player.hp,560,28);
   battleCtx.fillText('🌊 Wave '+battleWave,680,28);
 
-  // 操作提示（持续显示）
+  // 操作提示
   battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.font='11px sans-serif';battleCtx.textAlign='center';
-  battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
+  if(battleIsMobile){
+    battleCtx.fillText('左侧摇杆移动 | 自动瞄准射击 | 生存60秒即胜利',400,485);
+  }else{
+    battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
+  }
 
   battleAnim=requestAnimationFrame(battleLoop);
 }
@@ -3830,7 +3939,12 @@ function renderBattleResult(){
   if(battleAnim)cancelAnimationFrame(battleAnim);
   document.removeEventListener('keydown',battleKeyDown);document.removeEventListener('keyup',battleKeyUp);
   const canvas=document.getElementById('battleCanvas');
-  if(canvas){canvas.removeEventListener('mousemove',battleMouseMove);canvas.removeEventListener('click',battleClick);}
+  if(canvas){
+    canvas.removeEventListener('mousemove',battleMouseMove);canvas.removeEventListener('click',battleClick);
+    canvas.removeEventListener('touchstart',battleTouchStart);canvas.removeEventListener('touchmove',battleTouchMove);
+    canvas.removeEventListener('touchend',battleTouchEnd);canvas.removeEventListener('touchcancel',battleTouchEnd);
+  }
+  battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
 
   const app=document.getElementById('app');
   if(battleWon){
@@ -3855,7 +3969,12 @@ function renderBattleResult(){
       G.flags['witch_transformation']=true;
       G.flags['witch_karma_at_transform']=currentKarma;
       document.removeEventListener('keydown',battleKeyDown);document.removeEventListener('keyup',battleKeyUp);
-      const c=document.getElementById('battleCanvas');if(c){c.removeEventListener('mousemove',battleMouseMove);c.removeEventListener('click',battleClick);}
+      const c=document.getElementById('battleCanvas');if(c){
+        c.removeEventListener('mousemove',battleMouseMove);c.removeEventListener('click',battleClick);
+        c.removeEventListener('touchstart',battleTouchStart);c.removeEventListener('touchmove',battleTouchMove);
+        c.removeEventListener('touchend',battleTouchEnd);c.removeEventListener('touchcancel',battleTouchEnd);
+      }
+      battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
       render('play');return;
     }
     curEv={type:'forced_end',narration:`💀 心魔吞噬\n\n60秒过去了。\n\n你没有战胜那些幻影。\n\n教室越来越远——\n\n有人在叫你的名字。\n\n但你已经听不清了。`,
