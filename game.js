@@ -4020,26 +4020,42 @@ function battleLoop(){
   }
 
   // 虚拟摇杆（手机）
-  if(battleIsMobile&&battleJoystick.active){
-    const jx=battleJoystick.ox,jy=battleJoystick.oy;
-    const knobR=18,baseR=38;
-    // 底座
-    battleCtx.fillStyle='rgba(255,255,255,0.12)';battleCtx.strokeStyle='rgba(255,255,255,0.25)';battleCtx.lineWidth=2;
-    battleCtx.beginPath();battleCtx.arc(jx,jy,baseR,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
-    // 摇杆
-    const kx=jx+battleJoystick.dx,ky=jy+battleJoystick.dy;
-    const clampR=baseR-knobR;
-    const mag=Math.sqrt(battleJoystick.dx*battleJoystick.dx+battleJoystick.dy*battleJoystick.dy);
-    const ckx=mag>clampR?jx+battleJoystick.dx/mag*clampR:kx;
-    const cky=mag>clampR?jy+battleJoystick.dy/mag*clampR:ky;
-    battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.beginPath();battleCtx.arc(ckx,cky,knobR,0,Math.PI*2);battleCtx.fill();
-  }
-  // 半透明摇杆底座（始终显示）
-  if(battleIsMobile&&!battleJoystick.active){
-    battleCtx.fillStyle='rgba(255,255,255,0.06)';battleCtx.strokeStyle='rgba(255,255,255,0.12)';battleCtx.lineWidth=1;
-    battleCtx.beginPath();battleCtx.arc(120,300,42,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
-    battleCtx.fillStyle='rgba(255,255,255,0.2)';battleCtx.font='10px sans-serif';battleCtx.textAlign='center';
-    battleCtx.fillText('👆 移动',120,340);
+  if(battleIsMobile){
+    const joyCX=120,joyCY=280,joyR=50;
+    if(battleJoystick.active){
+      const jx=battleJoystick.ox,jy=battleJoystick.oy;
+      const knobR=18,baseR=42;
+      // 底座
+      battleCtx.fillStyle='rgba(255,255,255,0.15)';battleCtx.strokeStyle='rgba(255,255,255,0.35)';battleCtx.lineWidth=2.5;
+      battleCtx.beginPath();battleCtx.arc(jx,jy,baseR,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
+      // 摇杆
+      const kx=jx+battleJoystick.dx,ky=jy+battleJoystick.dy;
+      const clampR=baseR-knobR;
+      const mag=Math.sqrt(battleJoystick.dx*battleJoystick.dx+battleJoystick.dy*battleJoystick.dy);
+      const ckx=mag>clampR?jx+battleJoystick.dx/mag*clampR:kx;
+      const cky=mag>clampR?jy+battleJoystick.dy/mag*clampR:ky;
+      battleCtx.fillStyle='rgba(255,255,255,0.55)';battleCtx.beginPath();battleCtx.arc(ckx,cky,knobR,0,Math.PI*2);battleCtx.fill();
+    }else{
+      // 始终显示的摇杆引导圈（脉冲提示）
+      const pulse=Math.sin(Date.now()*0.004)*0.15+0.25;
+      battleCtx.fillStyle='rgba(255,255,255,'+(0.08+pulse*0.3)+')';
+      battleCtx.strokeStyle='rgba(255,255,255,'+(0.2+pulse*0.4)+')';
+      battleCtx.lineWidth=2;
+      battleCtx.beginPath();battleCtx.arc(joyCX,joyCY,joyR,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
+      // 内圈装饰
+      battleCtx.strokeStyle='rgba(255,255,255,'+(0.1+pulse*0.2)+')';battleCtx.lineWidth=1;
+      battleCtx.beginPath();battleCtx.arc(joyCX,joyCY,20,0,Math.PI*2);battleCtx.stroke();
+      // 十字准星
+      battleCtx.strokeStyle='rgba(255,255,255,'+(0.08+pulse*0.15)+')';battleCtx.lineWidth=1;
+      battleCtx.beginPath();battleCtx.moveTo(joyCX,joyCY-30);battleCtx.lineTo(joyCX,joyCY+30);battleCtx.stroke();
+      battleCtx.beginPath();battleCtx.moveTo(joyCX-30,joyCY);battleCtx.lineTo(joyCX+30,joyCY);battleCtx.stroke();
+      // 文字提示
+      battleCtx.fillStyle='rgba(255,255,255,'+(0.5+pulse*0.3)+')';
+      battleCtx.font='bold 13px sans-serif';battleCtx.textAlign='center';
+      battleCtx.fillText('🕹️ 拖拽移动',joyCX,joyCY+joyR+20);
+      battleCtx.font='9px sans-serif';
+      battleCtx.fillText('← 左侧区域 →',joyCX,joyCY+joyR+35);
+    }
   }
 
   // HUD
