@@ -3217,14 +3217,21 @@ window._ch=function(idx){
     G.dailyEvents++;
     const isFirst=!G.flags['heart_demon_won'];
     if(isFirst){
-      // 首次进入：显示战斗引导
+      // 首次进入：显示战斗引导（根据设备显示不同操作说明）
+      const isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
       const app=document.getElementById('app');
+      const mobileGuide=`
+          <p>👈 <b>左侧屏幕拖动</b> —— 虚拟摇杆移动</p>
+          <p>🎯 <b>自动瞄准</b> —— 射击最近敌人</p>
+          <p>🔫 <b>自动连射</b> —— 无需手动开火</p>`;
+      const desktopGuide=`
+          <p>🕹️ <b>W A S D</b> —— 移动角色</p>
+          <p>🖱️ <b>鼠标</b> —— 瞄准方向</p>
+          <p>🔫 <b>鼠标左键点击</b> —— 发射弹幕</p>`;
       app.innerHTML=buildShell(`<div class="panel fadein" style="text-align:center">
         <h2>⚔️ 战斗引导</h2>
         <div style="background:var(--card);border:1px solid var(--accent);border-radius:10px;padding:16px;margin:12px 0;text-align:left;line-height:2;font-size:0.85em">
-          <p>🕹️ <b>W A S D</b> —— 移动角色</p>
-          <p>🖱️ <b>鼠标</b> —— 瞄准方向</p>
-          <p>🔫 <b>鼠标左键点击</b> —— 发射弹幕</p>
+          ${isMobile?mobileGuide:desktopGuide}
           <p>⏱️ <b>生存60秒</b> —— 时间归零即胜利</p>
           <p>❤️ <b>HP归零</b> —— 战斗失败，强制结束本周目</p>
           <p>💡 敌人强度与你对该角色的<b>好感度</b>成正比——越在意的人，越是难以战胜的梦魇。</p>
