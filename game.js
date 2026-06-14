@@ -2214,6 +2214,15 @@ function triggerAch(id,name,desc){
   if(G.achievements.includes(id))return;G.achievements.push(id);
   toastQ.push({name,desc});if(toastQ.length===1)showToast();
 }
+// 自定义弹窗（替换alert，移动端体验更好）
+function showDialog(msg,cb){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  d.innerHTML=`<div style="background:var(--panel);border:2px solid var(--gold);border-radius:14px;padding:24px;max-width:320px;text-align:center;animation:fadeIn 0.2s"><p style="white-space:pre-line;color:var(--text);line-height:1.8;font-size:0.9em">${msg}</p><button class="btn btn-p" style="margin-top:16px;padding:10px 36px">确定</button></div>`;
+  document.body.appendChild(d);
+  d.querySelector('button').onclick=function(){d.remove();if(cb)cb();};
+  d.onclick=function(e){if(e.target===d){d.remove();if(cb)cb();}};
+}
 function showToast(){
   if(toastQ.length===0)return;const t=toastQ.shift();
   const el=document.createElement('div');el.className='achtoast';
@@ -2640,7 +2649,14 @@ function buildShell(content){
   </div>${content}`;
 }
 window._nav=function(p){render(p);};
-window._save=function(){saveTo(0);render('play',{msg:'💾 已快速存档。',changes:[]});};
+window._save=function(){
+  // 自动找第一个空插槽(1-5)，全满则覆盖插槽1
+  let slot=1;
+  for(;slot<=5;slot++){if(!localStorage.getItem('aotu4_'+slot))break;}
+  if(slot>5)slot=1;
+  saveTo(slot);
+  render('play',{msg:'💾 已快速存档 (插槽'+slot+')。',changes:[]});
+};
 window._toggleAI=function(){
   AI_ENABLED_global=!AI_ENABLED_global;
   localStorage.setItem('aotu_ai_enabled',AI_ENABLED_global?'true':'false');
@@ -3308,12 +3324,12 @@ function rMem(app){
 <!-- CP回忆 -->
 <div class="panel fadein"><h2>💑 CP回忆</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
   ${allCP.map(k=>{const cp=CP[k];const un=G.memories.includes(k);
-    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--gold)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="alert('${cp.n}：珍贵的百日回忆。')"`:''}>${un?cp.e:'🔒'}</div>`;}).join('')}
+    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--gold)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="showDialog('${cp.n}：珍贵的百日回忆。')"`:''}>${un?cp.e:'🔒'}</div>`;}).join('')}
 </div></div>
 <!-- 角色CG -->
 <div class="panel fadein"><h2>💖 角色CG</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
   ${allCharCG.map(id=>{const data=AFF90_EVENTS[id];const un=G.memories.includes('cg_'+id);
-    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--accent)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="alert('${data.n}：${CH[id]?.n||id}的专属回忆。')"`:''}>${un?data.e:'🔒'}</div>`;}).join('')}
+    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--accent)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="showDialog('${data.n}：${CH[id]?.n||id}的专属回忆。')"`:''}>${un?data.e:'🔒'}</div>`;}).join('')}
 </div></div>
 <div style="font-size:0.8em;color:var(--dim);margin-top:8px">已解锁：${unlockedCount} / ${totalCount}</div>
 <button class="btn btn-p" onclick="render('play')" style="display:block;margin:8px auto">🔙 返回</button>`;
@@ -3383,11 +3399,11 @@ function rKarmaShop(app){
 window._buyKarma=function(idx){
   const item=KARMA_SHOP[idx];if(!item)return;
   const karma=loadKarma();
-  if(karma<item.cost){alert('因果値不足！');return;}
+  if(karma<item.cost){showDialog('因果値不足！');return;}
   saveKarma(karma-item.cost);
   try{const bought=JSON.parse(localStorage.getItem('aotu4_shop')||'[]');if(!bought.includes(idx))bought.push(idx);localStorage.setItem('aotu4_shop',JSON.stringify(bought));}catch(e){}
   render('karmashop');
-  alert('✅ 已购买：'+item.n+'！\n仅下次新轮回生效，使用后需重新购买。');
+  showDialog('✅ 已购买：'+item.n+'！\n仅下次新轮回生效，使用后需重新购买。');
 };
 
 // ─── 溃离魔女结局渲染 ───
@@ -3546,21 +3562,41 @@ function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);}
 let battleCtx=null,battleAnim=null,player=null,enemies=[],bullets=[],particles=[];
 let battleScore=0,battleTime=60,battleWave=1,battleOver=false,battleWon=false;
 let battleIsMobile=false,battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null},battleCanvasScale=1;
+let battleLastTime=0,battlePaused=false,battleVisHandler=null;
 
-function startHeartDemonBattle(){
-  const app=document.getElementById('app');
-  battleIsMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
-  // 响应式Canvas：宽度自适应，保持800×500内部分辨率
+function resizeBattleCanvas(dpr){
   const maxW=Math.min(window.innerWidth-16,800);
   battleCanvasScale=maxW/800;
   const displayH=maxW*500/800;
-  app.innerHTML=`<canvas id="battleCanvas" width="800" height="500" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:${battleIsMobile?'none':'crosshair'};width:${maxW}px;height:${displayH}px;touch-action:none"></canvas>`;
   const canvas=document.getElementById('battleCanvas');
-  battleCtx=canvas.getContext('2d');
+  if(!canvas)return;
+  canvas.width=Math.floor(maxW*dpr);
+  canvas.height=Math.floor(displayH*dpr);
+  canvas.style.width=maxW+'px';
+  canvas.style.height=displayH+'px';
+}
+
+function startHeartDemonBattle(){
+  const app=document.getElementById('app');
+  battleIsMobile='ontouchstart' in window||(navigator.maxTouchPoints||0)>0;
   battleScore=0;battleTime=60;battleWave=1;battleOver=false;battleWon=false;
   enemies=[];bullets=[];particles=[];
+  battleLastTime=performance.now();battlePaused=false;
+  if(battleVisHandler)document.removeEventListener('visibilitychange',battleVisHandler);
+  battleVisHandler=function(){battlePaused=document.hidden;if(!document.hidden)battleLastTime=performance.now();};
+  document.addEventListener('visibilitychange',battleVisHandler);
   battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
   player={x:400,y:250,vx:0,vy:0,spd:2.5,hp:100,maxHp:100,shootCD:0,shootRate:Math.max(8,22-G.attr.INT*1.5),dmg:1+Math.floor(G.attr.STR/3),slow:0,silence:0,reverse:0,_flash:0,invincible:600};
+  // 构建Canvas — DPI感知 + 响应式
+  const dpr=window.devicePixelRatio||1;
+  app.innerHTML=`<canvas id="battleCanvas" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:${battleIsMobile?'none':'crosshair'};touch-action:none"></canvas>`;
+  resizeBattleCanvas(dpr);
+  const canvas=document.getElementById('battleCanvas');
+  battleCtx=canvas.getContext('2d');
+  battleCtx.scale(dpr,dpr);
+  // 设备旋转/窗口变化 → 重算尺寸
+  window.addEventListener('resize',function(){if(!battleOver)resizeBattleCanvas(dpr);});
+  window.addEventListener('orientationchange',function(){setTimeout(function(){if(!battleOver)resizeBattleCanvas(dpr);},200);});
   spawnWave();
   if(!battleIsMobile){
     document.addEventListener('keydown',battleKeyDown);document.addEventListener('keyup',battleKeyUp);
@@ -3667,8 +3703,14 @@ function battleTouchEnd(e){
 function battleLoop(){
   if(battleOver){renderBattleResult();return;}
   battleCtx.clearRect(0,0,800,500);
-  battleTime-=1/60;
-  if(battleTime<=0){battleOver=true;battleWon=true;renderBattleResult();return;}
+  // delta time：适配所有刷新率，防止切后台时间跳跃
+  const now=performance.now();
+  let dt=(now-battleLastTime)/1000;
+  battleLastTime=now;
+  if(battlePaused)dt=0; // 切后台期间暂停
+  if(dt>0.5)dt=0.5;     // 防止切回来后巨大跳跃（最多损失0.5秒）
+  battleTime-=dt;
+  if(battleTime<=0){battleTime=0;battleOver=true;battleWon=true;renderBattleResult();return;}
   if(battleTime<=45&&battleWave===2)spawnWave();
   if(battleTime<=30&&battleWave===3)spawnWave();
   if(battleTime<=15&&battleWave===4)spawnWave();
@@ -3944,6 +3986,7 @@ function battleLoop(){
 
 function renderBattleResult(){
   if(battleAnim)cancelAnimationFrame(battleAnim);
+  if(battleVisHandler){document.removeEventListener('visibilitychange',battleVisHandler);battleVisHandler=null;}
   document.removeEventListener('keydown',battleKeyDown);document.removeEventListener('keyup',battleKeyUp);
   const canvas=document.getElementById('battleCanvas');
   if(canvas){
@@ -3989,6 +4032,9 @@ function renderBattleResult(){
     render('event');
   }
 }
+
+// ─── iOS Safari :active修复：空touchstart使:active生效 ───
+document.addEventListener('touchstart',function(){},{passive:true});
 
 // ─── 启动 ───
 render('title');
