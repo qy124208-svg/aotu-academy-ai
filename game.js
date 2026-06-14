@@ -1016,8 +1016,51 @@ function slotLabel(slot){
 }
 
 // ─── 存档 ───
-function saveTo(slot){try{const d=JSON.parse(JSON.stringify(G));d._t=new Date().toISOString();localStorage.setItem('aotu4_'+slot,JSON.stringify(d));return true;}catch(e){return false;}}
-function loadFrom(slot){const r=localStorage.getItem('aotu4_'+slot);if(!r)return false;try{G=JSON.parse(r);return true;}catch(e){return false;}}
+function storageAvailable(){
+  try{const k='__aotu_test__';localStorage.setItem(k,'1');localStorage.removeItem(k);return true;}
+  catch(e){return false;}
+}
+const STORAGE_OK=storageAvailable();
+function saveTo(slot){
+  if(!STORAGE_OK){console.error('💾 localStorage不可用（隐私模式/配额满）');return false;}
+  try{
+    const d=JSON.parse(JSON.stringify(G));
+    d._t=new Date().toISOString();
+    const json=JSON.stringify(d);
+    localStorage.setItem('aotu4_'+slot,json);
+    if(STORAGE_OK)console.log('💾 已存档 插槽'+slot+' Day'+G.day+' '+Math.round(json.length/1024)+'KB');
+    return true;
+  }catch(e){
+    console.error('💾 存档失败:',e.message);
+    return false;
+  }
+}
+function repairAfterLoad(){
+  // 恢复派生状态（JSON序列化后重建非持久化字段）
+  if(!G.cpAff)G.cpAff={};
+  if(!G.homeInfo||!G.homeInfo.host)G.homeInfo=getHomeInfo(G.homestay);
+  G.dayType=calcDayType(G.day);
+  G._eventCache={};
+  // 不调用applyKarmaPassive() — 属性已在存档中，重复调用会叠加
+  G._karmaTier=getKarmaTier(G.karma||0);
+}
+function loadFrom(slot){
+  if(!STORAGE_OK)return false;
+  const r=localStorage.getItem('aotu4_'+slot);
+  if(!r)return false;
+  try{
+    const data=JSON.parse(r);
+    // 把解析出的属性逐个merge到G上（保留G的引用）
+    Object.keys(G).forEach(k=>delete G[k]);
+    Object.assign(G,data);
+    repairAfterLoad();
+    console.log('📂 已读档 插槽'+slot+' Day'+G.day);
+    return true;
+  }catch(e){
+    console.error('📂 读档失败:',e.message);
+    return false;
+  }
+}
 
 // ─── 事件构建 ───
 const CHAR_DIALOGUES={// ─── 金 ─── 阳光热血，话多，爱喊名字
@@ -2223,6 +2266,14 @@ function showDialog(msg,cb){
   d.querySelector('button').onclick=function(){d.remove();if(cb)cb();};
   d.onclick=function(e){if(e.target===d){d.remove();if(cb)cb();}};
 }
+// 轻提示（不打断操作，2秒自动消失）
+function showToastMsg(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:var(--panel);color:var(--text);border:1px solid var(--gold);border-radius:20px;padding:10px 24px;z-index:9990;font-size:0.85em;white-space:nowrap;animation:fadeIn 0.3s;pointer-events:none';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.4s';setTimeout(()=>t.remove(),400);},2000);
+}
 function showToast(){
   if(toastQ.length===0)return;const t=toastQ.shift();
   const el=document.createElement('div');el.className='achtoast';
@@ -2650,12 +2701,18 @@ function buildShell(content){
 }
 window._nav=function(p){render(p);};
 window._save=function(){
+  if(!STORAGE_OK){showDialog('⚠️ 存档不可用\n\n浏览器不支持本地存储（可能在隐私模式下）。');return;}
   // 自动找第一个空插槽(1-5)，全满则覆盖插槽1
   let slot=1;
   for(;slot<=5;slot++){if(!localStorage.getItem('aotu4_'+slot))break;}
   if(slot>5)slot=1;
-  saveTo(slot);
-  render('play',{msg:'💾 已快速存档 (插槽'+slot+')。',changes:[]});
+  const ok=saveTo(slot);
+  if(ok){
+    // 轻提示：不跳转页面，保持当前界面
+    showToastMsg('💾 已存档 (插槽'+slot+')');
+  }else{
+    showDialog('❌ 存档失败\n\n可能原因：存储空间不足。请清理浏览器数据后重试。');
+  }
 };
 window._toggleAI=function(){
   AI_ENABLED_global=!AI_ENABLED_global;
@@ -3522,14 +3579,32 @@ window._newLoop=function(){startNew();};
 
 // ─── 读档 ───
 function rLoad(app){
+  if(!STORAGE_OK){
+    app.innerHTML=`<div style="text-align:center;padding:20px 0"><h1>📂 读取存档</h1></div><div class="panel fadein" style="text-align:center"><p style="color:var(--dim)">⚠️ 浏览器不支持本地存储</p><p style="color:var(--dim);font-size:0.75em;margin-top:8px">可能原因：隐私模式 / 存储空间被拒绝</p></div><button class="btn btn-s" onclick="render('title')" style="display:block;margin:8px auto">🔙 返回</button>`;
+    return;
+  }
   const ss=[];for(let i=1;i<=5;i++){const r=localStorage.getItem('aotu4_'+i);if(r){try{const d=JSON.parse(r);ss.push({s:i,n:d.name,day:d.day,t:d._t});}catch(e){}}else ss.push({s:i,n:null});}
   app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>📂 读取存档</h1></div><div class="panel fadein">
     ${ss.map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--card);border-radius:8px;margin:4px 0">
       <div><strong>存档 ${s.s}</strong>${s.n?` — ${s.n} · 第${s.day||'?'}天`:''}${s.t?`<div style="font-size:0.7em;color:var(--dim)">${new Date(s.t).toLocaleString()}</div>`:''}</div>
-      ${s.n?`<button class="btn btn-xs btn-p" onclick="window._ld(${s.s})">读取</button>`:'<span style="color:var(--dim)">空</span>'}</div>`).join('')}
+      ${s.n?`<div style="display:flex;gap:4px"><button class="btn btn-xs btn-p" onclick="window._ld(${s.s})">读取</button><button class="btn btn-xs btn-s" onclick="window._delSave(${s.s})" style="font-size:0.65em">🗑️</button></div>`:'<span style="color:var(--dim)">空</span>'}</div>`).join('')}
   </div><button class="btn btn-s" onclick="render('title')" style="display:block;margin:8px auto">🔙 返回</button>`;
 }
-window._ld=function(s){if(loadFrom(s)){curEv=null;G.phase='play';render('play');}};
+window._delSave=function(s){
+  localStorage.removeItem('aotu4_'+s);
+  render('load');
+  showToastMsg('🗑️ 存档 '+s+' 已删除');
+};
+window._ld=function(s){
+  if(!STORAGE_OK){showDialog('⚠️ 读取失败\n\n浏览器不支持本地存储。');return;}
+  if(loadFrom(s)){
+    curEv=null;G.phase='play';
+    render('play');
+    showToastMsg('📂 读档成功 · Day '+G.day);
+  }else{
+    showDialog('❌ 读档失败\n\n存档数据损坏或不存在。');
+  }
+};
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  心魔幻境 · 大乱斗 (v5.7 - Canvas即时制枪战肉鸽)             ║
