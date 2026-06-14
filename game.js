@@ -3650,9 +3650,9 @@ function resizeBattleCanvas(dpr){
   canvas.height=Math.floor(500*dpr);
   canvas.style.width=maxW+'px';
   canvas.style.height=displayH+'px';
-  // 修改canvas.width会重置context → 重新应用DPI缩放
+  // 用setTransform替代scale — 绝对变换不累积，resize多次调用也不会叠加
   battleCtx=canvas.getContext('2d');
-  battleCtx.scale(dpr,dpr);
+  battleCtx.setTransform(dpr,0,0,dpr,0,0);
 }
 
 function startHeartDemonBattle(){
