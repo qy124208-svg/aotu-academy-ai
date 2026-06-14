@@ -3640,9 +3640,22 @@ let battleIsMobile=false,battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:nu
 let battleLastTime=0,battlePaused=false,battleVisHandler=null;
 
 function resizeBattleCanvas(dpr){
-  const maxW=Math.min(window.innerWidth-16,800);
+  // 手机竖屏：优先用高度撑满，宽度自适应；桌面/横屏：优先用宽度
+  const vh=window.innerHeight;
+  const vw=window.innerWidth;
+  const isPortraitMobile=battleIsMobile&&vh>vw;
+  let maxW,displayH;
+  if(isPortraitMobile){
+    // 竖屏手机：Canvas占50%屏幕高度，宽度按比例缩放
+    displayH=Math.floor(vh*0.50);
+    maxW=Math.floor(displayH*800/500);
+    if(maxW>vw-16)maxW=vw-16;
+    displayH=Math.floor(maxW*500/800);
+  }else{
+    maxW=Math.min(vw-16,800);
+    displayH=Math.floor(maxW*500/800);
+  }
   battleCanvasScale=maxW/800;
-  const displayH=maxW*500/800;
   const canvas=document.getElementById('battleCanvas');
   if(!canvas)return;
   // 内部分辨率 = 800×500 * DPR（游戏逻辑坐标800×500，DPI缩放保证清晰）
