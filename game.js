@@ -3640,30 +3640,33 @@ let battleIsMobile=false,battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:nu
 let battleLastTime=0,battlePaused=false,battleVisHandler=null;
 
 function resizeBattleCanvas(dpr){
-  // 手机竖屏：优先用高度撑满，宽度自适应；桌面/横屏：优先用宽度
   const vh=window.innerHeight;
   const vw=window.innerWidth;
-  const isPortraitMobile=battleIsMobile&&vh>vw;
   let maxW,displayH;
-  if(isPortraitMobile){
-    // 竖屏手机：Canvas占50%屏幕高度，宽度按比例缩放
-    displayH=Math.floor(vh*0.50);
-    maxW=Math.floor(displayH*800/500);
-    if(maxW>vw-16)maxW=vw-16;
+  // 双维度适配：宽度和高度都不超出屏幕
+  if(battleIsMobile){
+    // 手机：留空间给外部HUD/提示
+    const availH=vh-60; // 顶部HUD + 底部提示
+    maxW=Math.min(vw-16,800);
     displayH=Math.floor(maxW*500/800);
+    if(displayH>availH){
+      // 高度溢出 → 收缩宽度适配
+      displayH=availH;
+      maxW=Math.floor(displayH*800/500);
+    }
   }else{
     maxW=Math.min(vw-16,800);
     displayH=Math.floor(maxW*500/800);
+    // 桌面端也防溢出
+    if(displayH>vh-40){displayH=vh-40;maxW=Math.floor(displayH*800/500);}
   }
   battleCanvasScale=maxW/800;
   const canvas=document.getElementById('battleCanvas');
   if(!canvas)return;
-  // 内部分辨率 = 800×500 * DPR（游戏逻辑坐标800×500，DPI缩放保证清晰）
   canvas.width=Math.floor(800*dpr);
   canvas.height=Math.floor(500*dpr);
   canvas.style.width=maxW+'px';
   canvas.style.height=displayH+'px';
-  // 用setTransform替代scale — 绝对变换不累积，resize多次调用也不会叠加
   battleCtx=canvas.getContext('2d');
   battleCtx.setTransform(dpr,0,0,dpr,0,0);
 }
@@ -3679,33 +3682,30 @@ function startHeartDemonBattle(){
   document.addEventListener('visibilitychange',battleVisHandler);
   battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
   player={x:400,y:250,vx:0,vy:0,spd:2.5,hp:100,maxHp:100,shootCD:0,shootRate:Math.max(8,22-G.attr.INT*1.5),dmg:1+Math.floor(G.attr.STR/3),slow:0,silence:0,reverse:0,_flash:0,invincible:600};
-  // 构建Canvas — DPI感知 + 响应式，竖屏手机填满屏幕
+  // 构建Canvas — DPI感知 + 响应式
   const dpr=window.devicePixelRatio||1;
-  const isPortrait=battleIsMobile&&window.innerHeight>window.innerWidth;
-  if(isPortrait){
-    // 竖屏：Canvas外包裹主题面板，填满剩余空间
-    app.innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;background:linear-gradient(180deg,#0a0010,#1a0a1e);padding:8px">
-      <div style="color:var(--purple);font-size:1em;font-weight:bold;letter-spacing:2px;text-align:center;margin:4px 0">💀 心 魔 幻 境</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:0.75em;margin:4px 0">
-        <span style="color:#e94560">⏱ <b id="btHud_time">60</b>s</span>
-        <span style="color:#f0c040">⭐ <b id="btHud_score">0</b></span>
-        <span style="color:#3fb950">❤️ <b id="btHud_hp">100</b></span>
-        <span style="color:#58a6ff">🌊 <b id="btHud_wave">1</b></span>
-      </div>
-      <canvas id="battleCanvas" style="border:2px solid var(--purple);border-radius:10px;background:#0a0a14;display:block;touch-action:none;box-shadow:0 0 30px rgba(188,140,255,0.15)"></canvas>
-      <div style="color:rgba(255,255,255,0.4);font-size:0.7em;text-align:center;margin:6px 0">🕹️ 左侧拖拽移动 · 自动射击</div>
-      <div style="color:rgba(255,255,255,0.15);font-size:0.6em;text-align:center">生存60秒即胜利 · 旋转手机横屏画面更大</div>
-    </div>`;
-    // 外部HUD更新函数
+  if(battleIsMobile){
+    // 手机（竖屏+横屏）：Canvas外包裹主题面板+HUD
+    app.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#0a0010,#1a0a1e);padding:4px">'
+      +'<div style="color:var(--purple);font-size:1em;font-weight:bold;letter-spacing:2px;text-align:center;margin:2px 0">💀 心 魔 幻 境</div>'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:0.75em;margin:2px 0">'
+        +'<span style="color:#e94560">⏱ <b id="btHud_time">60</b>s</span>'
+        +'<span style="color:#f0c040">⭐ <b id="btHud_score">0</b></span>'
+        +'<span style="color:#3fb950">❤️ <b id="btHud_hp">100</b></span>'
+        +'<span style="color:#58a6ff">🌊 <b id="btHud_wave">1</b></span>'
+      +'</div>'
+      +'<canvas id="battleCanvas" style="border:2px solid var(--purple);border-radius:10px;background:#0a0a14;display:block;touch-action:none;box-shadow:0 0 30px rgba(188,140,255,0.15)"></canvas>'
+      +'<div style="color:rgba(255,255,255,0.4);font-size:0.7em;text-align:center;margin:4px 0">🕹️ 左侧拖拽移动 · 自动射击</div>'
+    +'</div>';
     window._battleHudUpdate=function(){
-      const te=document.getElementById('btHud_time');if(te)te.textContent=Math.ceil(Math.max(0,battleTime));
-      const se=document.getElementById('btHud_score');if(se)se.textContent=battleScore;
-      const he=document.getElementById('btHud_hp');if(he)he.textContent=player?player.hp:'?';
-      const we=document.getElementById('btHud_wave');if(we)we.textContent=battleWave;
+      var te=document.getElementById('btHud_time');if(te)te.textContent=Math.ceil(Math.max(0,battleTime));
+      var se=document.getElementById('btHud_score');if(se)se.textContent=battleScore;
+      var he=document.getElementById('btHud_hp');if(he)he.textContent=player?player.hp:'?';
+      var we=document.getElementById('btHud_wave');if(we)we.textContent=battleWave;
     };
   }else{
-    app.innerHTML=`<canvas id="battleCanvas" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:${battleIsMobile?'none':'crosshair'};touch-action:none"></canvas>`;
-    window._battleHudUpdate=function(){}; // 桌面端用Canvas内HUD
+    app.innerHTML=`<canvas id="battleCanvas" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:crosshair;touch-action:none"></canvas>`;
+    window._battleHudUpdate=function(){};
   }
   resizeBattleCanvas(dpr);
   const canvas=document.getElementById('battleCanvas');
@@ -4107,12 +4107,10 @@ function battleLoop(){
   battleCtx.fillStyle='#3fb950';battleCtx.fillText('❤️ '+player.hp,560,28);
   battleCtx.fillText('🌊 Wave '+battleWave,680,28);
 
-  // 操作提示（桌面端+横屏手机在Canvas内显示，竖屏手机用外部HTML提示）
-  battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.font='11px sans-serif';battleCtx.textAlign='center';
+  // 操作提示（桌面端Canvas内，手机端用外部HTML已显示）
   if(!battleIsMobile){
+    battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.font='11px sans-serif';battleCtx.textAlign='center';
     battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
-  }else if(window.innerHeight<=window.innerWidth){
-    battleCtx.fillText('左侧摇杆移动 | 自动瞄准射击 | 生存60秒即胜利',400,485);
   }
 
   battleAnim=requestAnimationFrame(battleLoop);
