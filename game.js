@@ -4139,9 +4139,9 @@ function renderBattleResult(){
       <div class="fbaff"><span class="fbup">🧘精神 +${sprGain}</span> <span style="color:var(--gold)">⭐得分 ${battleScore}</span></div>
       </div><div style="text-align:center;margin:10px 0"><button class="btn btn-p" onclick="window._adv()">继续 ▸</button></div>`);
   }else{
-    // ─── 溃离魔女分岐：因果>300时转化为魔女 ───
+    // ─── 溃离魔女分岐：因果>350时转化为魔女 ───
     const currentKarma=G.karma||loadKarma();
-    if(currentKarma>300){
+    if(currentKarma>350){
       const sorted=Object.entries(G.aff).filter(([id])=>CH[id]&&CH[id].c!=='教师').sort((a,b)=>b[1]-a[1]);
       // 并列最高好感度 → 随机选取
       const topAff=sorted[0][1];

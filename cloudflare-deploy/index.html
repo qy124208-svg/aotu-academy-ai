@@ -11,7 +11,7 @@
   --card:#1c2128; --hover:#252d38;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:touch}
 #app{max-width:800px;margin:0 auto;padding:8px}
 .cdbanner{background:linear-gradient(135deg,#1a1a3e,#2d1a3e);border:2px solid var(--border);border-radius:16px;padding:14px 20px;text-align:center;margin:8px 0;position:relative;overflow:hidden}
 .cdbanner .daynum{font-size:3.5em;font-weight:900;color:var(--accent);line-height:1;text-shadow:0 0 20px rgba(233,69,96,0.5)}
@@ -1096,8 +1096,51 @@ function slotLabel(slot){
 }
 
 // ─── 存档 ───
-function saveTo(slot){try{const d=JSON.parse(JSON.stringify(G));d._t=new Date().toISOString();localStorage.setItem('aotu4_'+slot,JSON.stringify(d));return true;}catch(e){return false;}}
-function loadFrom(slot){const r=localStorage.getItem('aotu4_'+slot);if(!r)return false;try{G=JSON.parse(r);return true;}catch(e){return false;}}
+function storageAvailable(){
+  try{const k='__aotu_test__';localStorage.setItem(k,'1');localStorage.removeItem(k);return true;}
+  catch(e){return false;}
+}
+const STORAGE_OK=storageAvailable();
+function saveTo(slot){
+  if(!STORAGE_OK){console.error('💾 localStorage不可用（隐私模式/配额满）');return false;}
+  try{
+    const d=JSON.parse(JSON.stringify(G));
+    d._t=new Date().toISOString();
+    const json=JSON.stringify(d);
+    localStorage.setItem('aotu4_'+slot,json);
+    if(STORAGE_OK)console.log('💾 已存档 插槽'+slot+' Day'+G.day+' '+Math.round(json.length/1024)+'KB');
+    return true;
+  }catch(e){
+    console.error('💾 存档失败:',e.message);
+    return false;
+  }
+}
+function repairAfterLoad(){
+  // 恢复派生状态（JSON序列化后重建非持久化字段）
+  if(!G.cpAff)G.cpAff={};
+  if(!G.homeInfo||!G.homeInfo.host)G.homeInfo=getHomeInfo(G.homestay);
+  G.dayType=calcDayType(G.day);
+  G._eventCache={};
+  // 不调用applyKarmaPassive() — 属性已在存档中，重复调用会叠加
+  G._karmaTier=getKarmaTier(G.karma||0);
+}
+function loadFrom(slot){
+  if(!STORAGE_OK)return false;
+  const r=localStorage.getItem('aotu4_'+slot);
+  if(!r)return false;
+  try{
+    const data=JSON.parse(r);
+    // 把解析出的属性逐个merge到G上（保留G的引用）
+    Object.keys(G).forEach(k=>delete G[k]);
+    Object.assign(G,data);
+    repairAfterLoad();
+    console.log('📂 已读档 插槽'+slot+' Day'+G.day);
+    return true;
+  }catch(e){
+    console.error('📂 读档失败:',e.message);
+    return false;
+  }
+}
 
 // ─── 事件构建 ───
 const CHAR_DIALOGUES={// ─── 金 ─── 阳光热血，话多，爱喊名字
@@ -2294,6 +2337,23 @@ function triggerAch(id,name,desc){
   if(G.achievements.includes(id))return;G.achievements.push(id);
   toastQ.push({name,desc});if(toastQ.length===1)showToast();
 }
+// 自定义弹窗（替换alert，移动端体验更好）
+function showDialog(msg,cb){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  d.innerHTML=`<div style="background:var(--panel);border:2px solid var(--gold);border-radius:14px;padding:24px;max-width:320px;text-align:center;animation:fadeIn 0.2s"><p style="white-space:pre-line;color:var(--text);line-height:1.8;font-size:0.9em">${msg}</p><button class="btn btn-p" style="margin-top:16px;padding:10px 36px">确定</button></div>`;
+  document.body.appendChild(d);
+  d.querySelector('button').onclick=function(){d.remove();if(cb)cb();};
+  d.onclick=function(e){if(e.target===d){d.remove();if(cb)cb();}};
+}
+// 轻提示（不打断操作，2秒自动消失）
+function showToastMsg(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:var(--panel);color:var(--text);border:1px solid var(--gold);border-radius:20px;padding:10px 24px;z-index:9990;font-size:0.85em;white-space:nowrap;animation:fadeIn 0.3s;pointer-events:none';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.4s';setTimeout(()=>t.remove(),400);},2000);
+}
 function showToast(){
   if(toastQ.length===0)return;const t=toastQ.shift();
   const el=document.createElement('div');el.className='achtoast';
@@ -2569,10 +2629,15 @@ function renderWitchDay(app){
   let title,narration,choices,isFinalBattle=false;
 
   switch(day){
+    case 0:
+      title='💎 零日 · 碎裂';
+      narration=`心魔幻境——崩塌了。\n\n黑影淹没了一切——教室、课桌、走廊——\n\n全部碎裂——化成光的残片——\n\n归于虚空。\n\n你输了。\n\n但你感觉到——胸腔里——有什么——在裂开。\n\n是灵魂宝石。\n\n从内部——被两个相悖的愿望——同时撕扯——\n\n「想回某某中学——与那些旧日的人重逢。」\n\n「不想离开凹凸学园——与这里的人分离。」\n\n两面镜子——越夹越紧——\n\n宝石——承受不住——\n\n碎了。\n\n在碎裂的那一瞬——愿望——扭曲了。\n\n「与分离的人终会重逢」——\n\n变成了——\n\n孵化者的声音——从很远很远的地方传来——\n\n「灵魂宝石碎裂之时——便是魔女诞生之日。」\n\n你的瞳孔——染上了暗红色。\n\n和溃离症发作时的安迷修一样——\n\n但你不会醒来了。\n\n不是死亡。是转化。\n\n你正在变成——\n\n性质为「溃离」的魔女。\n\n窗外——天空开始变色。\n\n结界——正在展开。`;
+      choices=[{t:'……胸腔里——碎片在跳。不是心跳。是诅咒。',a:[],f:''}];break;
+
     case 1:
-      title='🌑 第一日 · 觉醒';
-      narration=`心魔幻境崩塌的时候——\n\n你没有死。\n\n你的灵魂宝石——那颗承载着你全部存在的结晶——\n\n在最后一缕光熄灭之后——\n\n碎了。\n\n碎了的灵魂宝石——不叫灵魂宝石了。\n\n叫悲叹之种。\n\n孵化者说——灵魂宝石离开身体100米就会失效。\n\n但现在——你的身体是你的牢笼。\n\n不对——悲叹之种才是你的本体。身体只是容器。\n\n你在${homeLabel}的镜子里看到了自己。\n\n瞳孔——暗红色。和溃离症发作时的安迷修一样——\n\n但你不会醒来了。\n\n墙壁上——开始浮现看不懂的文字——扭曲的符文——\n\n那是魔女文字。\n\n你的性质——写在上面。\n\n「溃离」。\n\n害怕分离。害怕告别。害怕一百天后必须离开。\n\n所以——你要让整个世界——都留在你的结界里。\n\n窗外——天空变色。玻璃碎裂。\n\n你伸出手——\n\n结界——展开了。`;
-      choices=[{t:'……悲叹之种在胸腔里震动。不是心跳。是诅咒。',a:[],f:''}];break;
+      title='🌑 第一日 · 起源';
+      narration=`你在${homeLabel}的镜子里看到了自己。\n\n瞳孔——暗红色。\n\n但你想起了一切。\n\n——很久以前。\n\n你对孵化者许了一个愿望。\n\n「与分离的人——终会重逢。」\n\n你讨厌分离。讨厌告别。讨厌那些明明很重要的人——\n\n在某一天——就再也见不到了。\n\n孵化者实现了你的愿望。\n\n你获得了轮回的能力——\n\n每一次结束——都会在新的起点——与旧日的人们重逢。\n\n但轮回有一个代价——\n\n每一世的记忆——不会保留到下一世。\n\n你记得某某中学。记得那里的每一个人。\n\n那些羁绊——和这里一样深。\n\n但一百天后——凹凸学园的每一个人——\n\n也会被轮回——从你的记忆里抹去。\n\n灵魂宝石承载着愿望——它记得每一世。\n\n但你的心——只能活在当下——\n\n却装着两个世界的人。\n\n——然后。\n\n你转学到了凹凸学园。\n\n一百天。你有一百天。\n\n你认识了他们。金。格瑞。雷狮。安迷修。卡米尔。凯莉。安莉洁——\n\n还有更多人。\n\n每一天——羁绊都在加深。\n\n每一夜——你都知道——一百天后——你必须离开。\n\n但你不想走。\n\n你的愿望是「重逢」——可你更怕「分离」。\n\n你想回某某中学——那里有和你羁绊同样深的人。\n\n你不想离开凹凸学园——这里的人——同样重要。\n\n两所学校——两群人——在你心里——一样重。\n\n你没有偏袒任何一边。\n\n正因如此——哪边都舍不下。\n\n两个相悖的念头——像两面镜子——把你困在中间——\n\n越来越窄——越来越黑——\n\n你开始怀疑自己的愿望。\n\n「重逢」——也许从一开始——就只是孩子气的梦。\n\n白天你在笑——晚上你盯着天花板——\n\n灵魂宝石的颜色——一天比一天暗。\n\n压力——像水——一点一点——漫过你的头顶。\n\n直到心魔幻境崩塌的那一刻。\n\n你的灵魂宝石——那颗承载着愿望的结晶——\n\n在最后一缕光熄灭之后——\n\n碎了。\n\n不是被击碎的。\n\n是被你自己的绝望——压碎的。\n\n碎了的灵魂宝石——不叫灵魂宝石了。\n\n叫悲叹之种。\n\n愿望——扭曲了。\n\n「与分离的人终会重逢」——\n\n变成了——\n\n「不让任何人分离」。\n\n不是重逢。是困住。是永远。\n\n孵化者说过——灵魂宝石离开身体100米就会失效。\n\n但现在——你的身体是你的牢笼。\n\n不对——悲叹之种才是你的本体。身体只是容器。\n\n墙壁上——开始浮现看不懂的文字——扭曲的符文——\n\n那是魔女文字。\n\n你的性质——写在上面。\n\n「溃离」。\n\n害怕分离。害怕告别。\n\n害怕一百天后必须离开——\n\n害怕轮回之后——再也回不到这个世界——\n\n再也见不到这些人。\n\n所以——你要让整个世界——都留在你的结界里。\n\n窗外——天空变色。玻璃碎裂。\n\n你伸出手——\n\n结界——展开了。`;
+      choices=[{t:'……原来——不是被夺走。是自己——崩坏的。',a:[],f:''}];break;
 
     case 2:
       title='🕸️ 第二日 · 结界';
@@ -2715,7 +2780,20 @@ function buildShell(content){
   </div>${content}`;
 }
 window._nav=function(p){render(p);};
-window._save=function(){saveTo(0);render('play',{msg:'💾 已快速存档。',changes:[]});};
+window._save=function(){
+  if(!STORAGE_OK){showDialog('⚠️ 存档不可用\n\n浏览器不支持本地存储（可能在隐私模式下）。');return;}
+  // 自动找第一个空插槽(1-5)，全满则覆盖插槽1
+  let slot=1;
+  for(;slot<=5;slot++){if(!localStorage.getItem('aotu4_'+slot))break;}
+  if(slot>5)slot=1;
+  const ok=saveTo(slot);
+  if(ok){
+    // 轻提示：不跳转页面，保持当前界面
+    showToastMsg('💾 已存档 (插槽'+slot+')');
+  }else{
+    showDialog('❌ 存档失败\n\n可能原因：存储空间不足。请清理浏览器数据后重试。');
+  }
+};
 window._toggleAI=function(){
   AI_ENABLED_global=!AI_ENABLED_global;
   localStorage.setItem('aotu_ai_enabled',AI_ENABLED_global?'true':'false');
@@ -3292,14 +3370,21 @@ window._ch=function(idx){
     G.dailyEvents++;
     const isFirst=!G.flags['heart_demon_won'];
     if(isFirst){
-      // 首次进入：显示战斗引导
+      // 首次进入：显示战斗引导（根据设备显示不同操作说明）
+      const isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
       const app=document.getElementById('app');
+      const mobileGuide=`
+          <p>👈 <b>左侧屏幕拖动</b> —— 虚拟摇杆移动</p>
+          <p>🎯 <b>自动瞄准</b> —— 射击最近敌人</p>
+          <p>🔫 <b>自动连射</b> —— 无需手动开火</p>`;
+      const desktopGuide=`
+          <p>🕹️ <b>W A S D</b> —— 移动角色</p>
+          <p>🖱️ <b>鼠标</b> —— 瞄准方向</p>
+          <p>🔫 <b>鼠标左键点击</b> —— 发射弹幕</p>`;
       app.innerHTML=buildShell(`<div class="panel fadein" style="text-align:center">
         <h2>⚔️ 战斗引导</h2>
         <div style="background:var(--card);border:1px solid var(--accent);border-radius:10px;padding:16px;margin:12px 0;text-align:left;line-height:2;font-size:0.85em">
-          <p>🕹️ <b>W A S D</b> —— 移动角色</p>
-          <p>🖱️ <b>鼠标</b> —— 瞄准方向</p>
-          <p>🔫 <b>鼠标左键点击</b> —— 发射弹幕</p>
+          ${isMobile?mobileGuide:desktopGuide}
           <p>⏱️ <b>生存60秒</b> —— 时间归零即胜利</p>
           <p>❤️ <b>HP归零</b> —— 战斗失败，强制结束本周目</p>
           <p>💡 敌人强度与你对该角色的<b>好感度</b>成正比——越在意的人，越是难以战胜的梦魇。</p>
@@ -3376,12 +3461,12 @@ function rMem(app){
 <!-- CP回忆 -->
 <div class="panel fadein"><h2>💑 CP回忆</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
   ${allCP.map(k=>{const cp=CP[k];const un=G.memories.includes(k);
-    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--gold)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="alert('${cp.n}：珍贵的百日回忆。')"`:''}>${un?cp.e:'🔒'}</div>`;}).join('')}
+    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--gold)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="showDialog('${cp.n}：珍贵的百日回忆。')"`:''}>${un?cp.e:'🔒'}</div>`;}).join('')}
 </div></div>
 <!-- 角色CG -->
 <div class="panel fadein"><h2>💖 角色CG</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
   ${allCharCG.map(id=>{const data=AFF90_EVENTS[id];const un=G.memories.includes('cg_'+id);
-    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--accent)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="alert('${data.n}：${CH[id]?.n||id}的专属回忆。')"`:''}>${un?data.e:'🔒'}</div>`;}).join('')}
+    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--accent)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="showDialog('${data.n}：${CH[id]?.n||id}的专属回忆。')"`:''}>${un?data.e:'🔒'}</div>`;}).join('')}
 </div></div>
 <div style="font-size:0.8em;color:var(--dim);margin-top:8px">已解锁：${unlockedCount} / ${totalCount}</div>
 <button class="btn btn-p" onclick="render('play')" style="display:block;margin:8px auto">🔙 返回</button>`;
@@ -3451,11 +3536,11 @@ function rKarmaShop(app){
 window._buyKarma=function(idx){
   const item=KARMA_SHOP[idx];if(!item)return;
   const karma=loadKarma();
-  if(karma<item.cost){alert('因果値不足！');return;}
+  if(karma<item.cost){showDialog('因果値不足！');return;}
   saveKarma(karma-item.cost);
   try{const bought=JSON.parse(localStorage.getItem('aotu4_shop')||'[]');if(!bought.includes(idx))bought.push(idx);localStorage.setItem('aotu4_shop',JSON.stringify(bought));}catch(e){}
   render('karmashop');
-  alert('✅ 已购买：'+item.n+'！\n仅下次新轮回生效，使用后需重新购买。');
+  showDialog('✅ 已购买：'+item.n+'！\n仅下次新轮回生效，使用后需重新购买。');
 };
 
 // ─── 溃离魔女结局渲染 ───
@@ -3574,14 +3659,32 @@ window._newLoop=function(){startNew();};
 
 // ─── 读档 ───
 function rLoad(app){
+  if(!STORAGE_OK){
+    app.innerHTML=`<div style="text-align:center;padding:20px 0"><h1>📂 读取存档</h1></div><div class="panel fadein" style="text-align:center"><p style="color:var(--dim)">⚠️ 浏览器不支持本地存储</p><p style="color:var(--dim);font-size:0.75em;margin-top:8px">可能原因：隐私模式 / 存储空间被拒绝</p></div><button class="btn btn-s" onclick="render('title')" style="display:block;margin:8px auto">🔙 返回</button>`;
+    return;
+  }
   const ss=[];for(let i=1;i<=5;i++){const r=localStorage.getItem('aotu4_'+i);if(r){try{const d=JSON.parse(r);ss.push({s:i,n:d.name,day:d.day,t:d._t});}catch(e){}}else ss.push({s:i,n:null});}
   app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>📂 读取存档</h1></div><div class="panel fadein">
     ${ss.map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--card);border-radius:8px;margin:4px 0">
       <div><strong>存档 ${s.s}</strong>${s.n?` — ${s.n} · 第${s.day||'?'}天`:''}${s.t?`<div style="font-size:0.7em;color:var(--dim)">${new Date(s.t).toLocaleString()}</div>`:''}</div>
-      ${s.n?`<button class="btn btn-xs btn-p" onclick="window._ld(${s.s})">读取</button>`:'<span style="color:var(--dim)">空</span>'}</div>`).join('')}
+      ${s.n?`<div style="display:flex;gap:4px"><button class="btn btn-xs btn-p" onclick="window._ld(${s.s})">读取</button><button class="btn btn-xs btn-s" onclick="window._delSave(${s.s})" style="font-size:0.65em">🗑️</button></div>`:'<span style="color:var(--dim)">空</span>'}</div>`).join('')}
   </div><button class="btn btn-s" onclick="render('title')" style="display:block;margin:8px auto">🔙 返回</button>`;
 }
-window._ld=function(s){if(loadFrom(s)){curEv=null;G.phase='play';render('play');}};
+window._delSave=function(s){
+  localStorage.removeItem('aotu4_'+s);
+  render('load');
+  showToastMsg('🗑️ 存档 '+s+' 已删除');
+};
+window._ld=function(s){
+  if(!STORAGE_OK){showDialog('⚠️ 读取失败\n\n浏览器不支持本地存储。');return;}
+  if(loadFrom(s)){
+    curEv=null;G.phase='play';
+    render('play');
+    showToastMsg('📂 读档成功 · Day '+G.day);
+  }else{
+    showDialog('❌ 读档失败\n\n存档数据损坏或不存在。');
+  }
+};
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  心魔幻境 · 大乱斗 (v5.7 - Canvas即时制枪战肉鸽)             ║
@@ -3613,18 +3716,92 @@ function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);}
 
 let battleCtx=null,battleAnim=null,player=null,enemies=[],bullets=[],particles=[];
 let battleScore=0,battleTime=60,battleWave=1,battleOver=false,battleWon=false;
+let battleIsMobile=false,battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null},battleCanvasScale=1;
+let battleLastTime=0,battlePaused=false,battleVisHandler=null;
+
+function resizeBattleCanvas(dpr){
+  const vh=window.innerHeight;
+  const vw=window.innerWidth;
+  let maxW,displayH;
+  // 双维度适配：宽度和高度都不超出屏幕
+  if(battleIsMobile){
+    // 手机：留空间给外部HUD/提示
+    const availH=vh-60; // 顶部HUD + 底部提示
+    maxW=Math.min(vw-16,800);
+    displayH=Math.floor(maxW*500/800);
+    if(displayH>availH){
+      // 高度溢出 → 收缩宽度适配
+      displayH=availH;
+      maxW=Math.floor(displayH*800/500);
+    }
+  }else{
+    maxW=Math.min(vw-16,800);
+    displayH=Math.floor(maxW*500/800);
+    // 桌面端也防溢出
+    if(displayH>vh-40){displayH=vh-40;maxW=Math.floor(displayH*800/500);}
+  }
+  battleCanvasScale=maxW/800;
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  canvas.width=Math.floor(800*dpr);
+  canvas.height=Math.floor(500*dpr);
+  canvas.style.width=maxW+'px';
+  canvas.style.height=displayH+'px';
+  battleCtx=canvas.getContext('2d');
+  battleCtx.setTransform(dpr,0,0,dpr,0,0);
+}
 
 function startHeartDemonBattle(){
   const app=document.getElementById('app');
-  app.innerHTML='<canvas id="battleCanvas" width="800" height="500" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:crosshair"></canvas>';
-  const canvas=document.getElementById('battleCanvas');
-  battleCtx=canvas.getContext('2d');
+  battleIsMobile='ontouchstart' in window||(navigator.maxTouchPoints||0)>0;
   battleScore=0;battleTime=60;battleWave=1;battleOver=false;battleWon=false;
   enemies=[];bullets=[];particles=[];
-  player={x:400,y:250,vx:0,vy:0,spd:2.5,hp:100,maxHp:100,shootCD:0,shootRate:Math.max(8,22-G.attr.INT*1.5),dmg:1+Math.floor(G.attr.STR/3),slow:0,silence:0,reverse:0,_flash:0,invincible:600};// 前10秒霸体(600帧)
+  battleLastTime=performance.now();battlePaused=false;
+  if(battleVisHandler)document.removeEventListener('visibilitychange',battleVisHandler);
+  battleVisHandler=function(){battlePaused=document.hidden;if(!document.hidden)battleLastTime=performance.now();};
+  document.addEventListener('visibilitychange',battleVisHandler);
+  battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
+  player={x:400,y:250,vx:0,vy:0,spd:2.5,hp:100,maxHp:100,shootCD:0,shootRate:Math.max(8,22-G.attr.INT*1.5),dmg:1+Math.floor(G.attr.STR/3),slow:0,silence:0,reverse:0,_flash:0,invincible:600};
+  // 构建Canvas — DPI感知 + 响应式
+  const dpr=window.devicePixelRatio||1;
+  if(battleIsMobile){
+    // 手机（竖屏+横屏）：Canvas外包裹主题面板+HUD
+    app.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#0a0010,#1a0a1e);padding:4px">'
+      +'<div style="color:var(--purple);font-size:1em;font-weight:bold;letter-spacing:2px;text-align:center;margin:2px 0">💀 心 魔 幻 境</div>'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:0.75em;margin:2px 0">'
+        +'<span style="color:#e94560">⏱ <b id="btHud_time">60</b>s</span>'
+        +'<span style="color:#f0c040">⭐ <b id="btHud_score">0</b></span>'
+        +'<span style="color:#3fb950">❤️ <b id="btHud_hp">100</b></span>'
+        +'<span style="color:#58a6ff">🌊 <b id="btHud_wave">1</b></span>'
+      +'</div>'
+      +'<canvas id="battleCanvas" style="border:2px solid var(--purple);border-radius:10px;background:#0a0a14;display:block;touch-action:none;box-shadow:0 0 30px rgba(188,140,255,0.15)"></canvas>'
+      +'<div style="color:rgba(255,255,255,0.4);font-size:0.7em;text-align:center;margin:4px 0">🕹️ 左侧拖拽移动 · 自动射击</div>'
+    +'</div>';
+    window._battleHudUpdate=function(){
+      var te=document.getElementById('btHud_time');if(te)te.textContent=Math.ceil(Math.max(0,battleTime));
+      var se=document.getElementById('btHud_score');if(se)se.textContent=battleScore;
+      var he=document.getElementById('btHud_hp');if(he)he.textContent=player?player.hp:'?';
+      var we=document.getElementById('btHud_wave');if(we)we.textContent=battleWave;
+    };
+  }else{
+    app.innerHTML=`<canvas id="battleCanvas" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:crosshair;touch-action:none"></canvas>`;
+    window._battleHudUpdate=function(){};
+  }
+  resizeBattleCanvas(dpr);
+  const canvas=document.getElementById('battleCanvas');
+  battleCtx=canvas.getContext('2d');
+  window.addEventListener('resize',function(){if(!battleOver)resizeBattleCanvas(dpr);});
+  window.addEventListener('orientationchange',function(){setTimeout(function(){if(!battleOver)resizeBattleCanvas(dpr);},300);});
   spawnWave();
-  document.addEventListener('keydown',battleKeyDown);document.addEventListener('keyup',battleKeyUp);
-  canvas.addEventListener('mousemove',battleMouseMove);canvas.addEventListener('click',battleClick);
+  if(!battleIsMobile){
+    document.addEventListener('keydown',battleKeyDown);document.addEventListener('keyup',battleKeyUp);
+    canvas.addEventListener('mousemove',battleMouseMove);canvas.addEventListener('click',battleClick);
+  }else{
+    canvas.addEventListener('touchstart',battleTouchStart,{passive:false});
+    canvas.addEventListener('touchmove',battleTouchMove,{passive:false});
+    canvas.addEventListener('touchend',battleTouchEnd);
+    canvas.addEventListener('touchcancel',battleTouchEnd);
+  }
   if(battleAnim)cancelAnimationFrame(battleAnim);
   battleLoop();
 }
@@ -3679,30 +3856,87 @@ function battleClick(e){
   player.shootCD=player.shootRate;
 }
 
+function battleTouchStart(e){
+  e.preventDefault();
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  for(const t of e.changedTouches){
+    const tx=(t.clientX-r.x)/battleCanvasScale,ty=(t.clientY-r.y)/battleCanvasScale;
+    // 左侧40%区域 = 虚拟摇杆
+    if(tx<320&&!battleJoystick.active){
+      battleJoystick.active=true;battleJoystick.tid=t.identifier;
+      battleJoystick.ox=tx;battleJoystick.oy=ty;
+      battleJoystick.dx=0;battleJoystick.dy=0;
+    }
+  }
+}
+function battleTouchMove(e){
+  e.preventDefault();
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  const r=canvas.getBoundingClientRect();
+  for(const t of e.changedTouches){
+    if(t.identifier===battleJoystick.tid&&battleJoystick.active){
+      const tx=(t.clientX-r.x)/battleCanvasScale,ty=(t.clientY-r.y)/battleCanvasScale;
+      battleJoystick.dx=tx-battleJoystick.ox;
+      battleJoystick.dy=ty-battleJoystick.oy;
+    }
+  }
+}
+function battleTouchEnd(e){
+  const canvas=document.getElementById('battleCanvas');
+  if(!canvas)return;
+  for(const t of e.changedTouches){
+    if(t.identifier===battleJoystick.tid){
+      battleJoystick.active=false;battleJoystick.tid=null;
+      battleJoystick.dx=0;battleJoystick.dy=0;
+    }
+  }
+}
+
 function battleLoop(){
   if(battleOver){renderBattleResult();return;}
   battleCtx.clearRect(0,0,800,500);
-  battleTime-=1/60;
-  if(battleTime<=0){battleOver=true;battleWon=true;renderBattleResult();return;}
+  // delta time：适配所有刷新率，防止切后台时间跳跃
+  const now=performance.now();
+  let dt=(now-battleLastTime)/1000;
+  battleLastTime=now;
+  if(battlePaused)dt=0; // 切后台期间暂停
+  if(dt>0.5)dt=0.5;     // 防止切回来后巨大跳跃（最多损失0.5秒）
+  battleTime-=dt;
+  if(battleTime<=0){battleTime=0;battleOver=true;battleWon=true;renderBattleResult();return;}
   if(battleTime<=45&&battleWave===2)spawnWave();
   if(battleTime<=30&&battleWave===3)spawnWave();
   if(battleTime<=15&&battleWave===4)spawnWave();
 
   // Player movement
-  if(!player.reverse||player.reverse<=0){
-    if(battleKeys['w']||battleKeys['arrowup'])player.vy=-player.spd;
-    else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=player.spd;
-    else player.vy*=0.8;
-    if(battleKeys['a']||battleKeys['arrowleft'])player.vx=-player.spd;
-    else if(battleKeys['d']||battleKeys['arrowright'])player.vx=player.spd;
-    else player.vx*=0.8;
+  if(battleIsMobile){
+    // 虚拟摇杆移动（360度模拟）
+    if(battleJoystick.active){
+      const mag=Math.sqrt(battleJoystick.dx*battleJoystick.dx+battleJoystick.dy*battleJoystick.dy);
+      if(mag>8){
+        const rev=player.reverse>0?-1:1;
+        player.vx=(battleJoystick.dx/mag)*player.spd*rev;
+        player.vy=(battleJoystick.dy/mag)*player.spd*rev;
+      }else{player.vx*=0.8;player.vy*=0.8;}
+    }else{player.vx*=0.8;player.vy*=0.8;}
   }else{
-    if(battleKeys['w']||battleKeys['arrowup'])player.vy=player.spd;
-    else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=-player.spd;
-    else player.vy*=0.8;
-    if(battleKeys['a']||battleKeys['arrowleft'])player.vx=player.spd;
-    else if(battleKeys['d']||battleKeys['arrowright'])player.vx=-player.spd;
-    else player.vx*=0.8;
+    if(!player.reverse||player.reverse<=0){
+      if(battleKeys['w']||battleKeys['arrowup'])player.vy=-player.spd;
+      else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=player.spd;
+      else player.vy*=0.8;
+      if(battleKeys['a']||battleKeys['arrowleft'])player.vx=-player.spd;
+      else if(battleKeys['d']||battleKeys['arrowright'])player.vx=player.spd;
+      else player.vx*=0.8;
+    }else{
+      if(battleKeys['w']||battleKeys['arrowup'])player.vy=player.spd;
+      else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=-player.spd;
+      else player.vy*=0.8;
+      if(battleKeys['a']||battleKeys['arrowleft'])player.vx=player.spd;
+      else if(battleKeys['d']||battleKeys['arrowright'])player.vx=-player.spd;
+      else player.vx*=0.8;
+    }
   }
   const spdMul=player.slow>0?0.5:1;
   player.x=Math.max(15,Math.min(785,player.x+player.vx*spdMul));
@@ -3714,11 +3948,23 @@ function battleLoop(){
   if(player._flash>0)player._flash--;
   if(player.invincible>0)player.invincible--;
 
-  // Auto-shoot toward mouse
-  if(player.shootCD<=0&&player.mx!==undefined&&player.silence<=0){
-    const a=Math.atan2(player.my-player.y,player.mx-player.x);
-    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
-    player.shootCD=player.shootRate;
+  // Auto-shoot
+  if(player.shootCD<=0&&player.silence<=0){
+    if(battleIsMobile){
+      // 手机：自动瞄准最近敌人
+      let nearest=null,nd=Infinity;
+      enemies.forEach(e=>{const d=dist(player,e);if(d<nd){nd=d;nearest=e;}});
+      if(nearest){
+        const a=Math.atan2(nearest.y-player.y,nearest.x-player.x);
+        bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
+        player.shootCD=player.shootRate;
+      }
+    }else if(player.mx!==undefined){
+      // 桌面端：鼠标瞄准
+      const a=Math.atan2(player.my-player.y,player.mx-player.x);
+      bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
+      player.shootCD=player.shootRate;
+    }
   }
 
   // Update enemies
@@ -3890,6 +4136,48 @@ function battleLoop(){
     if(player.reverse>0){battleCtx.strokeStyle='#f8f';battleCtx.lineWidth=2;battleCtx.beginPath();battleCtx.arc(player.x,player.y,19,0,Math.PI*2);battleCtx.stroke();}
   }
 
+  // 虚拟摇杆（手机）
+  if(battleIsMobile){
+    const joyCX=120,joyCY=280,joyR=50;
+    if(battleJoystick.active){
+      const jx=battleJoystick.ox,jy=battleJoystick.oy;
+      const knobR=18,baseR=42;
+      // 底座
+      battleCtx.fillStyle='rgba(255,255,255,0.15)';battleCtx.strokeStyle='rgba(255,255,255,0.35)';battleCtx.lineWidth=2.5;
+      battleCtx.beginPath();battleCtx.arc(jx,jy,baseR,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
+      // 摇杆
+      const kx=jx+battleJoystick.dx,ky=jy+battleJoystick.dy;
+      const clampR=baseR-knobR;
+      const mag=Math.sqrt(battleJoystick.dx*battleJoystick.dx+battleJoystick.dy*battleJoystick.dy);
+      const ckx=mag>clampR?jx+battleJoystick.dx/mag*clampR:kx;
+      const cky=mag>clampR?jy+battleJoystick.dy/mag*clampR:ky;
+      battleCtx.fillStyle='rgba(255,255,255,0.55)';battleCtx.beginPath();battleCtx.arc(ckx,cky,knobR,0,Math.PI*2);battleCtx.fill();
+    }else{
+      // 始终显示的摇杆引导圈（脉冲提示）
+      const pulse=Math.sin(Date.now()*0.004)*0.15+0.25;
+      battleCtx.fillStyle='rgba(255,255,255,'+(0.08+pulse*0.3)+')';
+      battleCtx.strokeStyle='rgba(255,255,255,'+(0.2+pulse*0.4)+')';
+      battleCtx.lineWidth=2;
+      battleCtx.beginPath();battleCtx.arc(joyCX,joyCY,joyR,0,Math.PI*2);battleCtx.fill();battleCtx.stroke();
+      // 内圈装饰
+      battleCtx.strokeStyle='rgba(255,255,255,'+(0.1+pulse*0.2)+')';battleCtx.lineWidth=1;
+      battleCtx.beginPath();battleCtx.arc(joyCX,joyCY,20,0,Math.PI*2);battleCtx.stroke();
+      // 十字准星
+      battleCtx.strokeStyle='rgba(255,255,255,'+(0.08+pulse*0.15)+')';battleCtx.lineWidth=1;
+      battleCtx.beginPath();battleCtx.moveTo(joyCX,joyCY-30);battleCtx.lineTo(joyCX,joyCY+30);battleCtx.stroke();
+      battleCtx.beginPath();battleCtx.moveTo(joyCX-30,joyCY);battleCtx.lineTo(joyCX+30,joyCY);battleCtx.stroke();
+      // 文字提示
+      battleCtx.fillStyle='rgba(255,255,255,'+(0.5+pulse*0.3)+')';
+      battleCtx.font='bold 13px sans-serif';battleCtx.textAlign='center';
+      battleCtx.fillText('🕹️ 拖拽移动',joyCX,joyCY+joyR+20);
+      battleCtx.font='9px sans-serif';
+      battleCtx.fillText('← 左侧区域 →',joyCX,joyCY+joyR+35);
+    }
+  }
+
+  // 外部HUD（竖屏手机）
+  if(window._battleHudUpdate)window._battleHudUpdate();
+
   // HUD
   battleCtx.fillStyle='rgba(0,0,0,0.7)';battleCtx.fillRect(0,0,800,40);
   battleCtx.fillStyle='#fff';battleCtx.font='bold 16px sans-serif';battleCtx.textAlign='left';
@@ -3899,18 +4187,26 @@ function battleLoop(){
   battleCtx.fillStyle='#3fb950';battleCtx.fillText('❤️ '+player.hp,560,28);
   battleCtx.fillText('🌊 Wave '+battleWave,680,28);
 
-  // 操作提示（持续显示）
-  battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.font='11px sans-serif';battleCtx.textAlign='center';
-  battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
+  // 操作提示（桌面端Canvas内，手机端用外部HTML已显示）
+  if(!battleIsMobile){
+    battleCtx.fillStyle='rgba(255,255,255,0.5)';battleCtx.font='11px sans-serif';battleCtx.textAlign='center';
+    battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
+  }
 
   battleAnim=requestAnimationFrame(battleLoop);
 }
 
 function renderBattleResult(){
   if(battleAnim)cancelAnimationFrame(battleAnim);
+  if(battleVisHandler){document.removeEventListener('visibilitychange',battleVisHandler);battleVisHandler=null;}
   document.removeEventListener('keydown',battleKeyDown);document.removeEventListener('keyup',battleKeyUp);
   const canvas=document.getElementById('battleCanvas');
-  if(canvas){canvas.removeEventListener('mousemove',battleMouseMove);canvas.removeEventListener('click',battleClick);}
+  if(canvas){
+    canvas.removeEventListener('mousemove',battleMouseMove);canvas.removeEventListener('click',battleClick);
+    canvas.removeEventListener('touchstart',battleTouchStart);canvas.removeEventListener('touchmove',battleTouchMove);
+    canvas.removeEventListener('touchend',battleTouchEnd);canvas.removeEventListener('touchcancel',battleTouchEnd);
+  }
+  battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
 
   const app=document.getElementById('app');
   if(battleWon){
@@ -3923,9 +4219,9 @@ function renderBattleResult(){
       <div class="fbaff"><span class="fbup">🧘精神 +${sprGain}</span> <span style="color:var(--gold)">⭐得分 ${battleScore}</span></div>
       </div><div style="text-align:center;margin:10px 0"><button class="btn btn-p" onclick="window._adv()">继续 ▸</button></div>`);
   }else{
-    // ─── 溃离魔女分岐：因果>300时转化为魔女 ───
+    // ─── 溃离魔女分岐：因果>350时转化为魔女 ───
     const currentKarma=G.karma||loadKarma();
-    if(currentKarma>300){
+    if(currentKarma>350){
       const sorted=Object.entries(G.aff).filter(([id])=>CH[id]&&CH[id].c!=='教师').sort((a,b)=>b[1]-a[1]);
       // 并列最高好感度 → 随机选取
       const topAff=sorted[0][1];
@@ -3935,7 +4231,12 @@ function renderBattleResult(){
       G.flags['witch_transformation']=true;
       G.flags['witch_karma_at_transform']=currentKarma;
       document.removeEventListener('keydown',battleKeyDown);document.removeEventListener('keyup',battleKeyUp);
-      const c=document.getElementById('battleCanvas');if(c){c.removeEventListener('mousemove',battleMouseMove);c.removeEventListener('click',battleClick);}
+      const c=document.getElementById('battleCanvas');if(c){
+        c.removeEventListener('mousemove',battleMouseMove);c.removeEventListener('click',battleClick);
+        c.removeEventListener('touchstart',battleTouchStart);c.removeEventListener('touchmove',battleTouchMove);
+        c.removeEventListener('touchend',battleTouchEnd);c.removeEventListener('touchcancel',battleTouchEnd);
+      }
+      battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null};
       render('play');return;
     }
     curEv={type:'forced_end',narration:`💀 心魔吞噬\n\n60秒过去了。\n\n你没有战胜那些幻影。\n\n教室越来越远——\n\n有人在叫你的名字。\n\n但你已经听不清了。`,
@@ -3943,6 +4244,9 @@ function renderBattleResult(){
     render('event');
   }
 }
+
+// ─── iOS Safari :active修复：空touchstart使:active生效 ───
+document.addEventListener('touchstart',function(){},{passive:true});
 
 // ─── 启动 ───
 render('title');
