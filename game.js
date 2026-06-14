@@ -3669,10 +3669,9 @@ function startHeartDemonBattle(){
   // 构建Canvas — DPI感知 + 响应式
   const dpr=window.devicePixelRatio||1;
   app.innerHTML=`<canvas id="battleCanvas" style="border:2px solid var(--accent);border-radius:12px;background:#0a0a14;display:block;margin:10px auto;cursor:${battleIsMobile?'none':'crosshair'};touch-action:none"></canvas>`;
-  resizeBattleCanvas(dpr);
+  resizeBattleCanvas(dpr); // 内部已包含ctx.scale(dpr,dpr)
   const canvas=document.getElementById('battleCanvas');
   battleCtx=canvas.getContext('2d');
-  battleCtx.scale(dpr,dpr);
   // 设备旋转/窗口变化 → 重算尺寸
   window.addEventListener('resize',function(){if(!battleOver)resizeBattleCanvas(dpr);});
   window.addEventListener('orientationchange',function(){setTimeout(function(){if(!battleOver)resizeBattleCanvas(dpr);},200);});
