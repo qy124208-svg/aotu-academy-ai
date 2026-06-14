@@ -3645,10 +3645,14 @@ function resizeBattleCanvas(dpr){
   const displayH=maxW*500/800;
   const canvas=document.getElementById('battleCanvas');
   if(!canvas)return;
-  canvas.width=Math.floor(maxW*dpr);
-  canvas.height=Math.floor(displayH*dpr);
+  // 内部分辨率 = 800×500 * DPR（游戏逻辑坐标800×500，DPI缩放保证清晰）
+  canvas.width=Math.floor(800*dpr);
+  canvas.height=Math.floor(500*dpr);
   canvas.style.width=maxW+'px';
   canvas.style.height=displayH+'px';
+  // 修改canvas.width会重置context → 重新应用DPI缩放
+  battleCtx=canvas.getContext('2d');
+  battleCtx.scale(dpr,dpr);
 }
 
 function startHeartDemonBattle(){
