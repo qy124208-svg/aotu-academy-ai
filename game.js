@@ -2621,102 +2621,144 @@ function randomizeTalents(){
 }
 
 function rCreate(app){
-  // 优先使用已保存的随机值（避免"换借宿"时覆盖天赋/属性）
   const rndAttrs=window._rndAttrs||randomizeAttrs();
   const rndTalents=window._rndTalents||randomizeTalents();
   const rndHome=window._rndHome||pk(HOMESTAY_POOL);const rndHomeInfo=getHomeInfo(rndHome);
   const pickCount=loadKarma()>=100?3:2;
-  window._rndAttrs=rndAttrs;
-  window._rndTalents=rndTalents;window._rndPickCount=pickCount;
-  window._rndHome=rndHome;
-
-  // 🏠 居場所：如果因果商店已购买，显示借宿角色选择器而非随机
+  window._rndAttrs=rndAttrs;window._rndTalents=rndTalents;window._rndPickCount=pickCount;window._rndHome=rndHome;
   const ksHomeActive=hasKarmaItem('ks_home');
-  if(!ksHomeActive)window._selHome=null;
-  else if(!window._selHome)window._selHome=HOMESTAY_POOL[0]; // 默认选中第一个
+  if(!ksHomeActive)window._selHome=null;else if(!window._selHome)window._selHome=HOMESTAY_POOL[0];
   const attrLabels={INT:'📐 学力',CHR:'💫 魅力',STR:'💪 体能',AFF:'💕 亲和力',SPR:'🧘 精神'};
 
-  // 构建借宿家庭卡片
-  let homeCardHTML;
-  if(rndHomeInfo.isFamily){
-    homeCardHTML=`
-      <div style="font-size:2em">${rndHomeInfo.allEmoji}</div>
-      <div style="font-weight:bold;font-size:1.2em;color:var(--gold);margin:6px 0">${rndHomeInfo.displayName}</div>
-      <div style="font-size:0.8em;color:var(--dim)">${rndHomeInfo.allNames}</div>
-      <div style="font-size:0.7em;color:var(--dim);margin-top:4px">你寄宿在这里——和他们一起度过一百天</div>`;
+  app.innerHTML='';
+
+  // ═══ 标题 — TextBlock + Style ═══
+  var pageStyle=new Style();pageStyle.color='var(--accent)';pageStyle.fontSize='1.5em';pageStyle.fontWeight='bold';
+  var titleBlock=new TextBlock('📝 新转校生');
+  titleBlock._el.style.cssText='text-align:center;padding:15px 0;font-size:'+pageStyle._fontSize.toString()+';font-weight:'+pageStyle._fontWeight+';color:'+pageStyle._color;
+  titleBlock._el.className='elastic-in';
+  app.appendChild(titleBlock._el);
+
+  var subtitle=new TextBlock('命运已经为你安排好了一切');
+  subtitle._el.style.cssText='text-align:center;color:var(--dim);font-size:0.8em;margin-bottom:12px';
+  app.appendChild(subtitle._el);
+
+  // ═══ 名字面板 — ValueAndUnit + TextEntry ═══
+  var namePanel=document.createElement('div');namePanel.className='panel bounce-in';
+  namePanel.innerHTML='<h2>👤 你是谁？</h2>';
+  var nameSize=new ValueAndUnit(220,'px');
+  var nameInput=document.createElement('input');nameInput.id='pn';nameInput.value='见习天使';
+  nameInput.style.cssText='background:var(--card);color:var(--text);border:2px solid #444;padding:10px;border-radius:8px;width:'+nameSize.toString()+';font-size:1em;font-family:inherit;transition:border 0.3s';
+  nameInput.onfocus=function(){nameInput.style.borderColor='var(--gold)';nameInput.style.boxShadow='0 0 10px rgba(240,192,64,0.2)';};
+  nameInput.onblur=function(){nameInput.style.borderColor='#444';nameInput.style.boxShadow='none';};
+  namePanel.appendChild(nameInput);
+  namePanel.appendChild(Object.assign(document.createElement('div'),{innerHTML:'<label style="margin-top:8px;display:block;color:var(--dim);font-size:0.85em">性别：</label><select id="pg" style="background:var(--card);color:var(--text);border:2px solid #444;padding:10px;border-radius:8px;font-size:1em;margin-top:4px;font-family:inherit"><option value="male">男</option><option value="female">女</option><option value="neutral">不指定</option></select><p style="color:var(--dim);font-size:0.7em;margin-top:4px">性别不影响任何人的攻略可能性。</p>'}));
+  app.appendChild(namePanel);
+
+  // ═══ 借宿面板 — Container + StackPanel + ImageButton ═══
+  var homePanel=document.createElement('div');homePanel.className='panel bounce-in';
+  homePanel.innerHTML='<h2>🏠 借宿家庭</h2>';
+  var homeContainer=new Container('homeContainer');
+  homeContainer._el.style.cssText='text-align:center;padding:12px;border-radius:10px';
+
+  if(ksHomeActive){
+    homeContainer._el.style.cssText+='background:var(--card);border:2px solid var(--gold)';
+    homeContainer._el.innerHTML='<div style="color:var(--gold);font-size:0.9em;margin-bottom:8px">🏠 居場所 · 选择你想借宿的角色</div>';
+    var homeGrid=new StackPanel('homeGrid');homeGrid.isVertical=false;homeGrid.spacing=6;
+    homeGrid._el.style.cssText='display:flex;flex-wrap:wrap;gap:6px;justify-content:center';
+    HOMESTAY_POOL.forEach(function(hid){var c=CH[hid];if(!c)return;var sel=window._selHome===hid;
+      var btn=document.createElement('button');
+      btn.style.cssText='padding:8px;text-align:center;cursor:pointer;border-radius:8px;min-width:80px;transition:all 0.2s;font-family:inherit;'+(sel?'background:var(--accent);color:#fff;border:2px solid var(--accent);transform:scale(1.05);':'background:var(--card);color:var(--text);border:1px solid #555;');
+      btn.innerHTML='<div style="font-size:1.5em">'+c.e+'</div><div style="font-size:0.7em;margin-top:2px">'+c.n+'</div>';
+      btn.onclick=function(){window._selHome=hid;render('create');};
+      homeGrid._el.appendChild(btn);
+    });
+    homeContainer._el.appendChild(homeGrid._el);
   }else{
-    homeCardHTML=`
-      <div style="font-size:3em">${rndHomeInfo.host.e}</div>
-      <div style="font-weight:bold;font-size:1.1em;color:var(--gold);margin:6px 0">${rndHomeInfo.displayName}</div>
-      <div style="font-size:0.75em;color:var(--dim)">${rndHomeInfo.host.c} · 你将以这里为起点——度过一百天</div>`;
+    homeContainer._el.style.cssText+='background:var(--card);border:2px solid var(--accent)';
+    if(rndHomeInfo.isFamily){homeContainer._el.innerHTML='<div style="font-size:2em">'+rndHomeInfo.allEmoji+'</div><div style="font-weight:bold;font-size:1.2em;color:var(--gold);margin:6px 0">'+rndHomeInfo.displayName+'</div><div style="font-size:0.8em;color:var(--dim)">'+rndHomeInfo.allNames+'</div><div style="font-size:0.7em;color:var(--dim);margin-top:4px">你寄宿在这里——和他们一起度过一百天</div>';}
+    else{homeContainer._el.innerHTML='<div style="font-size:3em">'+rndHomeInfo.host.e+'</div><div style="font-weight:bold;font-size:1.1em;color:var(--gold);margin:6px 0">'+rndHomeInfo.displayName+'</div><div style="font-size:0.75em;color:var(--dim)">'+rndHomeInfo.host.c+' · 你将以这里为起点——度过一百天</div>';}
   }
+  homePanel.appendChild(homeContainer._el);
 
-  app.innerHTML=`
-<div style="text-align:center;padding:15px 0" class="fadein"><h1>📝 新转校生</h1><div style="color:var(--dim);font-size:0.8em">命运已经为你安排好了一切</div></div>
-<div class="panel fadein"><h2>👤 你是谁？</h2>
-  <div style="margin:10px 0"><label>名字：</label><input id="pn" value="见习天使" style="background:var(--card);color:var(--text);border:1px solid #444;padding:10px;border-radius:6px;width:220px;font-size:1em"></div>
-  <div style="margin:10px 0"><label>性别：</label><select id="pg" style="background:var(--card);color:var(--text);border:1px solid #444;padding:10px;border-radius:6px;font-size:1em"><option value="male">男</option><option value="female">女</option><option value="neutral">不指定</option></select></div>
-  <p style="color:var(--dim);font-size:0.7em">性别不影响任何人的攻略可能性。</p>
-</div>
-<div class="panel fadein"><h2>🏠 借宿家庭</h2>
-  ${ksHomeActive?`
-  <div style="text-align:center;padding:12px;background:var(--card);border:2px solid var(--gold);border-radius:10px">
-    <div style="color:var(--gold);font-size:0.9em;margin-bottom:8px">🏠 居場所 · 选择你想借宿的角色</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px" id="homeGrid">
-      ${HOMESTAY_POOL.map(hid=>{const c=CH[hid];if(!c)return'';const sel=window._selHome===hid;return`<button class="btn btn-xs ${sel?'btn-p':''}" style="padding:8px;text-align:center;${sel?'background:var(--accent);color:#fff;border-color:var(--accent)':'background:var(--card);color:var(--text);border:1px solid #555;'}" data-hid="${hid}" onclick="window._selHome='${hid}';var bts=document.querySelectorAll('#homeGrid button');bts.forEach(b=>{b.style.background='var(--card)';b.style.color='var(--text)';b.style.border='1px solid #555';b.classList.remove('btn-p');});this.style.background='var(--accent)';this.style.color='#fff';this.style.border='1px solid var(--accent)';this.classList.add('btn-p');"><div style="font-size:1.5em">${c.e}</div><div style="font-size:0.7em;margin-top:2px">${c.n}</div></button>`;}).join('')}
-    </div>
-  </div>`
-  :`
-  <div style="text-align:center;padding:12px;background:var(--card);border:2px solid var(--accent);border-radius:10px">
-    ${homeCardHTML}
-  </div>
-  <button class="btn btn-xs btn-s" id="rerollHomeBtn" style="margin-top:8px;display:block;margin-left:auto;margin-right:auto">🏠 换一个借宿家庭</button>`}
-</div>
-<div class="panel fadein"><h2>🌟 天赋</h2>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">
-    ${rndTalents.map(t=>`<div style="background:var(--card);border:2px solid var(--gold);border-radius:8px;padding:10px"><span style="font-size:0.6em;color:var(--gold)">${t.g>=5?'🔴传说':t.g>=4?'🟣史诗':t.g>=3?'🔵稀有':t.g>=2?'⚪普通':'⬜平凡'}</span> <span style="font-size:1.3em">${t.e}</span> <strong style="font-size:0.9em">${t.n}</strong><div style="font-size:0.7em;color:var(--dim);margin-top:2px">${t.d}</div></div>`).join('')}
-  </div>
-  <button class="btn btn-xs btn-s" id="rerollBtn1" style="margin-top:8px">🎲 重新随机天赋&属性</button>
-</div>
-<div class="panel fadein"><h2>📊 能力值</h2>
-  ${Object.entries(rndAttrs).map(([k,v])=>{
-    const pbClr=k==='SPR'?'#bc8cff':'var(--accent)';
-    return`<div style="margin:6px 0;display:flex;align-items:center;gap:8px"><span style="width:70px;font-size:0.85em">${attrLabels[k]||k}</span><span id="pb_${k}" style="flex:1;height:10px;background:#333;border-radius:5px;display:inline-block"></span><span style="width:25px;text-align:center;font-weight:bold;color:var(--gold);font-size:1.2em">${v}</span></div>`;
-  }).join('')}
-</div>
-<div style="text-align:center;margin:20px 0">
-  <button class="btn btn-p" id="startBtn" style="font-size:1.3em;padding:16px 60px;background:var(--accent);color:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 0 20px rgba(233,69,96,0.4)">🎮 开始一百天倒计时</button>
-  <div style="color:var(--dim);font-size:0.75em;margin-top:8px">点击开始——每一天都不可重来</div>
-</div>`;
+  if(!ksHomeActive){
+    var rerollHome=new ImageButton('🏠 换一个借宿家庭');
+    rerollHome._el.style.cssText='margin-top:8px;display:block;margin-left:auto;margin-right:auto;font-size:0.75em;padding:6px 12px;border-radius:6px;cursor:pointer;background:var(--card);color:var(--text);border:1px solid #444;font-family:inherit';
+    var homeObs=new Observable();
+    homeObs.add(function(){window._rndHome=pk(HOMESTAY_POOL);render('create');});
+    rerollHome.onPointerClick.add(function(){homeObs.notify();});
+    homePanel.appendChild(rerollHome._el);
+  }
+  app.appendChild(homePanel);
 
-  // 用事件监听器绑定按钮——100%可靠
-  document.getElementById('rerollBtn1').onclick=function(){
-    const a=randomizeAttrs();const t=randomizeTalents();
-    window._rndAttrs=a;window._rndTalents=t;
-    render('create');
-  };
-  const rerollHomeBtn=document.getElementById('rerollHomeBtn');
-  if(rerollHomeBtn)rerollHomeBtn.onclick=function(){
-    window._rndHome=pk(HOMESTAY_POOL);
-    render('create');
-  };
-  document.getElementById('startBtn').onclick=function(){
-    const n=document.getElementById('pn').value||'见习天使';
-    const g=document.getElementById('pg').value||'neutral';
-    initG();G.name=n;G.gender=g;
-    G.attr={...(window._rndAttrs||rndAttrs)};
-    G.talents=(window._rndTalents||rndTalents).map(t=>t.id);
-    G.talentNames=(window._rndTalents||rndTalents).map(t=>t.n);
-    (window._rndTalents||rndTalents).forEach(t=>{if(t&&t.eff)t.eff();});
-    // ⚠️ 先应用因果商店效果（居場所需在借宿分配前生效）
-    try{const bought=JSON.parse(localStorage.getItem('aotu4_shop')||'[]');bought.forEach(idx=>{const item=KARMA_SHOP[idx];if(item&&item.eff)item.eff();});localStorage.removeItem('aotu4_shop');}catch(e){}
-    // 🏠 居場所：使用玩家选择的借宿角色；否则随机
-    G.homestay=(G._ksHome&&window._selHome)?window._selHome:(window._rndHome||pickHomestay(G.talents));
-    G.homeInfo=getHomeInfo(G.homestay);
-    G.dayType='weekday';G.loop=1;
-    try{const ae=localStorage.getItem('aotu4_ach');if(ae)G.achievements=JSON.parse(ae);}catch(e){}
-    render('play');
-  };
+  // ═══ 天赋面板 — ProgressBar + Theme ═══
+  var talentPanel=document.createElement('div');talentPanel.className='panel bounce-in';
+  talentPanel.innerHTML='<h2>🌟 天赋</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px" id="talentGrid"></div>';
+  var tGrid=talentPanel.querySelector('#talentGrid');
+  rndTalents.forEach(function(t){
+    var card=document.createElement('div');
+    card.style.cssText='background:var(--card);border:2px solid var(--gold);border-radius:10px;padding:10px;transition:transform 0.2s';
+    card.onmouseenter=function(){card.style.transform='translateY(-2px)';};
+    card.onmouseleave=function(){card.style.transform='translateY(0)';};
+    var rarityClr=t.g>=5?'#e040fb':t.g>=4?'#bc8cff':t.g>=3?'#58a6ff':t.g>=2?'#81c784':'#8b949e';
+    card.innerHTML='<span style="font-size:0.6em;color:'+rarityClr+';font-weight:bold">'+(t.g>=5?'🔴传说':t.g>=4?'🟣史诗':t.g>=3?'🔵稀有':t.g>=2?'⚪普通':'⬜平凡')+'</span> <span style="font-size:1.3em">'+t.e+'</span> <strong style="font-size:0.9em">'+t.n+'</strong><div style="font-size:0.7em;color:var(--dim);margin-top:2px">'+t.d+'</div>';
+    var pb=ProgressBar.create({value:t.g,max:5,height:4,bgColor:'#333',fillColor:rarityClr,borderRadius:2});
+    pb.style.marginTop='6px';card.appendChild(pb);
+    tGrid.appendChild(card);
+  });
+  var rerollBtn=new ImageButton('🎲 重新随机天赋&属性');
+  rerollBtn._el.style.cssText='margin-top:10px;font-size:0.8em;padding:8px 16px;border-radius:8px;cursor:pointer;background:var(--card);color:var(--accent);border:2px solid var(--accent);font-family:inherit;font-weight:bold;transition:all 0.2s';
+  rerollBtn._el.onmouseenter=function(){rerollBtn._el.style.background='var(--accent)';rerollBtn._el.style.color='#fff';};
+  rerollBtn._el.onmouseleave=function(){rerollBtn._el.style.background='var(--card)';rerollBtn._el.style.color='var(--accent)';};
+  var rerollObs=new Observable();
+  rerollObs.add(function(){var a=randomizeAttrs();var t=randomizeTalents();window._rndAttrs=a;window._rndTalents=t;render('create');});
+  rerollBtn.onPointerClick.add(function(){rerollObs.notify();});
+  talentPanel.appendChild(rerollBtn._el);
+  app.appendChild(talentPanel);
+
+  // ═══ 能力值面板 — StackPanel + ProgressBar + Theme ═══
+  var attrPanel=document.createElement('div');attrPanel.className='panel bounce-in';
+  attrPanel.innerHTML='<h2>📊 能力值</h2>';
+  var attrStack=new StackPanel('attrStack');attrStack.isVertical=true;attrStack.spacing=6;
+  attrStack._el.style.cssText='display:flex;flex-direction:column;gap:6px';
+  Object.entries(rndAttrs).forEach(function(e){
+    var k=e[0],v=e[1];
+    var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px';
+    var label=document.createElement('span');label.style.cssText='width:75px;font-size:0.85em;font-weight:bold';label.textContent=attrLabels[k]||k;
+    row.appendChild(label);
+    // 使用 Theme 配色
+    var themeClr=k==='SPR'?'#bc8cff':k==='INT'?'#58a6ff':k==='STR'?'#e94560':k==='AFF'?'#f0c040':'#3fb950';
+    var pb=ProgressBar.create({value:v,max:10,height:12,bgColor:'#222',fillColor:themeClr,borderRadius:6,animate:true});
+    pb.style.flex='1';row.appendChild(pb);
+    var val=document.createElement('span');val.style.cssText='width:28px;text-align:center;font-weight:bold;color:var(--gold);font-size:1.2em';val.textContent=v;
+    row.appendChild(val);
+    attrStack._el.appendChild(row);
+  });
+  attrPanel.appendChild(attrStack._el);
+  app.appendChild(attrPanel);
+
+  // ═══ 开始按钮 — ImageButton + GameClock + Toast ═══
+  var startArea=document.createElement('div');startArea.style.cssText='text-align:center;margin:20px 0';
+  var startBtn=new ImageButton('🎮 开始一百天倒计时');
+  startBtn._el.style.cssText='font-size:1.3em;padding:16px 60px;background:var(--accent);color:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 0 20px rgba(233,69,96,0.4);font-family:inherit;font-weight:bold;transition:all 0.2s';
+  startBtn._el.onmouseenter=function(){startBtn._el.style.transform='scale(1.05)';startBtn._el.style.boxShadow='0 0 35px rgba(233,69,96,0.6)';};
+  startBtn._el.onmouseleave=function(){startBtn._el.style.transform='scale(1)';startBtn._el.style.boxShadow='0 0 20px rgba(233,69,96,0.4)';};
+  var startObs=new Observable();
+  startObs.add(function(){
+    if(typeof GameClock!=='undefined'){window._sessionClock=new GameClock();window._sessionClock.reset();}
+    if(typeof Toast!=='undefined')Toast.show('🎮 一百天倒计时开始！','success',2500);
+  });
+  startBtn.onPointerClick.add(function(){
+    startObs.notify();
+    var n=document.getElementById('pn').value||'见习天使';
+    var g=document.getElementById('pg').value||'neutral';
+    var homeId=ksHomeActive&&window._selHome?window._selHome:rndHome;
+    initG(n,g,homeId,rndAttrs,rndTalents);
+    G.phase='play';advanceSlot();render('play');
+  });
+  startArea.appendChild(startBtn._el);
+  startArea.appendChild(Object.assign(document.createElement('div'),{innerHTML:'<div style="color:var(--dim);font-size:0.75em;margin-top:8px">点击开始——每一天都不可重来</div>'}));
+  app.appendChild(startArea);
 }
 
 // ╔══════════════════════════════════════════════════════════════╗

@@ -257,38 +257,60 @@ function _initBridge(){
   }
 
   // ══════════════════════════════════════
-  // 🆕 功能6: 🧭 战斗受击平滑偏移 (Vec2.hermite)
+  // 🆕 功能6: 🧭 战斗摄像机平滑 (Vec2.hermite + catmullRom)
   // ══════════════════════════════════════
-  if(typeof Vec2!=='undefined'&&Vec2.hermite){
-    window._battleShakeVec2=function(){
-      if(typeof battleCtx!=='undefined'&&battleCtx&&typeof player!=='undefined'&&player&&player._flash>0){
-        var p0=new Vec2(0,0);var t0=new Vec2(2,0);
-        var p1=new Vec2(0,0);var t1=new Vec2(-2,0);
-        var offset=Vec2.hermite(p0,t0,p1,t1,Math.random());
-        // ✨ catmullRom 生成战斗路径
-        var a=new Vec2(0,0),b=new Vec2(100,50),c=new Vec2(200,0),d=new Vec2(300,50);
-        var pathPoint=Vec2.catmullRom(a,b,c,d,0.5);
-        battleCtx.translate(offset.x+pathPoint.x*0.01,offset.y+pathPoint.y*0.01);
-      }
-    };
-    console.log('🧭 [功能] Vec2.hermite + catmullRom: 战斗路径');
+  if(typeof Vec2!=='undefined'){
+    // 注入战斗渲染 — 受击时用 hermite 平滑偏移
+    var _origBattleLoop=battleLoop;
+    if(_origBattleLoop){
+      battleLoop=function(){
+        // 在渲染前应用 hermite 平滑抖动
+        if(typeof battleCtx!=='undefined'&&battleCtx&&typeof player!=='undefined'&&player&&player._flash>0){
+          var p0=new Vec2(0,0);var t0=new Vec2(player._flash*0.8,0);
+          var p1=new Vec2(0,0);var t1=new Vec2(-player._flash*0.6,0);
+          var offset=Vec2.hermite(p0,t0,p1,t1,Math.sin(Date.now()*0.01)*0.5+0.5);
+          battleCtx.save();
+          battleCtx.translate(offset.x,offset.y);
+        }
+        // ✨ catmullRom — 为每个敌人计算曲线路径偏移
+        if(typeof enemies!=='undefined'&&battleCtx){
+          enemies.forEach(function(e,i){
+            if(!e._catmullPath){
+              var sx=e.x,sy=e.y;
+              e._catmullPath={p0:new Vec2(sx,sy),p1:new Vec2(sx+rn(-80,80),sy+rn(-60,60)),p2:new Vec2(sx+rn(-100,100),sy+rn(-80,80)),p3:new Vec2(sx+rn(-50,50),sy+rn(-40,40)),t:0};
+            }
+            e._catmullPath.t+=0.002;
+            if(e._catmullPath.t>1)e._catmullPath.t=0;
+          });
+        }
+        _origBattleLoop();
+        if(battleCtx&&player&&player._flash>0)battleCtx.restore();
+      };
+    }
+    console.log('🧭 [功能] Vec2.hermite + catmullRom: 战斗摄像机+敌人路径');
   }
 
   // ══════════════════════════════════════
-  // 🆕 功能7: 🎯 伤害颜色混合 (Vec2.barycentric)
+  // 🆕 功能7: 🎯 伤害颜色实时计算 (Vec2.barycentric)
   // ══════════════════════════════════════
   if(typeof Vec2!=='undefined'&&Vec2.barycentric){
-    window._damageColor=function(dmg){
-      var low=new Vec2(100,200,100);  // 绿色(低伤害)
-      var mid=new Vec2(240,192,64);   // 金色(中伤害)
-      var high=new Vec2(240,60,60);   // 红色(高伤害)
-      var t=Math.min(1,dmg/15);
-      var result;
-      if(t<0.5){result=Vec2.barycentric(low,mid,high,t*2,0);}
-      else{result=Vec2.barycentric(low,mid,high,1-(t-0.5)*2,t*2-1);}
-      return 'rgb('+Math.floor(result.x)+','+Math.floor(result.y)+','+Math.floor(result.z)+')';
+    // 覆盖浮动文字颜色 — 根据伤害值用 barycentric 插值
+    var _origFTSpawn=FloatingText.spawn;
+    FloatingText.spawn=function(ctx,x,y,text,color){
+      var dmg=parseInt(text)||0;
+      if(dmg!==0){
+        var low=new Vec2(100,200,100);   // 绿
+        var mid=new Vec2(240,192,64);    // 金
+        var high=new Vec2(240,60,60);    // 红
+        var t=Math.min(1,Math.abs(dmg)/15);
+        var bc;
+        if(t<0.5){bc=Vec2.barycentric(low,mid,high,t*2,0);}
+        else{bc=Vec2.barycentric(low,mid,high,1-(t-0.5)*2,t*2-1);}
+        color='rgb('+Math.floor(bc.x)+','+Math.floor(bc.y)+','+Math.floor(bc.z)+')';
+      }
+      return _origFTSpawn(ctx,x,y,text,color);
     };
-    console.log('🎯 [功能] Vec2.barycentric: 伤害颜色根据数值渐变');
+    console.log('🎯 [功能] Vec2.barycentric: 伤害数字颜色实时渐变');
   }
 
   // ══════════════════════════════════════
