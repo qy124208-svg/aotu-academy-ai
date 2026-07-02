@@ -3902,60 +3902,33 @@ function rCP(app){
 }
 function rSettings(app){
   if(!G.disabledCPs)G.disabledCPs=new Set();
-
-  // ✨ DOM 组件化: CP开关列表
-  const cpList=document.createElement('div');
-  Object.entries(CP).forEach(function(e){
-    const k=e[0],cp=e[1];const enabled=!G.disabledCPs.has(k);
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--card);border-radius:8px;margin:4px 0;border:1px solid '+(enabled?'#30363d':'#552222');
-    const info=document.createElement('div');
-    info.innerHTML='<span style="font-weight:bold">'+cp.e+' '+cp.n+'</span><span style="font-size:0.7em;color:var(--dim);margin-left:8px">'+cp.d+'</span>';
-    row.appendChild(info);
-    const btn=document.createElement('button');
-    btn.className='btn btn-xs '+(enabled?'btn-p':'btn-s');
-    btn.style.minWidth='50px';
-    btn.textContent=enabled?'✅ 启用':'❌ 禁用';
-    btn.onclick=function(){window._toggleCP(k);};
-    row.appendChild(btn);
-    cpList.appendChild(row);
-  });
-
-  // 控制按钮
-  const ctrlRow=document.createElement('div');
-  ctrlRow.style.cssText='margin-top:12px;text-align:center';
-  const allOff=document.createElement('button');
-  allOff.className='btn btn-xs btn-s';allOff.textContent='全部禁用';
-  allOff.onclick=function(){Object.keys(CP).forEach(function(k){G.disabledCPs.add(k);});render('settings');};
-  ctrlRow.appendChild(allOff);
-  const allOn=document.createElement('button');
-  allOn.className='btn btn-xs btn-p';allOn.textContent='全部启用';allOn.style.marginLeft='6px';
-  allOn.onclick=function(){G.disabledCPs.clear();render('settings');};
-  ctrlRow.appendChild(allOn);
-
-  // ✨ 主题选择器
   if(!G._theme)G._theme='dark';
-  const themeOpts=[
-    {id:'dark',n:'🌙 暗夜',d:'默认暗色主题'},
-    {id:'gold',n:'☀️ 金色',d:'暖色强调主题'},
-    {id:'witch',n:'💜 魔女',d:'紫色结界主题'},
-    {id:'light',n:'🌕 银月',d:'浅灰学院主题'},
-  ];
-  const themeRow=document.createElement('div');
-  themeRow.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';
-  themeOpts.forEach(function(t){
-    const btn=document.createElement('button');
-    btn.className='btn btn-xs '+(G._theme===t.id?'btn-p':'btn-s');
-    btn.textContent=t.n;
-    btn.title=t.d;
-    btn.onclick=function(){G._theme=t.id;_applyTheme(t.id);render('settings');};
-    themeRow.appendChild(btn);
+
+  // CP开关 — 全部 inline onclick
+  var cpHTML='';
+  Object.entries(CP).forEach(function(e){
+    var k=e[0],cp=e[1],en=!G.disabledCPs.has(k);
+    cpHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--card);border-radius:8px;margin:4px 0;border:1px solid '+(en?'#30363d':'#552222')+'">'+
+      '<div><span style="font-weight:bold">'+cp.e+' '+cp.n+'</span><span style="font-size:0.7em;color:var(--dim);margin-left:8px">'+cp.d+'</span></div>'+
+      '<button class="btn btn-xs '+(en?'btn-p':'btn-s')+'" style="min-width:50px" onclick="window._toggleCP(\''+k+'\')">'+(en?'✅ 启用':'❌ 禁用')+'</button>'+
+    '</div>';
   });
 
-  const backBtn='<button class="btn btn-s" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>';
+  // 主题选择 — inline onclick
+  var themeHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">';
+  [{id:'dark',n:'🌙 暗夜'},{id:'gold',n:'☀️ 金色'},{id:'witch',n:'💜 魔女'},{id:'light',n:'🌕 银月'}].forEach(function(t){
+    themeHTML+='<button class="btn btn-xs '+(G._theme===t.id?'btn-p':'btn-s')+'" onclick="window._applyTheme(\''+t.id+'\');render(\'settings\')">'+t.n+'</button>';
+  });
+  themeHTML+='</div>';
+
   app.innerHTML='<div style="text-align:center;padding:10px 0"><h1>⚙️ 设置</h1></div>'+
-    '<div class="panel fadein"><h3>🎨 界面主题</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 8px">选择你喜欢的配色方案，立即生效。</p>'+themeRow.outerHTML+'</div>'+
-    '<div class="panel fadein"><h3>💑 CP感情线开关</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>'+cpList.outerHTML+ctrlRow.outerHTML+'</div>'+backBtn;
+    '<div class="panel fadein"><h3>🎨 界面主题</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 8px">选择你喜欢的配色方案，立即生效。</p>'+themeHTML+'</div>'+
+    '<div class="panel fadein"><h3>💑 CP感情线开关</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>'+cpHTML+
+    '<div style="margin-top:12px;text-align:center">'+
+      '<button class="btn btn-xs btn-s" onclick="Object.keys(CP).forEach(function(k){G.disabledCPs.add(k)});render(\'settings\')">全部禁用</button> '+
+      '<button class="btn btn-xs btn-p" onclick="G.disabledCPs.clear();render(\'settings\')">全部启用</button>'+
+    '</div></div>'+
+    '<button class="btn btn-s" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>';
 }
 window._toggleCP=function(key){
   if(!G.disabledCPs)G.disabledCPs=new Set();
@@ -3965,6 +3938,7 @@ window._toggleCP=function(key){
 };
 // ✨ 全局主题切换
 function _applyTheme(themeId){
+window._applyTheme=_applyTheme;
   const root=document.documentElement;
   const themes={
     dark:{'--bg':'#0d1117','--panel':'#161b22','--border':'#e94560','--text':'#e6edf3','--dim':'#8b949e','--accent':'#e94560','--gold':'#f0c040','--green':'#3fb950','--blue':'#58a6ff','--purple':'#bc8cff','--card':'#1c2128','--hover':'#252d38'},
