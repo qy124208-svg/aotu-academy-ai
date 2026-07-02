@@ -216,17 +216,23 @@ function _initBridge(){
   // ═══ 12. Vec2 战斗增强 ═══
   if(typeof Vec2!=='undefined'){
     // hermite + catmullRom: 战斗画面偏移
-    // Vec2.hermite + catmullRom: 增强敌人出生轨迹（不碰battleLoop）
+    // Vec2.hermite + catmullRom: 敌人生成Hermite曲线控制点
     if(Vec2.hermite&&Vec2.catmullRom&&typeof spawnEnemy==='function'){
       var _origSpawn=spawnEnemy;
       spawnEnemy=function(n){
         _origSpawn(n);
-        // 给新敌人生成曲线路径偏移
         if(typeof enemies!=='undefined'){
           enemies.slice(-n).forEach(function(e){
             e._pathT=0;e._pathSpeed=0.001+Math.random()*0.003;
-            var pts=[new Vec2(e.x,e.y),new Vec2(e.x+rn(-80,80),e.y+rn(-60,60)),new Vec2(e.x+rn(-100,100),e.y+rn(-80,80)),new Vec2(e.x+rn(-50,50),e.y+rn(-40,40))];
-            e._hermitePts=pts;
+            // ✨ hermite: 计算平滑中间点作为控制点
+            var startPt=new Vec2(e.x,e.y);
+            var endPt=new Vec2(e.x+rn(-120,120),e.y+rn(-100,100));
+            var tan1=Vec2.random(40); // 随机切线
+            var tan2=Vec2.random(40);
+            var mid1=Vec2.hermite(startPt,tan1,endPt,tan2,0.33);
+            var mid2=Vec2.hermite(startPt,tan1,endPt,tan2,0.66);
+            // catmullRom 用这四个点做曲线
+            e._hermitePts=[startPt,mid1,mid2,endPt];
           });
         }
       };
