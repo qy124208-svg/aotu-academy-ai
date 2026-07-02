@@ -2876,28 +2876,49 @@ window._witchRespond=function(endingType){
   advanceSlot();
 };
 
-// ─── 主游戏 ───
+// ─── 主游戏框架 ✨ 组件化重构 ───
 function buildShell(content){
   const dl=G.maxDay-G.day;const pct=(G.day/G.maxDay)*100;
   const dn=getDayName(G.day);const dt=G.dayType;
   const dtTag=dt==='festival'?'🎪 特别日':dt==='weekend'?'🏖️ 周末':'📚 上课日';
   const hs=CH[G.homestay];const home=G.homeInfo||getHomeInfo(G.homestay);
-  const menuHTML=`<div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap;background:var(--card);border-radius:8px;padding:4px 6px;align-items:center">
-    <span style="font-size:0.65em;color:var(--dim);margin-right:4px">MENU</span>
-    <button class="btn btn-menu" onclick="window._nav('aff')" title="好感度">💕<span class="btxt">好感</span></button>
-    <button class="btn btn-menu" onclick="window._nav('cpview')" title="CP羁绊">💑<span class="btxt">CP</span></button>
-    <button class="btn btn-menu" onclick="window._nav('mem')" title="回忆相册">📸<span class="btxt">回忆</span></button>
-    <button class="btn btn-menu" onclick="window._nav('quest')" title="任务">📋<span class="btxt">任务</span></button>
-    <button class="btn btn-menu" onclick="window._nav('journal')" title="日记">📓<span class="btxt">日记</span></button>
-    <span style="color:#444;margin:0 2px">│</span>
-    <button class="btn btn-menu" id="aiToggleBtn" onclick="window._toggleAI()" title="AI对话开关" style="${AI_ENABLED_global?'border-color:var(--purple);color:var(--purple)':'opacity:0.4'}">🤖<span class="btxt">AI</span></button>
-    <button class="btn btn-menu" onclick="window._save()" title="快速存档">💾<span class="btxt">存档</span></button>
-    <button class="btn btn-menu" onclick="window._nav('load')" title="读取存档">📂<span class="btxt">读档</span></button>
-    <button class="btn btn-menu" onclick="window._nav('settings')" title="设置">⚙️</button>
-  </div>`;
-  return`<div class="cdbanner fadein"><div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div class="daynum" id="dayDisp">${dl}</div><div class="daylabel">DAYS LEFT</div></div><div style="text-align:right;font-size:0.7em;color:var(--dim)"><div>📅 Day ${G.day} / 100</div><div>${dn} · ${dtTag}</div>${home?`<div>🏠 ${home.isFamily?home.allEmoji+' '+home.displayName:hs.e+' '+hs.n+'家'}</div>`:''}<div style="color:var(--gold);font-size:0.85em;margin-top:2px">${G.mainChapter?`Ch.${G.mainChapter} ${MAIN_CHAPTERS['ch'+G.mainChapter]?.t||''}`:''}</div></div></div><div class="daysbar"><div class="daysfill" style="width:${pct}%"></div></div></div>
-<div class="statusbar fadein"><span style="font-size:0.6em;color:var(--dim);margin-right:2px">STATUS</span>${Object.entries(G.attr).map(([k,v])=>{const lb={INT:'📐学力',CHR:'💫魅力',STR:'💪体能',AFF:'💕亲和',SPR:'🧘精神'};const isSPR=k==='SPR';const sprWarn=v<=2;return`<div class="stat" title="${lb[k]}" style="${isSPR?'background:'+(sprWarn?'#3d1a1a':'#1a2e1a')+';border:1px solid '+(sprWarn?'var(--accent)':'var(--green)')+';padding:4px 10px;font-weight:bold':''}">${lb[k]} <s style="color:${sprWarn?'var(--accent)':isSPR?'var(--green)':'var(--gold)'};font-size:${isSPR?'1.1em':'1em'}">${v}</s>${isSPR?'<span style="font-size:0.55em;color:var(--dim);margin-left:2px">/10</span>':''}${sprWarn?' ⚠️':''}</div>`;}).join('')}<div class="stat" title="体力">🔋体力 <s>${G.energy}</s></div></div>
-<div style="display:flex;gap:4px;margin:4px 0;flex-wrap:wrap">${menuHTML}${content}`;
+
+  // ─── 菜单栏 (组件化) ───
+  var menuBar=document.createElement('div');
+  menuBar.style.cssText='display:flex;gap:3px;margin:4px 0;flex-wrap:wrap;background:var(--card);border-radius:8px;padding:4px 6px;align-items:center';
+  var span=document.createElement('span');span.style.cssText='font-size:0.65em;color:var(--dim);margin-right:4px';span.textContent='MENU';menuBar.appendChild(span);
+  var menuItems=[{h:'💕<span class="btxt">好感</span>',n:'aff',t:'好感度'},{h:'💑<span class="btxt">CP</span>',n:'cpview',t:'CP羁绊'},{h:'📸<span class="btxt">回忆</span>',n:'mem',t:'回忆相册'},{h:'📋<span class="btxt">任务</span>',n:'quest',t:'任务'},{h:'📓<span class="btxt">日记</span>',n:'journal',t:'日记'}];
+  menuItems.forEach(function(item){var btn=document.createElement('button');btn.className='btn btn-menu';btn.title=item.t;btn.innerHTML=item.h;btn.onclick=function(){window._nav(item.n);};menuBar.appendChild(btn);});
+  var sep=document.createElement('span');sep.style.cssText='color:#444;margin:0 2px';sep.textContent='│';menuBar.appendChild(sep);
+  var aiBtn=document.createElement('button');aiBtn.id='aiToggleBtn';aiBtn.className='btn btn-menu';aiBtn.innerHTML='🤖<span class="btxt">AI</span>';aiBtn.style.cssText=AI_ENABLED_global?'border-color:var(--purple);color:var(--purple)':'opacity:0.4';aiBtn.onclick=function(){window._toggleAI();};menuBar.appendChild(aiBtn);
+  var utilBtns=[{h:'💾<span class="btxt">存档</span>',f:function(){window._save();}},{h:'📂<span class="btxt">读档</span>',f:function(){window._nav('load');}},{h:'⚙️',f:function(){window._nav('settings');}}];
+  utilBtns.forEach(function(item){var btn=document.createElement('button');btn.className='btn btn-menu';btn.innerHTML=item.h;btn.onclick=item.f;menuBar.appendChild(btn);});
+
+  // ─── 状态栏 (组件化) ───
+  var statusBar=document.createElement('div');statusBar.className='statusbar fadein';
+  var sspan=document.createElement('span');sspan.style.cssText='font-size:0.6em;color:var(--dim);margin-right:2px';sspan.textContent='STATUS';statusBar.appendChild(sspan);
+  var attrLabels={INT:'📐学力',CHR:'💫魅力',STR:'💪体能',AFF:'💕亲和',SPR:'🧘精神'};
+  Object.entries(G.attr).forEach(function(e){var k=e[0],v=e[1];var isSPR=k==='SPR';var sprWarn=v<=2;var stat=document.createElement('div');stat.className='stat';stat.title=attrLabels[k];stat.style.cssText=isSPR?'background:'+(sprWarn?'#3d1a1a':'#1a2e1a')+';border:1px solid '+(sprWarn?'var(--accent)':'var(--green)')+';padding:4px 10px;font-weight:bold':'';stat.innerHTML=attrLabels[k]+' <s style="color:'+(sprWarn?'var(--accent)':isSPR?'var(--green)':'var(--gold)')+';font-size:'+(isSPR?'1.1em':'1em')+'">'+v+'</s>'+(isSPR?'<span style="font-size:0.55em;color:var(--dim);margin-left:2px">/10</span>':'')+(sprWarn?' ⚠️':'');statusBar.appendChild(stat);});
+  var estat=document.createElement('div');estat.className='stat';estat.title='体力';estat.innerHTML='🔋体力 <s>'+G.energy+'</s>';statusBar.appendChild(estat);
+
+  var menuHTML=menuBar.outerHTML;
+  var statusHTML=statusBar.outerHTML;
+
+  // 组装返回 HTML (使用字符串拼接避免模板字面量转义问题)
+  var html='';
+  html+='<div class="cdbanner fadein">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-end">';
+  html+='<div><div class="daynum" id="dayDisp">'+dl+'</div><div class="daylabel">DAYS LEFT</div></div>';
+  html+='<div style="text-align:right;font-size:0.7em;color:var(--dim)">';
+  html+='<div>Day '+G.day+' / 100</div><div>'+dn+' · '+dtTag+'</div>';
+  if(home)html+='<div> '+(home.isFamily?home.allEmoji+' '+home.displayName:hs.e+' '+hs.n+'家')+'</div>';
+  html+='<div style="color:var(--gold);font-size:0.85em;margin-top:2px">'+(G.mainChapter?'Ch.'+G.mainChapter+' '+(MAIN_CHAPTERS['ch'+G.mainChapter]?.t||''):'')+'</div>';
+  html+='</div></div>';
+  html+='<div class="daysbar"><div class="daysfill" style="width:'+pct+'%"></div></div>';
+  html+='</div>\n';
+  html+=statusHTML+'\n';
+  html+='<div style="display:flex;gap:4px;margin:4px 0;flex-wrap:wrap">'+menuHTML+content;
+  return html;
 }
 window._nav=function(p){
   // 保存当前事件状态，以便返回时恢复
@@ -3628,22 +3649,39 @@ function rCP(app){
 }
 function rSettings(app){
   if(!G.disabledCPs)G.disabledCPs=new Set();
-  const cpToggles=Object.entries(CP).map(([k,cp])=>{
-    const enabled=!G.disabledCPs.has(k);
-    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--card);border-radius:8px;margin:4px 0;border:1px solid ${enabled?'#30363d':'#552222'}">
-      <div><span style="font-weight:bold">${cp.e} ${cp.n}</span><span style="font-size:0.7em;color:var(--dim);margin-left:8px">${cp.d}</span></div>
-      <button class="btn btn-xs ${enabled?'btn-p':'btn-s'}" onclick="window._toggleCP('${k}')" style="min-width:50px">${enabled?'✅ 启用':'❌ 禁用'}</button>
-    </div>`;
-  }).join('');
-  app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>⚙️ 设置</h1></div><div class="panel fadein">
-    <h3>💑 CP感情线开关</h3>
-    <p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>
-    ${cpToggles}
-    <div style="margin-top:12px;text-align:center">
-      <button class="btn btn-xs btn-s" onclick="Object.keys(CP).forEach(k=>G.disabledCPs.add(k));render('settings')">全部禁用</button>
-      <button class="btn btn-xs btn-p" onclick="G.disabledCPs.clear();render('settings')" style="margin-left:6px">全部启用</button>
-    </div>
-  </div><button class="btn btn-s" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>`;
+
+  // ✨ DOM 组件化: CP开关列表
+  const cpList=document.createElement('div');
+  Object.entries(CP).forEach(function(e){
+    const k=e[0],cp=e[1];const enabled=!G.disabledCPs.has(k);
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--card);border-radius:8px;margin:4px 0;border:1px solid '+(enabled?'#30363d':'#552222');
+    const info=document.createElement('div');
+    info.innerHTML='<span style="font-weight:bold">'+cp.e+' '+cp.n+'</span><span style="font-size:0.7em;color:var(--dim);margin-left:8px">'+cp.d+'</span>';
+    row.appendChild(info);
+    const btn=document.createElement('button');
+    btn.className='btn btn-xs '+(enabled?'btn-p':'btn-s');
+    btn.style.minWidth='50px';
+    btn.textContent=enabled?'✅ 启用':'❌ 禁用';
+    btn.onclick=function(){window._toggleCP(k);};
+    row.appendChild(btn);
+    cpList.appendChild(row);
+  });
+
+  // 控制按钮
+  const ctrlRow=document.createElement('div');
+  ctrlRow.style.cssText='margin-top:12px;text-align:center';
+  const allOff=document.createElement('button');
+  allOff.className='btn btn-xs btn-s';allOff.textContent='全部禁用';
+  allOff.onclick=function(){Object.keys(CP).forEach(function(k){G.disabledCPs.add(k);});render('settings');};
+  ctrlRow.appendChild(allOff);
+  const allOn=document.createElement('button');
+  allOn.className='btn btn-xs btn-p';allOn.textContent='全部启用';allOn.style.marginLeft='6px';
+  allOn.onclick=function(){G.disabledCPs.clear();render('settings');};
+  ctrlRow.appendChild(allOn);
+
+  const backBtn='<button class="btn btn-s" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>';
+  app.innerHTML='<div style="text-align:center;padding:10px 0"><h1>⚙️ 设置</h1></div><div class="panel fadein"><h3>💑 CP感情线开关</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>'+cpList.outerHTML+ctrlRow.outerHTML+'</div>'+backBtn;
 }
 window._toggleCP=function(key){
   if(!G.disabledCPs)G.disabledCPs=new Set();
@@ -4063,13 +4101,15 @@ function spawnEnemy(n){
   }
 }
 
-const battleKeys={};
-function battleKeyDown(e){battleKeys[e.key.toLowerCase()]=true;e.preventDefault();}
-function battleKeyUp(e){battleKeys[e.key.toLowerCase()]=false;e.preventDefault();}
+// ✨ 战斗输入 - 使用 engine/input.js Keyboard + Mouse
+function battleKeyDown(e){if(typeof Keyboard!=='undefined')Keyboard._onKeyDown(e);else{battleLegacyKeys[e.key.toLowerCase()]=true;}e.preventDefault();}
+function battleKeyUp(e){if(typeof Keyboard!=='undefined')Keyboard._onKeyUp(e);else{battleLegacyKeys[e.key.toLowerCase()]=false;}e.preventDefault();}
+const battleLegacyKeys={}; // 回退兼容
 function battleMouseMove(e){
   if(!player)return;
   const r=e.target.getBoundingClientRect();
   player.mx=e.clientX-r.x;player.my=e.clientY-r.y;
+  if(typeof Mouse!=='undefined'){Mouse._pos.x=e.clientX;Mouse._pos.y=e.clientY;}
 }
 function battleClick(e){
   if(!player||player.silence>0||player.shootCD>0)return;
@@ -4136,14 +4176,17 @@ function battleLoop(){
   if(battleTime<=30&&battleWave===3)spawnWave();
   if(battleTime<=15&&battleWave===4)spawnWave();
 
-  // ✨ 更新引擎系统
+  // ✨ 轮询输入 + 更新引擎系统
+  if(typeof Keyboard!=='undefined')Keyboard.poll();
+  if(typeof Mouse!=='undefined')Mouse.poll();
   battleParticleSys.update(dtMs);
   battleShake.update();
   battlePlayerCooldown.update(dtMs);
   battleFloatTexts.forEach(ft=>ft.update());
   battleFloatTexts=battleFloatTexts.filter(ft=>ft.alive);
 
-  // Player movement
+  // Player movement ✨ 使用 Keyboard 轮询 (回退到 battleLegacyKeys)
+  const kDown=function(k){return (typeof Keyboard!=='undefined'?Keyboard.keyDown(k):battleLegacyKeys[k]===true);};
   if(battleIsMobile){
     // 虚拟摇杆移动（360度模拟）
     if(battleJoystick.active){
@@ -4156,18 +4199,18 @@ function battleLoop(){
     }else{player.vx*=0.8;player.vy*=0.8;}
   }else{
     if(!player.reverse||player.reverse<=0){
-      if(battleKeys['w']||battleKeys['arrowup'])player.vy=-player.spd;
-      else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=player.spd;
+      if(kDown('w')||kDown('arrowup'))player.vy=-player.spd;
+      else if(kDown('s')||kDown('arrowdown'))player.vy=player.spd;
       else player.vy*=0.8;
-      if(battleKeys['a']||battleKeys['arrowleft'])player.vx=-player.spd;
-      else if(battleKeys['d']||battleKeys['arrowright'])player.vx=player.spd;
+      if(kDown('a')||kDown('arrowleft'))player.vx=-player.spd;
+      else if(kDown('d')||kDown('arrowright'))player.vx=player.spd;
       else player.vx*=0.8;
     }else{
-      if(battleKeys['w']||battleKeys['arrowup'])player.vy=player.spd;
-      else if(battleKeys['s']||battleKeys['arrowdown'])player.vy=-player.spd;
+      if(kDown('w')||kDown('arrowup'))player.vy=player.spd;
+      else if(kDown('s')||kDown('arrowdown'))player.vy=-player.spd;
       else player.vy*=0.8;
-      if(battleKeys['a']||battleKeys['arrowleft'])player.vx=player.spd;
-      else if(battleKeys['d']||battleKeys['arrowright'])player.vx=-player.spd;
+      if(kDown('a')||kDown('arrowleft'))player.vx=player.spd;
+      else if(kDown('d')||kDown('arrowright'))player.vx=-player.spd;
       else player.vx*=0.8;
     }
   }
@@ -4222,9 +4265,17 @@ function battleLoop(){
       }
     }
     const target=e._target||player;
-    // Movement toward target
+    // Movement toward target ✨ Vec2 优化
     const a=Math.atan2(target.y-e.y,target.x-e.x);
-    if(e._dash>0){e._dash--;}else{e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
+    if(e._dash>0){e._dash--;}else{
+      // 使用 Vec2 计算移动方向 (如果可用)
+      if(typeof Vec2!=='undefined'){
+        const dir=Vec2.fromAngle(a*180/Math.PI,e.spd);
+        e.vx=dir.x;e.vy=dir.y;
+      }else{
+        e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;
+      }
+    }
     if(e._buff>0)e._buff--;
     if(e.slow>0)e.slow--;
     if(e.silence>0)e.silence--;
