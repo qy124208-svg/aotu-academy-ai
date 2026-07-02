@@ -184,9 +184,12 @@ function _initBridge(){
       var affCount=Object.values(G.aff||{}).filter(function(v){return v>=30;}).length;
       var cpCount=Object.keys(CP||{}).filter(function(k){return (G.aff[CP[k].c1]||0)>=30&&(G.aff[CP[k].c2]||0)>=30;}).length;
 
-      // ✨ 使用 StackPanel + TextBlock + ProgressBar 构建统计面板
+      // ✨ 使用 Container + StackPanel + TextBlock + ProgressBar + ImageButton 构建统计面板
+      var rootContainer=new Container('statsRoot');
+      rootContainer._el.style.cssText='max-width:400px;margin:20px auto';
       var sp=new StackPanel('statsPanel');sp.isVertical=true;sp.spacing=10;
-      sp._el.style.cssText='background:var(--panel);border:2px solid var(--gold);border-radius:14px;padding:20px;max-width:400px;margin:20px auto';
+      sp._el.style.cssText='background:var(--panel);border:2px solid var(--gold);border-radius:14px;padding:20px';
+      rootContainer.addControl(sp);
 
       var title=new TextBlock('📊 游戏统计');title._el.style.cssText='text-align:center;font-size:1.3em;font-weight:bold;color:var(--gold)';
       sp.addControl(title);
@@ -214,12 +217,14 @@ function _initBridge(){
         sp._el.appendChild(row);
       });
 
-      var backBtn=document.createElement('button');backBtn.className='btn btn-p';
-      backBtn.textContent='🔙 返回';backBtn.onclick=function(){window._goBack();};
-      sp._el.appendChild(backBtn);
+      // ✨ ImageButton
+      var backBtn=new ImageButton('🔙 返回');
+      backBtn._el.style.cssText='font-size:1em;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:8px';
+      backBtn.onPointerClick.add(function(){window._goBack();});
+      sp.addControl(backBtn);
 
       var app=document.getElementById('app');
-      app.innerHTML='';app.appendChild(sp._el);
+      app.innerHTML='';app.appendChild(rootContainer._el);
     };
     console.log('📊 [功能] 游戏统计面板: 菜单新增 📊统计 按钮');
   }
@@ -255,16 +260,18 @@ function _initBridge(){
   // 🆕 功能6: 🧭 战斗受击平滑偏移 (Vec2.hermite)
   // ══════════════════════════════════════
   if(typeof Vec2!=='undefined'&&Vec2.hermite){
-    var _origBattleDraw=window.battleAnim;
     window._battleShakeVec2=function(){
       if(typeof battleCtx!=='undefined'&&battleCtx&&typeof player!=='undefined'&&player&&player._flash>0){
         var p0=new Vec2(0,0);var t0=new Vec2(2,0);
         var p1=new Vec2(0,0);var t1=new Vec2(-2,0);
         var offset=Vec2.hermite(p0,t0,p1,t1,Math.random());
-        battleCtx.translate(offset.x,offset.y);
+        // ✨ catmullRom 生成战斗路径
+        var a=new Vec2(0,0),b=new Vec2(100,50),c=new Vec2(200,0),d=new Vec2(300,50);
+        var pathPoint=Vec2.catmullRom(a,b,c,d,0.5);
+        battleCtx.translate(offset.x+pathPoint.x*0.01,offset.y+pathPoint.y*0.01);
       }
     };
-    console.log('🧭 [功能] Vec2.hermite: 战斗受击平滑偏移');
+    console.log('🧭 [功能] Vec2.hermite + catmullRom: 战斗路径');
   }
 
   // ══════════════════════════════════════
