@@ -2420,37 +2420,67 @@ function _startTitleParticles(){
   const ctx=canvas.getContext('2d');
   const W=canvas.width,H=canvas.height;
 
-  // ✨ 彩色流星 + 星空背景
   if(!_titleParticles)_titleParticles=[];
   _titleParticles.length=0;
 
-  // 星空背景 — 200颗静态小星星
+  // ✨ 深空星空背景
+  // 500颗星星 — 大小/亮度/闪烁周期各不同
   var stars=[];
-  for(var si=0;si<200;si++){
-    stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.3,b:Math.random()*0.5+0.3});
+  for(var si=0;si<500;si++){
+    var bright=Math.random()<0.02?'bright':Math.random()<0.08?'medium':'dim'; // 2%亮星 8%中亮 90%暗星
+    stars.push({
+      x:Math.random()*W, y:Math.random()*H,
+      r: bright==='bright'?Math.random()*2+1.5 : bright==='medium'?Math.random()*1.2+0.5 : Math.random()*0.6+0.2,
+      baseAlpha: bright==='bright'?Math.random()*0.4+0.6 : bright==='medium'?Math.random()*0.3+0.4 : Math.random()*0.2+0.15,
+      twinkleSpeed: Math.random()*0.02+0.005,
+      twinkleOffset: Math.random()*Math.PI*2,
+      hue: Math.random()<0.1?Math.random()*60+30 : 0, // 10% 暖色星
+    });
   }
 
-  // 流星 — 25条彩色流星
-  var meteorColors=['#e94560','#f0c040','#bc8cff','#58a6ff','#3fb950','#ff6b9d','#00e5ff','#ff9100','#ea80fc','#69f0ae'];
-  for(var mi=0;mi<25;mi++){
-    _titleParticles.push(_newMeteor(W,H,meteorColors));
+  // ✨ 星云光晕 — 4个虚化光斑
+  var nebulaColors=['rgba(188,140,255,','rgba(88,166,255,','rgba(240,192,64,','rgba(233,69,96,'];
+  var nebulae=[];
+  for(var ni=0;ni<4;ni++){
+    nebulae.push({
+      x:Math.random()*W, y:Math.random()*H,
+      r:Math.random()*200+100,
+      alpha:Math.random()*0.03+0.015,
+      color:nebulaColors[ni],
+    });
+  }
+
+  // HSL→RGB 转换函数
+  function _hslToRgb(h,s,l){var r,g,b;h/=360;s/=100;l/=100;if(s===0){r=g=b=l;}else{var hue2rgb=function(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};var q=l<0.5?l*(1+s):l+s-l*s;var p=2*l-q;r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);}return[Math.round(r*255),Math.round(g*255),Math.round(b*255)];}
+
+  // 流星颜色 — 120色 (全色域均匀采样)
+  var meteorColors=[];
+  for(var ci=0;ci<120;ci++){
+    var rgb=_hslToRgb(ci*3,100,65);
+    meteorColors.push('#'+rgb[0].toString(16).padStart(2,'0')+rgb[1].toString(16).padStart(2,'0')+rgb[2].toString(16).padStart(2,'0'));
+  }
+  meteorColors.push('#ffffff','#ffeebb','#ffd700','#fff0c0');
+  // 流星 — 10条
+  for(var mi=0;mi<10;mi++){
+    var m=_newMeteor(W,H,meteorColors);
+    m.life=0; // 初始隐藏，随机延迟后出现
+    m.delay=Math.random()*300+50;
+    _titleParticles.push(m);
   }
 
   function _newMeteor(w,h,colors){
-    var angle=Math.random()*Math.PI*0.6+Math.PI*0.7; // 左下→右上 为主方向
-    var speed=Math.random()*4+2;
+    var angle=Math.random()*0.8+1.2; // 主要方向：右下→左上 (弧度1.2~2.0)
+    var speed=Math.random()*3+2;
     return {
-      x:Math.random()*w*1.2-w*0.1,
-      y:Math.random()*h*0.6+h*0.4,
-      vx:Math.cos(angle)*speed,
+      x:Math.random()*w*0.8+w*0.1,
+      y:Math.random()*h*0.9+h*0.05,
+      vx:-Math.cos(angle)*speed,
       vy:-Math.sin(angle)*speed,
-      len:Math.random()*80+40,      // 尾巴长度
-      life:Math.random()*200+80,
-      maxLife:0,
+      len:Math.random()*100+50,
+      life:0, maxLife:0, delay:0,
       color:colors[Math.floor(Math.random()*colors.length)],
       size:Math.random()*2+1,
-      // 大流星概率 15%
-      big:Math.random()<0.15,
+      bright:Math.random()<0.2,
     };
   }
 
@@ -2458,57 +2488,70 @@ function _startTitleParticles(){
     if(_titleCanvas!==canvas)return;
     ctx.clearRect(0,0,W,H);
 
-    // 星空
+    // 🌌 星云光晕
+    nebulae.forEach(function(n){
+      var grad=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
+      grad.addColorStop(0,n.color+n.alpha+')');
+      grad.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grad;
+      ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill();
+    });
+
+    // ⭐ 星星 — 独立闪烁
+    var t=Date.now()*0.001;
     stars.forEach(function(s){
-      s.b+=Math.sin(Date.now()*0.001+s.x)*0.003;
-      s.b=Math.max(0.2,Math.min(0.8,s.b));
-      ctx.fillStyle='rgba(255,255,255,'+s.b+')';
+      var flicker=Math.sin(t*s.twinkleSpeed+s.twinkleOffset)*0.3;
+      var a=Math.max(0.05,s.baseAlpha+flicker);
+      // 亮星加光晕
+      if(s.baseAlpha>0.5){
+        ctx.fillStyle='rgba(255,255,'+(255-s.hue)+','+(a*0.1)+')';
+        ctx.beginPath();ctx.arc(s.x,s.y,s.r*3,0,Math.PI*2);ctx.fill();
+      }
+      // 星点本体
+      var starColor=s.hue>0?'rgba(255,255,'+(200-s.hue)+','+a+')':'rgba(255,255,255,'+a+')';
+      ctx.fillStyle=starColor;
       ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
     });
 
-    // 流星
+    // ☄️ 流星
     _titleParticles.forEach(function(p){
+      if(p.delay>0){p.delay--;return;} // 延迟出现
       p.x+=p.vx;p.y+=p.vy;p.life--;
       if(!p.maxLife)p.maxLife=p.life;
-      if(p.life<=0||p.y<-120||p.x>W+120||p.x<-120){
+
+      // 消失后重新生成 — 随机间隔
+      if(p.life<=0||p.y<-120||p.x>W+120||p.x<-120||p.y>H+120){
         var n=_newMeteor(W,H,meteorColors);
-        p.x=n.x;p.y=n.y;p.vx=n.vx;p.vy=n.vy;p.len=n.len;
-        p.life=n.life;p.maxLife=0;p.color=n.color;p.size=n.size;p.big=n.big;
+        Object.assign(p,n);
+        p.delay=Math.random()*400+100; // 1-5秒后再出现
+        return;
       }
 
-      var progress=1-(p.life/p.maxLife); // 0→1
-      var alpha=progress<0.1?progress*10:progress>0.8?(1-progress)*5:1;
+      var progress=1-(p.life/p.maxLife);
+      var alpha=progress<0.08?progress*12.5 : progress>0.85?(1-progress)*6.7 : 1;
 
-      // 流星尾巴 — 渐变线条
-      var tailLen=p.len*(p.big?1.5:1);
+      var tailLen=p.len*(p.bright?1.6:1);
       var tailX=p.x-p.vx*tailLen;
       var tailY=p.y-p.vy*tailLen;
 
-      // hex → rgba 转换
       var hc=p.color;
-      var r=parseInt(hc.slice(1,3),16),g=parseInt(hc.slice(3,5),16),b=parseInt(hc.slice(5,7),16);
+      var cr=parseInt(hc.slice(1,3),16),cg=parseInt(hc.slice(3,5),16),cb=parseInt(hc.slice(5,7),16);
       var grad=ctx.createLinearGradient(p.x,p.y,tailX,tailY);
       grad.addColorStop(0,'rgba(255,255,255,'+alpha+')');
-      grad.addColorStop(0.15,'rgba('+r+','+g+','+b+','+alpha+')');
+      grad.addColorStop(0.1,'rgba('+cr+','+cg+','+cb+','+(alpha*0.9)+')');
       grad.addColorStop(1,'rgba(0,0,0,0)');
 
       ctx.strokeStyle=grad;
-      ctx.lineWidth=p.size*(p.big?2.5:1);
+      ctx.lineWidth=p.size*(p.bright?3:1);
       ctx.lineCap='round';
       ctx.beginPath();
       ctx.moveTo(p.x,p.y);
       ctx.lineTo(tailX,tailY);
       ctx.stroke();
 
-      // 大流星加光晕
-      if(p.big){
-        ctx.fillStyle='rgba(255,255,255,'+(alpha*0.3)+')';
-        ctx.beginPath();ctx.arc(p.x,p.y,p.size*4,0,Math.PI*2);ctx.fill();
-      }
-
-      // 头部亮点
+      // 流星头部光点
       ctx.fillStyle='rgba(255,255,255,'+alpha+')';
-      ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.big?2:1),0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.bright?2.5:1.5),0,Math.PI*2);ctx.fill();
     });
 
     ctx.globalAlpha=1;
