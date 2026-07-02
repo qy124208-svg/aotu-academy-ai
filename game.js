@@ -3774,60 +3774,45 @@ function renderFB(app,fb){
 function rAff(app){
   const sorted=Object.entries(G.aff).filter(([id])=>CH[id]).sort((a,b)=>b[1]-a[1]);
   const maxAff=sorted.length>0?sorted[0][1]:0;
-
-  // ✨ 组件化好感度卡片
-  const grid=document.createElement('div');
-  grid.className='affgrid';
+  var html='<div style="text-align:center;padding:10px 0"><h1 style="font-size:1.4em">💕 好感度</h1><div style="color:var(--dim);font-size:0.75em">最高: '+maxAff+' · 学生上限999 · 教师上限60</div></div><div class="panel fadein"><div class="affgrid">';
 
   sorted.forEach(function(e,idx){
-    const id=e[0],val=e[1];const c=CH[id];
-    const isTeacher=c&&c.c==='教师';
-    // 阶段颜色
-    const stClr=val>=200?'#e040fb':val>=150?'#bc8cff':val>=100?'#e94560':val>=70?'#f0c040':val>=50?'#81c784':val>=30?'#58a6ff':'#666';
-    const stName=stageName(val);
-    // 渐变色
-    const gradClr=val>=100?'linear-gradient(135deg,#e94560,#e040fb)':val>=70?'linear-gradient(135deg,#e94560,#f0c040)':val>=30?'linear-gradient(135deg,#3fb950,#58a6ff)':'#444';
-    // 发光
-    const glow=val>=100?'box-shadow:0 0 15px '+(c?c.clr:'#e94560')+';border-color:'+(c?c.clr:'#e94560'):val>=70?'box-shadow:0 0 8px rgba(240,192,64,0.3);border-color:#f0c040':'';
+    var id=e[0],val=e[1];var c=CH[id];if(!c)return;
+    var isTeacher=c.c==='教师';
+    var stClr=val>=200?'#e040fb':val>=150?'#bc8cff':val>=100?'#e94560':val>=70?'#f0c040':val>=50?'#81c784':val>=30?'#58a6ff':'#666';
+    var stName=stageName(val);
+    var gradClr=val>=100?'#e94560,#e040fb':val>=70?'#e94560,#f0c040':val>=30?'#3fb950,#58a6ff':'#444,#666';
+    var glow=val>=100?'box-shadow:0 0 18px '+(c.clr||'#e94560')+';border-color:'+(c.clr||'#e94560'):val>=70?'box-shadow:0 0 10px rgba(240,192,64,0.4);border-color:#f0c040':'';
+    var tintBg=val>=150?'background:linear-gradient(135deg,'+(c.clr||'#e040fb')+'10, var(--card)) !important':val>=100?'background:linear-gradient(135deg,'+(c.clr||'#e94560')+'08, var(--card)) !important':'';
+    var emojiPulse=val>=200?'animation:pulse 0.8s infinite':val>=150?'animation:pulse 1.5s infinite':'';
+    var rank='';if(idx===0)rank='🥇';else if(idx===1)rank='🥈';else if(idx===2)rank='🥉';
+    var dispVal=isTeacher?Math.min(val,60):Math.min(val,999);
+    var pctVal=isTeacher?Math.min(100,(val/60)*100):Math.min(100,val>=300?100:(val/300)*100);
+    var barGlow=val>=100?'box-shadow:0 0 6px '+stClr:'';
 
-    const card=document.createElement('div');
-    card.className='affcard fadein';
-    card.style.cssText='background:var(--card);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;border:2px solid '+(val>=30?'#444':'#30363d')+';'+glow+';animation-delay:'+(idx*0.03)+'s';
-
-    const emoji=document.createElement('span');
-    emoji.style.cssText='font-size:1.5em;flex-shrink:0;width:36px;text-align:center;'+(val>=150?'animation:pulse 1s infinite':'');
-    emoji.textContent=c?c.e:'?';
-    card.appendChild(emoji);
-
-    const info=document.createElement('div');
-    info.style.cssText='flex:1;min-width:0';
-    const nameDiv=document.createElement('div');
-    nameDiv.style.cssText='font-size:0.85em;font-weight:bold;display:flex;align-items:center;gap:4px';
-    nameDiv.innerHTML='<span style="color:'+(c?c.clr:'#fff')+'">'+(c?c.n:'?')+'</span><span style="font-size:0.65em;color:var(--dim)">'+(c?c.c:'')+'</span>'+(isTeacher?'<span style="font-size:0.55em;background:#444;color:var(--gold);padding:1px 6px;border-radius:6px">师生</span>':'');
-    info.appendChild(nameDiv);
-
-    // ✨ 渐变进度条
-    const barOuter=document.createElement('div');
-    barOuter.style.cssText='height:6px;background:#222;border-radius:3px;margin-top:4px;overflow:hidden';
-    const barInner=document.createElement('div');
-    const displayVal=isTeacher?Math.min(val,60):Math.min(val,999);
-    const pctVal=isTeacher?Math.min(100,(val/60)*100):Math.min(100,val>=300?100:(val/300)*100);
-    barInner.style.cssText='height:100%;width:'+pctVal+'%;background:'+gradClr+';border-radius:3px;transition:width 0.6s ease';
-    barOuter.appendChild(barInner);
-    info.appendChild(barOuter);
-
-    // 阶段标签
-    const stageDiv=document.createElement('div');
-    stageDiv.style.cssText='font-size:0.7em;color:'+stClr+';margin-top:3px;display:flex;justify-content:space-between';
-    stageDiv.innerHTML='<span>'+stName+'</span><span style="font-weight:bold">'+val+'</span>';
-    info.appendChild(stageDiv);
-
-    card.appendChild(info);
-    grid.appendChild(card);
+    html+='<div class="affcard fadein" style="border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;border:2px solid '+(val>=30?'#444':'#30363d')+';'+glow+tintBg+'animation-delay:'+(idx*0.04)+'s">'+
+      '<div style="position:relative;flex-shrink:0;width:42px;text-align:center">'+
+        '<span style="font-size:1.8em;'+emojiPulse+'">'+c.e+'</span>'+
+        (rank?'<span style="position:absolute;top:-10px;right:-10px;font-size:0.8em">'+rank+'</span>':'')+
+      '</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:0.9em;font-weight:bold;display:flex;align-items:center;gap:4px">'+
+          '<span style="color:'+(c.clr||'#fff')+'">'+c.n+'</span>'+
+          '<span style="font-size:0.65em;color:var(--dim)">'+c.c+'</span>'+
+          (isTeacher?'<span style="font-size:0.55em;background:#444;color:var(--gold);padding:1px 6px;border-radius:6px">师生</span>':'')+
+        '</div>'+
+        '<div style="height:8px;background:#222;border-radius:4px;margin-top:5px;overflow:hidden">'+
+          '<div style="height:100%;width:'+pctVal+'%;background:linear-gradient(90deg,'+gradClr+');border-radius:4px;'+barGlow+';transition:width 0.8s ease"></div>'+
+        '</div>'+
+        '<div style="font-size:0.7em;color:'+stClr+';margin-top:4px;display:flex;justify-content:space-between">'+
+          '<span>'+stName+'</span><span style="font-weight:bold">'+val+'</span>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
   });
 
-  const backBtn='<button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:10px auto">🔙 返回</button>';
-  app.innerHTML='<div style="text-align:center;padding:10px 0"><h1 style="font-size:1.4em">💕 好感度</h1><div style="color:var(--dim);font-size:0.75em">最高: '+maxAff+' · 学生上限999 · 教师上限60</div></div><div class="panel fadein">'+grid.outerHTML+'</div>'+backBtn;
+  html+='</div></div><button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:10px auto">🔙 返回</button>';
+  app.innerHTML=html;
 }
 function rCP(app){
   app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>💑 CP羁绊</h1></div><div class="panel fadein">
