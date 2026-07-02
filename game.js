@@ -4710,15 +4710,20 @@ function battleLoop(){
     const target=e._target||player;
     if(e._dash>0){e._dash--;}else{
       const a=Math.atan2(target.y-e.y,target.x-e.x);
-      // ✨ Vec2 曲线路径 — hermite控制点 + catmullRom实时计算
-      if(typeof Vec2!=='undefined'&&Vec2.catmullRom&&e._hermitePts&&e._hermitePts.length===4){
+      // ✨ Vec2 每帧：catmullRom曲线位置 + hermite速度平滑
+      if(typeof Vec2!=='undefined'&&Vec2.catmullRom&&Vec2.hermite&&e._hermitePts&&e._hermitePts.length===4){
         e._pathT=(e._pathT||0)+(e._pathSpeed||0.002);
         if(e._pathT>1)e._pathT-=1;
         var cp=Vec2.catmullRom(e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
         if(cp&&isFinite(cp.x)&&isFinite(cp.y)){
           var cv=new Vec2(cp.x-e.x,cp.y-e.y);cv.length=e.spd*0.7;
           var tv=Vec2.fromAngle(a*180/Math.PI,e.spd*0.3);
-          e.vx=cv.x+tv.x;e.vy=cv.y+tv.y;
+          // hermite平滑速度过渡：从当前速度→目标速度
+          var curVel=new Vec2(e.vx,e.vy);
+          var targetVel=new Vec2(cv.x+tv.x,cv.y+tv.y);
+          var smoothVel=Vec2.hermite(curVel,new Vec2(0,0),targetVel,new Vec2(0,0),0.3);
+          if(smoothVel&&isFinite(smoothVel.x)){e.vx=smoothVel.x;e.vy=smoothVel.y;}
+          else{e.vx=targetVel.x;e.vy=targetVel.y;}
         }else{e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
       }else if(typeof Vec2!=='undefined'){
         const dir=Vec2.fromAngle(a*180/Math.PI,e.spd);
