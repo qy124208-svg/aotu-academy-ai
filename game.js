@@ -4876,6 +4876,50 @@ function renderBattleResult(){
 document.addEventListener('touchstart',function(){},{passive:true});
 
 // ─── 启动 ───
+// ═══════════════════════════════════════════
+//  引擎功能启动 — 快捷键 + Toast增强 + 主题
+// ═══════════════════════════════════════════
+
+// ⌨️ 全局快捷键 (使用 engine/input.js Keyboard)
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(e.ctrlKey||e.metaKey)return;
+  switch(e.key.toLowerCase()){
+    case 'a':if(G.phase==='play'){e.preventDefault();window._nav('aff');}break;
+    case 'c':if(G.phase==='play'){e.preventDefault();window._nav('cpview');}break;
+    case 'm':if(G.phase==='play'){e.preventDefault();window._nav('mem');}break;
+    case 'q':if(G.phase==='play'){e.preventDefault();window._nav('quest');}break;
+    case 'j':if(G.phase==='play'){e.preventDefault();window._nav('journal');}break;
+    case 's':if(G.phase==='play'&&!e.shiftKey){e.preventDefault();window._save();}break;
+    case 'l':if(G.phase==='play'&&!e.shiftKey){e.preventDefault();window._nav('load');}break;
+    case 'escape':if(G.phase!=='play'){e.preventDefault();window._goBack();}break;
+    case ' ':if(G.phase==='play'&&curEv){e.preventDefault();window._adv();}break;
+  }
+});
+
+// 🎨 Toast 使用 Style/Theme 增强 — 替换原有 showToastMsg
+var _origToastMsg=showToastMsg;
+showToastMsg=function(msg,type){
+  var theme=G._theme||'dark';
+  var colors={dark:{bg:'rgba(22,27,34,0.95)',border:'#f0c040'},
+              gold:{bg:'rgba(40,38,14,0.95)',border:'#ffd700'},
+              witch:{bg:'rgba(20,5,25,0.95)',border:'#e040fb'},
+              light:{bg:'rgba(255,255,255,0.95)',border:'#b8860b'}};
+  var c=colors[theme]||colors['dark'];
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:'+c.bg+';color:var(--text);border:2px solid '+c.border+';border-radius:20px;padding:10px 24px;z-index:9990;font-size:0.85em;white-space:nowrap;animation:fadeIn 0.3s;pointer-events:none;font-weight:bold';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){t.style.opacity='0';t.style.transition='opacity 0.4s';setTimeout(function(){t.remove();},400);},2000);
+};
+
+// 🌐 主题初始化
+(function(){
+  try{var saved=localStorage.getItem('aotu4_theme');if(saved&&['dark','gold','witch','light'].includes(saved)){if(!G._theme)G._theme=saved;_applyTheme(saved);}}catch(e){}
+  if(!G._theme)G._theme='dark';
+})();
+
+console.log('🚀 引擎已启动 — 快捷键: A好感 C CP M回忆 Q任务 J日记 S存档 L读档 ESC返回 空格推进');
 render('title');
 //# sourceURL=game.js
 
