@@ -4529,7 +4529,19 @@ function spawnEnemy(n){
         case 3:x=-20;y=Math.random()*500;break;
       }
     }
-    enemies.push({id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0});
+    var enemy={id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0};
+    // ✨ Vec2.hermite: 为敌人创建平滑曲线路径
+    if(typeof Vec2!=='undefined'&&Vec2.hermite){
+      try{
+        var sx=x,sy=y,ex=sx+rn(-100,100),ey=sy+rn(-80,80);
+        var t1=Vec2.random(30),t2=Vec2.random(30);
+        var m1=Vec2.hermite(new Vec2(sx,sy),t1,new Vec2(ex,ey),t2,0.33);
+        var m2=Vec2.hermite(new Vec2(sx,sy),t1,new Vec2(ex,ey),t2,0.66);
+        if(m1&&m2&&isFinite(m1.x))enemy._hermitePts=[new Vec2(sx,sy),m1,m2,new Vec2(ex,ey)];
+        enemy._pathT=0;enemy._pathSpeed=0.001+Math.random()*0.003;
+      }catch(e){}
+    }
+    enemies.push(enemy);
   }
 }
 

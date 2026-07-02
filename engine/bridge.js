@@ -216,29 +216,7 @@ function _initBridge(){
   // ═══ 12. Vec2 战斗增强 ═══
   if(typeof Vec2!=='undefined'){
     // hermite + catmullRom: 战斗画面偏移
-    // Vec2.hermite + catmullRom: 敌人生成Hermite曲线控制点
-    if(Vec2.hermite&&Vec2.catmullRom&&typeof spawnEnemy==='function'){
-      var _origSpawn=spawnEnemy;
-      spawnEnemy=function(n){
-        _origSpawn(n);
-        try{
-          if(typeof enemies!=='undefined'&&typeof Vec2!=='undefined'){
-            enemies.slice(-n).forEach(function(e){
-              e._pathT=0;e._pathSpeed=0.001+Math.random()*0.003;
-              var sx=e.x||400,sy=e.y||250;
-              var startPt=new Vec2(sx,sy);
-              var endPt=new Vec2(sx+rn(-120,120),sy+rn(-100,100));
-              var tan1=Vec2.random(40);var tan2=Vec2.random(40);
-              var mid1=Vec2.hermite(startPt,tan1,endPt,tan2,0.33);
-              var mid2=Vec2.hermite(startPt,tan1,endPt,tan2,0.66);
-              if(mid1&&mid2&&isFinite(mid1.x)&&isFinite(mid2.x)){
-                e._hermitePts=[startPt,mid1,mid2,endPt];
-              }
-            });
-          }
-        }catch(ex){/* Vec2失败不影响战斗 */}
-      };
-    }
+    // Vec2 战斗路径已在 game.js spawnEnemy + battleLoop 中直接使用
     // barycentric: 伤害颜色
     if(Vec2.barycentric&&typeof FloatingText!=='undefined'){
       var _origFT=FloatingText.spawn;
