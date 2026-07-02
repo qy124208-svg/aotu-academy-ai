@@ -2684,12 +2684,20 @@ function rCreate(app){
 
   var p4=_el('div','','<h2>📊 能力值</h2>');p4.className='panel fadein';
   var clrs={INT:'#58a6ff',CHR:'#3fb950',STR:'#e94560',AFF:'#f0c040',SPR:'#bc8cff'};
-  Object.entries(rndAttrs).forEach(function(e){var k=e[0],v=e[1];var row=_el('div','display:flex;align-items:center;gap:10px;margin:8px 0');
-    row.appendChild(_el('span','width:75px;font-size:0.85em;font-weight:bold',attrLabels[k]));
-    var bar=_el('div','flex:1;height:12px;background:#222;border-radius:6px;overflow:hidden');
-    bar.appendChild(_el('div','height:100%;width:'+(v*10)+'%;background:'+(clrs[k]||'var(--accent)')+';border-radius:6px;transition:width 0.6s ease;box-shadow:0 0 6px '+(clrs[k]||'var(--accent)')+'44'));
-    row.appendChild(bar);row.appendChild(_el('span','width:28px;text-align:center;font-weight:bold;color:var(--gold);font-size:1.2em',String(v)));
-    p4.appendChild(row);
+  var icons={INT:'📐',CHR:'💫',STR:'💪',AFF:'💕',SPR:'🧘'};
+  Object.entries(rndAttrs).forEach(function(e){var k=e[0],v=e[1];
+    var card=_el('div','background:var(--card);border-radius:12px;padding:12px 16px;margin:8px 0;border-left:5px solid '+(clrs[k]||'var(--accent)'));
+    var top=_el('div','display:flex;justify-content:space-between;align-items:center;margin-bottom:6px');
+    top.innerHTML='<span style="font-size:1em;font-weight:bold">'+icons[k]+' '+attrLabels[k]+'</span><span style="font-size:1.3em;font-weight:bold;color:'+(clrs[k]||'var(--gold)')+'">'+v+'<span style="font-size:0.5em;color:var(--dim)">/10</span></span>';
+    card.appendChild(top);
+    var bar=_el('div','height:14px;background:#1a1a1a;border-radius:7px;overflow:hidden');
+    var fill=_el('div','height:100%;width:'+(v*10)+'%;background:linear-gradient(90deg,'+(clrs[k]||'var(--accent)')+','+(clrs[k]||'var(--accent)')+'88);border-radius:7px;transition:width 0.8s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),0 0 10px '+(clrs[k]||'var(--accent)')+'44');
+    bar.appendChild(fill);card.appendChild(bar);
+    // 属性小点
+    var dots=_el('div','display:flex;gap:3px;margin-top:4px');
+    for(var i=0;i<10;i++){var dot=_el('span','width:8px;height:8px;border-radius:50%;display:inline-block;'+(i<v?'background:'+(clrs[k]||'var(--accent)')+';box-shadow:0 0 4px '+(clrs[k]||'var(--accent)')+';':'background:#333;'));dots.appendChild(dot);}
+    card.appendChild(dots);
+    p4.appendChild(card);
   });app.appendChild(p4);
 
   var sa=_el('div','text-align:center;margin:24px 0');
