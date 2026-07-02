@@ -2679,7 +2679,10 @@ function rCreate(app){
   <button class="btn btn-xs btn-s" id="rerollBtn1" style="margin-top:8px">🎲 重新随机天赋&属性</button>
 </div>
 <div class="panel fadein"><h2>📊 能力值</h2>
-  ${Object.entries(rndAttrs).map(([k,v])=>`<div style="margin:6px 0;display:flex;align-items:center;gap:8px"><span style="width:70px;font-size:0.85em">${attrLabels[k]||k}</span><div style="flex:1;height:10px;background:#333;border-radius:5px"><div style="height:100%;background:var(--accent);border-radius:5px;width:${v*10}%"></div></div><span style="width:25px;text-align:center;font-weight:bold;color:var(--gold);font-size:1.2em">${v}</span></div>`).join('')}
+  ${Object.entries(rndAttrs).map(([k,v])=>{
+    const pbClr=k==='SPR'?'#bc8cff':'var(--accent)';
+    return`<div style="margin:6px 0;display:flex;align-items:center;gap:8px"><span style="width:70px;font-size:0.85em">${attrLabels[k]||k}</span><span id="pb_${k}" style="flex:1;height:10px;background:#333;border-radius:5px;display:inline-block"></span><span style="width:25px;text-align:center;font-weight:bold;color:var(--gold);font-size:1.2em">${v}</span></div>`;
+  }).join('')}
 </div>
 <div style="text-align:center;margin:20px 0">
   <button class="btn btn-p" id="startBtn" style="font-size:1.3em;padding:16px 60px;background:var(--accent);color:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 0 20px rgba(233,69,96,0.4)">🎮 开始一百天倒计时</button>
