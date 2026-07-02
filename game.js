@@ -4699,15 +4699,17 @@ function battleLoop(){
     const target=e._target||player;
     if(e._dash>0){e._dash--;}else{
       const a=Math.atan2(target.y-e.y,target.x-e.x);
-      // ✨ Vec2 曲线路径 — hermit + catmullRom 让敌人沿平滑曲线移动
       if(typeof Vec2!=='undefined'&&e._hermitePts&&e._hermitePts.length===4){
-        e._pathT=(e._pathT||0)+(e._pathSpeed||0.002);
-        if(e._pathT>1)e._pathT-=1;
-        var cp=Vec2.catmullRom(e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
-        // 曲线方向 + 朝向目标方向混合 (70%曲线, 30%追踪)
-        var curveVec=new Vec2(cp.x-e.x,cp.y-e.y);curveVec.length=e.spd*0.7;
-        var targetVec=Vec2.fromAngle(a*180/Math.PI,e.spd*0.3);
-        e.vx=curveVec.x+targetVec.x;e.vy=curveVec.y+targetVec.y;
+        try{
+          e._pathT=(e._pathT||0)+(e._pathSpeed||0.002);
+          if(e._pathT>1)e._pathT-=1;
+          var cp=Vec2.catmullRom(e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
+          if(cp&&isFinite(cp.x)&&isFinite(cp.y)){
+            var cv=new Vec2(cp.x-e.x,cp.y-e.y);cv.length=e.spd*0.7;
+            var tv=Vec2.fromAngle(a*180/Math.PI,e.spd*0.3);
+            e.vx=cv.x+tv.x;e.vy=cv.y+tv.y;
+          }else{throw 1;}
+        }catch(ex){e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
       }else if(typeof Vec2!=='undefined'){
         const dir=Vec2.fromAngle(a*180/Math.PI,e.spd);
         e.vx=dir.x;e.vy=dir.y;
