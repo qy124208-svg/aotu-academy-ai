@@ -198,6 +198,14 @@ class Vec2 {
   // ─── 静态工厂 ───
 
   /** 从角度和长度创建 */
+  /** 从任意格式创建 Vec2 */
+  static from(val) {
+    if (val instanceof Vec2) return new Vec2(val.x, val.y);
+    if (Array.isArray(val)) return new Vec2(val[0], val[1]);
+    if (val && typeof val.x !== 'undefined') return new Vec2(val.x, val.y);
+    return new Vec2(val, val);
+  }
+
   static fromAngle(deg, length = 1) {
     const rad = deg * Math.PI / 180;
     return new Vec2(Math.cos(rad) * length, Math.sin(rad) * length);
