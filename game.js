@@ -2957,28 +2957,31 @@ function buildShell(content){
   const dtTag=dt==='festival'?'🎪 特别日':dt==='weekend'?'🏖️ 周末':'📚 上课日';
   const hs=CH[G.homestay];const home=G.homeInfo||getHomeInfo(G.homestay);
 
-  // ─── 菜单栏 (组件化) ───
-  var menuBar=document.createElement('div');
-  menuBar.style.cssText='display:flex;gap:3px;margin:4px 0;flex-wrap:wrap;background:var(--card);border-radius:8px;padding:4px 6px;align-items:center';
-  var span=document.createElement('span');span.style.cssText='font-size:0.65em;color:var(--dim);margin-right:4px';span.textContent='MENU';menuBar.appendChild(span);
-  var menuItems=[{h:'💕<span class="btxt">好感</span>',n:'aff',t:'好感度'},{h:'💑<span class="btxt">CP</span>',n:'cpview',t:'CP羁绊'},{h:'📸<span class="btxt">回忆</span>',n:'mem',t:'回忆相册'},{h:'📋<span class="btxt">任务</span>',n:'quest',t:'任务'},{h:'📓<span class="btxt">日记</span>',n:'journal',t:'日记'}];
-  menuItems.forEach(function(item){var btn=document.createElement('button');btn.className='btn btn-menu';btn.title=item.t;btn.innerHTML=item.h;btn.onclick=function(){window._nav(item.n);};menuBar.appendChild(btn);});
-  var sep=document.createElement('span');sep.style.cssText='color:#444;margin:0 2px';sep.textContent='│';menuBar.appendChild(sep);
-  var aiBtn=document.createElement('button');aiBtn.id='aiToggleBtn';aiBtn.className='btn btn-menu';aiBtn.innerHTML='🤖<span class="btxt">AI</span>';aiBtn.style.cssText=AI_ENABLED_global?'border-color:var(--purple);color:var(--purple)':'opacity:0.4';aiBtn.onclick=function(){window._toggleAI();};menuBar.appendChild(aiBtn);
-  var utilBtns=[{h:'💾<span class="btxt">存档</span>',f:function(){window._save();}},{h:'📂<span class="btxt">读档</span>',f:function(){window._nav('load');}},{h:'⚙️',f:function(){window._nav('settings');}}];
-  utilBtns.forEach(function(item){var btn=document.createElement('button');btn.className='btn btn-menu';btn.innerHTML=item.h;btn.onclick=item.f;menuBar.appendChild(btn);});
+  // ─── 菜单栏 (使用 inline onclick 属性，确保 outerHTML 保留事件) ───
+  var menuHTML='<div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap;background:var(--card);border-radius:8px;padding:4px 6px;align-items:center">';
+  menuHTML+='<span style="font-size:0.65em;color:var(--dim);margin-right:4px">MENU</span>';
+  menuHTML+='<button class="btn btn-menu" title="好感度" onclick="window._nav(\'aff\')">💕<span class="btxt">好感</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="CP羁绊" onclick="window._nav(\'cpview\')">💑<span class="btxt">CP</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="回忆相册" onclick="window._nav(\'mem\')">📸<span class="btxt">回忆</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="任务" onclick="window._nav(\'quest\')">📋<span class="btxt">任务</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="日记" onclick="window._nav(\'journal\')">📓<span class="btxt">日记</span></button>';
+  menuHTML+='<span style="color:#444;margin:0 2px">│</span>';
+  menuHTML+='<button class="btn btn-menu" id="aiToggleBtn" title="AI对话开关" style="'+(AI_ENABLED_global?'border-color:var(--purple);color:var(--purple)':'opacity:0.4')+'" onclick="window._toggleAI()">🤖<span class="btxt">AI</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="快速存档" onclick="window._save()">💾<span class="btxt">存档</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="读取存档" onclick="window._nav(\'load\')">📂<span class="btxt">读档</span></button>';
+  menuHTML+='<button class="btn btn-menu" title="设置" onclick="window._nav(\'settings\')">⚙️</button>';
+  menuHTML+='</div>';
 
-  // ─── 状态栏 (组件化) ───
-  var statusBar=document.createElement('div');statusBar.className='statusbar fadein';
-  var sspan=document.createElement('span');sspan.style.cssText='font-size:0.6em;color:var(--dim);margin-right:2px';sspan.textContent='STATUS';statusBar.appendChild(sspan);
+  // ─── 状态栏 (inline HTML，确保 outerHTML 兼容) ───
+  var statusHTML='<div class="statusbar fadein"><span style="font-size:0.6em;color:var(--dim);margin-right:2px">STATUS</span>';
   var attrLabels={INT:'📐学力',CHR:'💫魅力',STR:'💪体能',AFF:'💕亲和',SPR:'🧘精神'};
-  Object.entries(G.attr).forEach(function(e){var k=e[0],v=e[1];var isSPR=k==='SPR';var sprWarn=v<=2;var stat=document.createElement('div');stat.className='stat';stat.title=attrLabels[k];stat.style.cssText=isSPR?'background:'+(sprWarn?'#3d1a1a':'#1a2e1a')+';border:1px solid '+(sprWarn?'var(--accent)':'var(--green)')+';padding:4px 10px;font-weight:bold':'';stat.innerHTML=attrLabels[k]+' <s style="color:'+(sprWarn?'var(--accent)':isSPR?'var(--green)':'var(--gold)')+';font-size:'+(isSPR?'1.1em':'1em')+'">'+v+'</s>'+(isSPR?'<span style="font-size:0.55em;color:var(--dim);margin-left:2px">/10</span>':'')+(sprWarn?' ⚠️':'');statusBar.appendChild(stat);});
-  var estat=document.createElement('div');estat.className='stat';estat.title='体力';estat.innerHTML='🔋体力 <s>'+G.energy+'</s>';statusBar.appendChild(estat);
+  Object.entries(G.attr).forEach(function(e){var k=e[0],v=e[1];var isSPR=k==='SPR';var sprWarn=v<=2;
+    statusHTML+='<div class="stat" title="'+attrLabels[k]+'" style="'+(isSPR?'background:'+(sprWarn?'#3d1a1a':'#1a2e1a')+';border:1px solid '+(sprWarn?'var(--accent)':'var(--green)')+';padding:4px 10px;font-weight:bold':'')+'">'+attrLabels[k]+' <s style="color:'+(sprWarn?'var(--accent)':isSPR?'var(--green)':'var(--gold)')+';font-size:'+(isSPR?'1.1em':'1em')+'">'+v+'</s>'+(isSPR?'<span style="font-size:0.55em;color:var(--dim);margin-left:2px">/10</span>':'')+(sprWarn?' ⚠️':'')+'</div>';
+  });
+  statusHTML+='<div class="stat" title="体力">🔋体力 <s>'+G.energy+'</s></div>';
+  statusHTML+='</div>';
 
-  var menuHTML=menuBar.outerHTML;
-  var statusHTML=statusBar.outerHTML;
-
-  // 组装返回 HTML (使用字符串拼接避免模板字面量转义问题)
+  // 组装返回 HTML
   var html='';
   html+='<div class="cdbanner fadein">';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-end">';
