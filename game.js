@@ -2370,9 +2370,9 @@ function rTitle(app){
   try{const ae=localStorage.getItem('aotu4_ach');if(ae)G.achievements=JSON.parse(ae);}catch(e){}
   const karma=loadKarma();const tier=getKarmaTier(karma);
 
-  // ✨ Canvas 粒子背景
-  app.innerHTML='<canvas id="titleCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none"></canvas>'+
-    '<div id="titleContent" style="position:relative;z-index:1;max-width:800px;margin:0 auto;padding:8px">'+
+  // ✨ Canvas 星空背景
+  app.innerHTML='<canvas id="titleCanvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1;pointer-events:none;background:#080812"></canvas>'+
+    '<div id="titleContent" style="position:relative;z-index:2;max-width:800px;margin:0 auto;padding:8px">'+
     '<div style="text-align:center;padding:30px 0 20px" class="fadein">'+
       '<div style="font-size:4em;margin-bottom:8px;animation:pulse 3s infinite">🏫</div>'+
       '<h1 style="font-size:2.2em;color:var(--accent);text-shadow:0 0 30px rgba(233,69,96,0.4);margin:0">凹凸学园</h1>'+
@@ -2407,9 +2407,23 @@ function rTitle(app){
     '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.8 · Babylon.js GUI移植 + 魔女支线增强</span></div>'+
     '</div>';
 
-  // ✨ 启动标题粒子背景
-  setTimeout(function(){_startTitleParticles();},100);
+  // ✨ 启动星空背景 (先停掉旧动画)
+  if(_titleAnim){cancelAnimationFrame(_titleAnim);_titleAnim=null;}
+  if(_titleParticles)_titleParticles.length=0;
+  _titleCanvas=null;
+  try{_startTitleParticles();}catch(e){console.warn('星空背景启动失败:',e);}
 }
+
+// 非标题画面时自动停止星空
+var _origRender=render;
+render=function(phase,data){
+  if(phase!=='title'&&_titleAnim){
+    cancelAnimationFrame(_titleAnim);_titleAnim=null;
+    if(_titleParticles)_titleParticles.length=0;
+    _titleCanvas=null;
+  }
+  _origRender(phase,data);
+};
 
 function _startTitleParticles(){
   const canvas=document.getElementById('titleCanvas');
@@ -2457,7 +2471,8 @@ function _startTitleParticles(){
   var meteorColors=[];
   for(var ci=0;ci<120;ci++){
     var rgb=_hslToRgb(ci*3,100,65);
-    meteorColors.push('#'+rgb[0].toString(16).padStart(2,'0')+rgb[1].toString(16).padStart(2,'0')+rgb[2].toString(16).padStart(2,'0'));
+    var hex=function(n){var h=n.toString(16);return h.length<2?'0'+h:h;};
+    meteorColors.push('#'+hex(rgb[0])+hex(rgb[1])+hex(rgb[2]));
   }
   meteorColors.push('#ffffff','#ffeebb','#ffd700','#fff0c0');
   // 流星 — 10条
