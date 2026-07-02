@@ -3003,6 +3003,10 @@ function buildWitchShell(title,narration,choices,isFinalBattle){
   </div>
 
   <div class="eventbox fadein" style="border-left:3px solid var(--purple);background:var(--card);margin:8px 0;${filterCSS}">
+    ${day===1?`<div style="text-align:center;margin-bottom:14px;position:relative">
+      <img src="assets/qb.jpg" style="max-width:180px;border-radius:12px;border:2px solid var(--purple);box-shadow:0 0 30px rgba(188,140,255,0.3);opacity:0.9" onerror="this.style.display='none'" alt="孵化者">
+      <div style="font-size:0.6em;color:var(--purple);margin-top:4px">🐾 孵化者 · Incubator</div>
+    </div>`:''}
     <p class="narration" style="white-space:pre-line">${narration}</p>
   </div>
   <div style="margin:8px 0">`;
