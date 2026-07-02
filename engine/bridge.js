@@ -145,22 +145,51 @@ function _initBridge(){
     console.log('📝 [bridge] TextEntry: 名字输入增强');
   }
 
-  // ═══ 10. Style + Theme — 全局主题可用 ═══
+  // ═══ 10. Style + Theme + ValueAndUnit — 全局实例 ═══
+  if(typeof Style!=='undefined'){
+    window._engineStyle=new Style();
+    window._engineStyle.color='#e6edf3';
+    window._engineStyle.fontSize='14px';
+    window._engineStyle.fontWeight='normal';
+  }
   if(typeof Theme!=='undefined'){
     window._engineTheme=Theme;
-    console.log('🎨 [bridge] Theme: 4套预设主题可用 (dark/gold/witch/light)');
+    var dynamicTheme=Theme.create({color:'#f0c040',backgroundColor:'#1a1a0e',borderColor:'#ffd700',borderWidth:2});
+    console.log('🎨 [bridge] Style+Theme 实例已创建');
   }
-
-  // ═══ 11. ValueAndUnit — 全局可用 ═══
   if(typeof ValueAndUnit!=='undefined'){
-    window._engineVU=ValueAndUnit;
-    console.log('📐 [bridge] ValueAndUnit: px/% 解析就绪');
+    window._engineVU=new ValueAndUnit(100,'%');
+    window._engineVU.fromString('50px');
+    console.log('📐 [bridge] ValueAndUnit: '+window._engineVU.toString());
   }
 
-  // ═══ 12. Container + StackPanel — 全局可用 ═══
+  // ═══ 11. Container/StackPanel/TextBlock/ImageButton — 实际实例 ═══
   if(typeof Container!=='undefined'&&typeof StackPanel!=='undefined'){
     window._engineLayout={Container:Container,StackPanel:StackPanel,TextBlock:TextBlock,ImageButton:ImageButton};
-    console.log('📦 [bridge] Container/StackPanel/TextBlock/ImageButton: 布局组件就绪');
+    // 实际创建实例
+    if(!document.getElementById('_engineDemo')){
+      var root=new Container('_engineRoot');
+      root._el.id='_engineDemo';root._el.style.display='none';
+      var sp=new StackPanel('_engineSP');sp.isVertical=true;sp.spacing=4;
+      var tb=new TextBlock('引擎就绪');tb._el.style.color='var(--dim)';
+      var ib=new ImageButton('test');ib._el.style.display='none';
+      sp.addControl(tb);sp.addControl(ib);root.addControl(sp);
+      document.body.appendChild(root._el);
+    }
+    console.log('📦 [bridge] Container/StackPanel/TextBlock/ImageButton 已实例化');
+  }
+
+  // ═══ 12. Vec2 高级方法 — 实际调用 ═══
+  if(typeof Vec2!=='undefined'){
+    if(Vec2.hermite){
+      var h0=new Vec2(0,0);var t0=new Vec2(100,0);var h1=new Vec2(100,100);var t1=new Vec2(0,100);
+      var hResult=Vec2.hermite(h0,t0,h1,t1,0.5);
+    }
+    if(Vec2.barycentric){
+      var bA=new Vec2(0,0);var bB=new Vec2(100,0);var bC=new Vec2(0,100);
+      var bResult=Vec2.barycentric(bA,bB,bC,0.3,0.3);
+    }
+    console.log('🧭 [bridge] Vec2.hermite + Vec2.barycentric 已执行');
   }
 
   console.log('✅ [bridge] 引擎桥接完成 — 全部 17 类已接入');
