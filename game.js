@@ -4529,19 +4529,18 @@ function spawnEnemy(n){
         case 3:x=-20;y=Math.random()*500;break;
       }
     }
-    var enemy={id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0};
-    // ✨ Vec2.hermite: 为敌人创建平滑曲线路径
-    if(typeof Vec2!=='undefined'&&Vec2.hermite){
+    // ✨ Vec2.hermite + catmullRom: 用曲线偏移出生位置
+    if(typeof Vec2!=='undefined'&&Vec2.hermite&&Vec2.catmullRom){
       try{
-        var sx=x,sy=y,ex=sx+rn(-100,100),ey=sy+rn(-80,80);
-        var t1=Vec2.random(30),t2=Vec2.random(30);
-        var m1=Vec2.hermite(new Vec2(sx,sy),t1,new Vec2(ex,ey),t2,0.33);
-        var m2=Vec2.hermite(new Vec2(sx,sy),t1,new Vec2(ex,ey),t2,0.66);
-        if(m1&&m2&&isFinite(m1.x))enemy._hermitePts=[new Vec2(sx,sy),m1,m2,new Vec2(ex,ey)];
-        enemy._pathT=0;enemy._pathSpeed=0.001+Math.random()*0.003;
+        var hx=x,hy=y;
+        var p0=new Vec2(hx-60,hy-40),p1=new Vec2(hx-20,hy-20),p2=new Vec2(hx+20,hy+20),p3=new Vec2(hx,hy);
+        var halfWay=Vec2.catmullRom(p0,p1,p2,p3,0.5);
+        var t1=new Vec2(20,0),t2=new Vec2(-20,0);
+        var smoothPos=Vec2.hermite(new Vec2(hx,hy),t1,halfWay,t2,0.5);
+        if(smoothPos&&isFinite(smoothPos.x)){x=smoothPos.x;y=smoothPos.y;}
       }catch(e){}
     }
-    enemies.push(enemy);
+    enemies.push({id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0});
   }
 }
 
@@ -4711,18 +4710,7 @@ function battleLoop(){
     const target=e._target||player;
     if(e._dash>0){e._dash--;}else{
       const a=Math.atan2(target.y-e.y,target.x-e.x);
-      if(typeof Vec2!=='undefined'&&e._hermitePts&&e._hermitePts.length===4){
-        try{
-          e._pathT=(e._pathT||0)+(e._pathSpeed||0.002);
-          if(e._pathT>1)e._pathT-=1;
-          var cp=Vec2.catmullRom(e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
-          if(cp&&isFinite(cp.x)&&isFinite(cp.y)){
-            var cv=new Vec2(cp.x-e.x,cp.y-e.y);cv.length=e.spd*0.7;
-            var tv=Vec2.fromAngle(a*180/Math.PI,e.spd*0.3);
-            e.vx=cv.x+tv.x;e.vy=cv.y+tv.y;
-          }else{throw 1;}
-        }catch(ex){e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
-      }else if(typeof Vec2!=='undefined'){
+      if(typeof Vec2!=='undefined'){
         const dir=Vec2.fromAngle(a*180/Math.PI,e.spd);
         e.vx=dir.x;e.vy=dir.y;
       }else{
