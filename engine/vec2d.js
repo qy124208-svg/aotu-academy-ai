@@ -259,7 +259,7 @@ class Vec2 {
    * 通过4个控制点生成平滑曲线
    */
   static catmullRom(p0, p1, p2, p3, t) {
-    const a = Vec2.from(p0), b = Vec2.from(p1), c = Vec2.from(p2), d = Vec2.from(p3);
+    const a = new Vec2(p0), b = new Vec2(p1), c = new Vec2(p2), d = new Vec2(p3);
     const t2 = t * t, t3 = t2 * t;
     return new Vec2(
       0.5 * ((2 * b.x) + (-a.x + c.x) * t + (2 * a.x - 5 * b.x + 4 * c.x - d.x) * t2 + (-a.x + 3 * b.x - 3 * c.x + d.x) * t3),
@@ -276,7 +276,7 @@ class Vec2 {
    * @param {number} amount - 权重 0-1
    */
   static hermite(p1, t1, p2, t2, amount) {
-    const a = Vec2.from(p1), ta = Vec2.from(t1), b = Vec2.from(p2), tb = Vec2.from(t2);
+    const a = new Vec2(p1), ta = new Vec2(t1), b = new Vec2(p2), tb = new Vec2(t2);
     const a2 = amount * amount, a3 = a2 * amount;
     const h1 = 2 * a3 - 3 * a2 + 1;
     const h2 = -2 * a3 + 3 * a2;
@@ -294,7 +294,7 @@ class Vec2 {
    * @param {number} b2, b3 - 面积坐标
    */
   static barycentric(v1, v2, v3, b2, b3) {
-    const a = Vec2.from(v1), b = Vec2.from(v2), c = Vec2.from(v3);
+    const a = new Vec2(v1), b = new Vec2(v2), c = new Vec2(v3);
     const b1 = 1 - b2 - b3;
     return new Vec2(b1 * a.x + b2 * b.x + b3 * c.x, b1 * a.y + b2 * b.y + b3 * c.y);
   }
@@ -304,7 +304,7 @@ class Vec2 {
    */
   static smoothStep(a, b, amount) {
     const t = amount * amount * (3 - 2 * amount); // 3t² - 2t³
-    return Vec2.from(a).lerp(b, t);
+    return new Vec2(a).lerp(b, t);
   }
 }
 
