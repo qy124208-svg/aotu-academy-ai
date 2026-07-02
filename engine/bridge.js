@@ -221,20 +221,22 @@ function _initBridge(){
       var _origSpawn=spawnEnemy;
       spawnEnemy=function(n){
         _origSpawn(n);
-        if(typeof enemies!=='undefined'){
-          enemies.slice(-n).forEach(function(e){
-            e._pathT=0;e._pathSpeed=0.001+Math.random()*0.003;
-            // ✨ hermite: 计算平滑中间点作为控制点
-            var startPt=new Vec2(e.x,e.y);
-            var endPt=new Vec2(e.x+rn(-120,120),e.y+rn(-100,100));
-            var tan1=Vec2.random(40); // 随机切线
-            var tan2=Vec2.random(40);
-            var mid1=Vec2.hermite(startPt,tan1,endPt,tan2,0.33);
-            var mid2=Vec2.hermite(startPt,tan1,endPt,tan2,0.66);
-            // catmullRom 用这四个点做曲线
-            e._hermitePts=[startPt,mid1,mid2,endPt];
-          });
-        }
+        try{
+          if(typeof enemies!=='undefined'&&typeof Vec2!=='undefined'){
+            enemies.slice(-n).forEach(function(e){
+              e._pathT=0;e._pathSpeed=0.001+Math.random()*0.003;
+              var sx=e.x||400,sy=e.y||250;
+              var startPt=new Vec2(sx,sy);
+              var endPt=new Vec2(sx+rn(-120,120),sy+rn(-100,100));
+              var tan1=Vec2.random(40);var tan2=Vec2.random(40);
+              var mid1=Vec2.hermite(startPt,tan1,endPt,tan2,0.33);
+              var mid2=Vec2.hermite(startPt,tan1,endPt,tan2,0.66);
+              if(mid1&&mid2&&isFinite(mid1.x)&&isFinite(mid2.x)){
+                e._hermitePts=[startPt,mid1,mid2,endPt];
+              }
+            });
+          }
+        }catch(ex){/* Vec2失败不影响战斗 */}
       };
     }
     // barycentric: 伤害颜色
