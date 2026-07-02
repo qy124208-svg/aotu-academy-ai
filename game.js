@@ -2418,37 +2418,104 @@ function _startTitleParticles(){
   canvas.width=window.innerWidth;
   canvas.height=window.innerHeight;
   const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
 
-  // 生成飘浮粒子
+  // ✨ 彩色流星 + 星空背景
   if(!_titleParticles)_titleParticles=[];
   _titleParticles.length=0;
-  for(let i=0;i<50;i++){
-    _titleParticles.push({
-      x:Math.random()*canvas.width,y:Math.random()*canvas.height,
-      vx:(Math.random()-0.5)*0.5,vy:-(Math.random()*0.3+0.1),
-      size:Math.random()*3+1,life:Math.random()*300,
-      color:['#e94560','#f0c040','#bc8cff','#58a6ff','#3fb950'][Math.floor(Math.random()*5)]
-    });
+
+  // 星空背景 — 200颗静态小星星
+  var stars=[];
+  for(var si=0;si<200;si++){
+    stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.3,b:Math.random()*0.5+0.3});
+  }
+
+  // 流星 — 25条彩色流星
+  var meteorColors=['#e94560','#f0c040','#bc8cff','#58a6ff','#3fb950','#ff6b9d','#00e5ff','#ff9100','#ea80fc','#69f0ae'];
+  for(var mi=0;mi<25;mi++){
+    _titleParticles.push(_newMeteor(W,H,meteorColors));
+  }
+
+  function _newMeteor(w,h,colors){
+    var angle=Math.random()*Math.PI*0.6+Math.PI*0.7; // 左下→右上 为主方向
+    var speed=Math.random()*4+2;
+    return {
+      x:Math.random()*w*1.2-w*0.1,
+      y:Math.random()*h*0.6+h*0.4,
+      vx:Math.cos(angle)*speed,
+      vy:-Math.sin(angle)*speed,
+      len:Math.random()*80+40,      // 尾巴长度
+      life:Math.random()*200+80,
+      maxLife:0,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      size:Math.random()*2+1,
+      // 大流星概率 15%
+      big:Math.random()<0.15,
+    };
   }
 
   function _animateTitle(){
     if(_titleCanvas!==canvas)return;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0,0,W,H);
+
+    // 星空
+    stars.forEach(function(s){
+      s.b+=Math.sin(Date.now()*0.001+s.x)*0.003;
+      s.b=Math.max(0.2,Math.min(0.8,s.b));
+      ctx.fillStyle='rgba(255,255,255,'+s.b+')';
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+    });
+
+    // 流星
     _titleParticles.forEach(function(p){
       p.x+=p.vx;p.y+=p.vy;p.life--;
-      if(p.life<=0||p.y<-10||p.x<-10||p.x>canvas.width+10){
-        p.x=Math.random()*canvas.width;p.y=canvas.height+10;
-        p.life=300+Math.random()*200;
+      if(!p.maxLife)p.maxLife=p.life;
+      if(p.life<=0||p.y<-120||p.x>W+120||p.x<-120){
+        var n=_newMeteor(W,H,meteorColors);
+        p.x=n.x;p.y=n.y;p.vx=n.vx;p.vy=n.vy;p.len=n.len;
+        p.life=n.life;p.maxLife=0;p.color=n.color;p.size=n.size;p.big=n.big;
       }
-      ctx.fillStyle=p.color;ctx.globalAlpha=Math.min(1,p.life/100)*0.6;
-      ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+
+      var progress=1-(p.life/p.maxLife); // 0→1
+      var alpha=progress<0.1?progress*10:progress>0.8?(1-progress)*5:1;
+
+      // 流星尾巴 — 渐变线条
+      var tailLen=p.len*(p.big?1.5:1);
+      var tailX=p.x-p.vx*tailLen;
+      var tailY=p.y-p.vy*tailLen;
+
+      // hex → rgba 转换
+      var hc=p.color;
+      var r=parseInt(hc.slice(1,3),16),g=parseInt(hc.slice(3,5),16),b=parseInt(hc.slice(5,7),16);
+      var grad=ctx.createLinearGradient(p.x,p.y,tailX,tailY);
+      grad.addColorStop(0,'rgba(255,255,255,'+alpha+')');
+      grad.addColorStop(0.15,'rgba('+r+','+g+','+b+','+alpha+')');
+      grad.addColorStop(1,'rgba(0,0,0,0)');
+
+      ctx.strokeStyle=grad;
+      ctx.lineWidth=p.size*(p.big?2.5:1);
+      ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y);
+      ctx.lineTo(tailX,tailY);
+      ctx.stroke();
+
+      // 大流星加光晕
+      if(p.big){
+        ctx.fillStyle='rgba(255,255,255,'+(alpha*0.3)+')';
+        ctx.beginPath();ctx.arc(p.x,p.y,p.size*4,0,Math.PI*2);ctx.fill();
+      }
+
+      // 头部亮点
+      ctx.fillStyle='rgba(255,255,255,'+alpha+')';
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.big?2:1),0,Math.PI*2);ctx.fill();
     });
+
     ctx.globalAlpha=1;
     _titleAnim=requestAnimationFrame(_animateTitle);
   }
   _titleAnim=requestAnimationFrame(_animateTitle);
 
-  // 窗口大小调整
   window.addEventListener('resize',function(){
     if(!_titleCanvas)return;
     _titleCanvas.width=window.innerWidth;
