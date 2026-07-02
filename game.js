@@ -2361,25 +2361,99 @@ function render(phase,data){
   }
 }
 
+// ═══════════════════════════════════════════
+//  标题画面 ✨ 重制版 — Canvas粒子背景 + 组件化
+// ═══════════════════════════════════════════
+let _titleParticles=null,_titleAnim=null,_titleCanvas=null;
 function rTitle(app){
   const saves=[];for(let i=1;i<=5;i++){const r=localStorage.getItem('aotu4_'+i);if(r){try{const d=JSON.parse(r);saves.push({s:i,n:d.name,day:d.day,t:d._t});}catch(e){}}}
   try{const ae=localStorage.getItem('aotu4_ach');if(ae)G.achievements=JSON.parse(ae);}catch(e){}
-  app.innerHTML=`
-<div style="text-align:center;padding:20px 0" class="fadein"><h1 style="font-size:2em;color:var(--accent)">🏫 凹凸学园</h1><div style="color:var(--gold);font-size:1.3em;letter-spacing:5px;margin:6px 0">百 日 倒 数</div><div style="color:var(--dim);font-size:0.8em">转校生限定 · 100天 · 每一天都不可重来</div></div>
-<div class="panel fadein" style="text-align:center">
-  <div style="font-size:2.5em;margin:8px 0">🦁⚔️ ⭐❄️ 🧣😇 👑🍋 📖🗿</div>
-  <p style="color:var(--dim);line-height:2;margin:10px 0">
-    你是转校生。<br>你将在凹凸学园度过<strong style="color:var(--accent)">一百天</strong>。<br><br>
-    一百天后——无论发生什么——你都要离开。<br>
-    你会走近谁？见证谁和谁的故事？留下什么样的回忆？<br><br>
-    <span style="color:var(--gold)">每一天。每一个选择。都不可重来。</span>
-  </p>
-  <button class="btn btn-p pulse" onclick="window._toCreate()" style="font-size:1.1em;padding:12px 40px;margin:12px 0">✨ 开始一百天</button>
-  ${saves.length>0?`<br><button class="btn btn-s" onclick="render('load')">📂 继续旅程</button>`:''}
-</div>
-<div class="panel fadein" style="text-align:center;background:linear-gradient(135deg,#1a1a2e,#2d1a3e);border:1px solid var(--gold)"><div style="font-size:0.7em;color:var(--dim)">✦ 因果値 · ${getKarmaTier(loadKarma()).e} ${getKarmaTier(loadKarma()).t} ✦</div><div style="font-size:2em;color:${getKarmaTier(loadKarma()).clr};font-weight:bold" id="karmaDisp">${loadKarma()}</div><div style="font-size:0.7em;color:var(--dim);margin-top:2px">跨轮回累积 · 永久强化解锁</div><button class="btn btn-p pulse" onclick="render('karmashop')" style="margin-top:10px;width:100%;font-size:1em;padding:10px">🏪 因果商店</button><div style="font-size:0.6em;color:var(--dim);margin-top:4px">消费因果値 · 解锁永久强化</div></div>
-<div class="panel fadein"><h2>🏆 成就收藏 (${G.achievements.length})</h2>${G.achievements.length===0?'<span style="color:var(--dim)">开始百日之旅来解锁成就。</span>':G.achievements.slice(-20).map(a=>`<span style="background:var(--card);padding:3px 8px;border-radius:4px;font-size:0.7em;margin:2px;display:inline-block">🏆 ${a.split('_').pop()}</span>`).join(' ')}</div>
-<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:8px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式</div>`;
+  const karma=loadKarma();const tier=getKarmaTier(karma);
+
+  // ✨ Canvas 粒子背景
+  app.innerHTML='<canvas id="titleCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none"></canvas>'+
+    '<div id="titleContent" style="position:relative;z-index:1;max-width:800px;margin:0 auto;padding:8px">'+
+    '<div style="text-align:center;padding:30px 0 20px" class="fadein">'+
+      '<div style="font-size:4em;margin-bottom:8px;animation:pulse 3s infinite">🏫</div>'+
+      '<h1 style="font-size:2.2em;color:var(--accent);text-shadow:0 0 30px rgba(233,69,96,0.4);margin:0">凹凸学园</h1>'+
+      '<div style="color:var(--gold);font-size:1.5em;letter-spacing:8px;margin:6px 0;text-shadow:0 0 15px rgba(240,192,64,0.3)">百 日 倒 数</div>'+
+      '<div style="color:var(--dim);font-size:0.85em">转校生限定 · 100天 · 每一天都不可重来</div>'+
+    '</div>'+
+    '<div class="panel fadein" style="text-align:center;background:linear-gradient(180deg,rgba(22,27,34,0.95),rgba(28,33,40,0.9));border:2px solid #30363d;border-radius:16px;padding:24px">'+
+      '<div style="font-size:2em;margin:8px 0;filter:drop-shadow(0 0 8px rgba(240,192,64,0.3))">🦁⚔️ ⭐❄️ 🧣😇 👑🍋 📖🗿 🔥❄️</div>'+
+      '<p style="color:var(--dim);line-height:2.2;margin:14px 0;font-size:0.95em">'+
+        '你是转校生。<br>你将在凹凸学园度过<strong style="color:var(--accent);font-size:1.1em">一百天</strong>。<br><br>'+
+        '一百天后——无论发生什么——你都要离开。<br>'+
+        '你会走近谁？见证谁和谁的故事？留下什么样的回忆？<br><br>'+
+        '<span style="color:var(--gold);font-size:1.05em">✨ 每一天。每一个选择。都不可重来。</span>'+
+      '</p>'+
+      '<button class="btn btn-p pulse" onclick="window._toCreate()" style="font-size:1.2em;padding:14px 48px;margin:12px 0;background:linear-gradient(135deg,#e94560,#c0392b);box-shadow:0 0 25px rgba(233,69,96,0.4);border:none;border-radius:12px">✨ 开始一百天</button>'+
+      (saves.length>0?'<br><button class="btn btn-s" onclick="render(\'load\')" style="margin-top:8px">📂 继续旅程 ('+saves.length+'个存档)</button>':'')+
+    '</div>'+
+    '<div class="panel fadein" style="text-align:center;background:linear-gradient(135deg,#1a1a2e,#2d1a3e);border:2px solid var(--gold);border-radius:16px;padding:20px">'+
+      '<div style="font-size:0.75em;color:var(--dim);margin-bottom:4px">✦ 因果値 · '+tier.e+' '+tier.t+' ✦</div>'+
+      '<div style="font-size:2.5em;color:'+tier.clr+';font-weight:bold;text-shadow:0 0 20px '+tier.clr+'" id="karmaDisp">'+karma+'</div>'+
+      '<div style="height:4px;background:#333;border-radius:2px;margin:8px auto;max-width:300px"><div style="height:100%;background:'+tier.clr+';border-radius:2px;width:'+Math.min(100,karma/5)+'%;transition:width 0.8s"></div></div>'+
+      '<div style="font-size:0.7em;color:var(--dim);margin-top:4px">'+tier.d+'</div>'+
+      '<button class="btn btn-p pulse" onclick="render(\'karmashop\')" style="margin-top:12px;width:100%;font-size:1em;padding:12px;background:linear-gradient(135deg,#f0c040,#d4a017);border:none;border-radius:10px;color:#0d1117">🏪 因果商店</button>'+
+      '<div style="font-size:0.6em;color:var(--dim);margin-top:6px">消费因果値 · 解锁永久强化</div>'+
+    '</div>'+
+    '<div class="panel fadein"><h2>🏆 成就收藏 ('+G.achievements.length+')</h2>'+(
+      G.achievements.length===0?'<span style="color:var(--dim)">开始百日之旅来解锁成就。</span>':
+      '<div style="display:flex;flex-wrap:wrap;gap:4px">'+G.achievements.slice(-20).map(function(a){
+        return'<span style="background:var(--card);border:1px solid #444;padding:4px 10px;border-radius:6px;font-size:0.7em">🏆 '+a.split('_').pop()+'</span>';
+      }).join('')+'</div>'
+    )+'</div>'+
+    '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.8 · Babylon.js GUI移植 + 魔女支线增强</span></div>'+
+    '</div>';
+
+  // ✨ 启动标题粒子背景
+  setTimeout(function(){_startTitleParticles();},100);
+}
+
+function _startTitleParticles(){
+  const canvas=document.getElementById('titleCanvas');
+  if(!canvas)return;
+  _titleCanvas=canvas;
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  const ctx=canvas.getContext('2d');
+
+  // 生成飘浮粒子
+  if(!_titleParticles)_titleParticles=[];
+  _titleParticles.length=0;
+  for(let i=0;i<50;i++){
+    _titleParticles.push({
+      x:Math.random()*canvas.width,y:Math.random()*canvas.height,
+      vx:(Math.random()-0.5)*0.5,vy:-(Math.random()*0.3+0.1),
+      size:Math.random()*3+1,life:Math.random()*300,
+      color:['#e94560','#f0c040','#bc8cff','#58a6ff','#3fb950'][Math.floor(Math.random()*5)]
+    });
+  }
+
+  function _animateTitle(){
+    if(_titleCanvas!==canvas)return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    _titleParticles.forEach(function(p){
+      p.x+=p.vx;p.y+=p.vy;p.life--;
+      if(p.life<=0||p.y<-10||p.x<-10||p.x>canvas.width+10){
+        p.x=Math.random()*canvas.width;p.y=canvas.height+10;
+        p.life=300+Math.random()*200;
+      }
+      ctx.fillStyle=p.color;ctx.globalAlpha=Math.min(1,p.life/100)*0.6;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    _titleAnim=requestAnimationFrame(_animateTitle);
+  }
+  _titleAnim=requestAnimationFrame(_animateTitle);
+
+  // 窗口大小调整
+  window.addEventListener('resize',function(){
+    if(!_titleCanvas)return;
+    _titleCanvas.width=window.innerWidth;
+    _titleCanvas.height=window.innerHeight;
+  });
 }
 
 window._updateKarma=function(){const ke=document.getElementById("karmaDisp");if(ke)ke.textContent=loadKarma();};
@@ -3632,10 +3706,61 @@ function renderFB(app,fb){
 // ─── 子面板 ───
 function rAff(app){
   const sorted=Object.entries(G.aff).filter(([id])=>CH[id]).sort((a,b)=>b[1]-a[1]);
-  app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>💕 好感度</h1></div>
-<div class="panel fadein"><div class="affgrid">${sorted.map(([id,val])=>{const c=CH[id];const bc=val>=70?'#e94560':val>=50?'#f0c040':val>=30?'#81c784':'#666';
-  const teachTag=CH[id]&&CH[id].c==='教师'?'<span style="font-size:0.55em;background:#444;color:var(--gold);padding:1px 5px;border-radius:6px;margin-left:4px">师生</span>':'';return`<div class="affcard"><span class="affemoji">${c.e}</span><div class="affinfo"><div class="affname">${c.n}<span style="font-size:0.65em;color:var(--dim)"> ${c.c}</span>${teachTag}</div><div class="affbar"><div class="afffill" style="width:${val}%;background:${bc}"></div></div><div class="affstage">${stageName(val)} · ${val}</div></div></div>`;}).join('')}</div></div>
-<button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>`;
+  const maxAff=sorted.length>0?sorted[0][1]:0;
+
+  // ✨ 组件化好感度卡片
+  const grid=document.createElement('div');
+  grid.className='affgrid';
+
+  sorted.forEach(function(e,idx){
+    const id=e[0],val=e[1];const c=CH[id];
+    const isTeacher=c&&c.c==='教师';
+    // 阶段颜色
+    const stClr=val>=200?'#e040fb':val>=150?'#bc8cff':val>=100?'#e94560':val>=70?'#f0c040':val>=50?'#81c784':val>=30?'#58a6ff':'#666';
+    const stName=stageName(val);
+    // 渐变色
+    const gradClr=val>=100?'linear-gradient(135deg,#e94560,#e040fb)':val>=70?'linear-gradient(135deg,#e94560,#f0c040)':val>=30?'linear-gradient(135deg,#3fb950,#58a6ff)':'#444';
+    // 发光
+    const glow=val>=100?'box-shadow:0 0 15px '+(c?c.clr:'#e94560')+';border-color:'+(c?c.clr:'#e94560'):val>=70?'box-shadow:0 0 8px rgba(240,192,64,0.3);border-color:#f0c040':'';
+
+    const card=document.createElement('div');
+    card.className='affcard fadein';
+    card.style.cssText='background:var(--card);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;border:2px solid '+(val>=30?'#444':'#30363d')+';'+glow+';animation-delay:'+(idx*0.03)+'s';
+
+    const emoji=document.createElement('span');
+    emoji.style.cssText='font-size:1.5em;flex-shrink:0;width:36px;text-align:center;'+(val>=150?'animation:pulse 1s infinite':'');
+    emoji.textContent=c?c.e:'?';
+    card.appendChild(emoji);
+
+    const info=document.createElement('div');
+    info.style.cssText='flex:1;min-width:0';
+    const nameDiv=document.createElement('div');
+    nameDiv.style.cssText='font-size:0.85em;font-weight:bold;display:flex;align-items:center;gap:4px';
+    nameDiv.innerHTML='<span style="color:'+(c?c.clr:'#fff')+'">'+(c?c.n:'?')+'</span><span style="font-size:0.65em;color:var(--dim)">'+(c?c.c:'')+'</span>'+(isTeacher?'<span style="font-size:0.55em;background:#444;color:var(--gold);padding:1px 6px;border-radius:6px">师生</span>':'');
+    info.appendChild(nameDiv);
+
+    // ✨ 渐变进度条
+    const barOuter=document.createElement('div');
+    barOuter.style.cssText='height:6px;background:#222;border-radius:3px;margin-top:4px;overflow:hidden';
+    const barInner=document.createElement('div');
+    const displayVal=isTeacher?Math.min(val,60):Math.min(val,999);
+    const pctVal=isTeacher?Math.min(100,(val/60)*100):Math.min(100,val>=300?100:(val/300)*100);
+    barInner.style.cssText='height:100%;width:'+pctVal+'%;background:'+gradClr+';border-radius:3px;transition:width 0.6s ease';
+    barOuter.appendChild(barInner);
+    info.appendChild(barOuter);
+
+    // 阶段标签
+    const stageDiv=document.createElement('div');
+    stageDiv.style.cssText='font-size:0.7em;color:'+stClr+';margin-top:3px;display:flex;justify-content:space-between';
+    stageDiv.innerHTML='<span>'+stName+'</span><span style="font-weight:bold">'+val+'</span>';
+    info.appendChild(stageDiv);
+
+    card.appendChild(info);
+    grid.appendChild(card);
+  });
+
+  const backBtn='<button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:10px auto">🔙 返回</button>';
+  app.innerHTML='<div style="text-align:center;padding:10px 0"><h1 style="font-size:1.4em">💕 好感度</h1><div style="color:var(--dim);font-size:0.75em">最高: '+maxAff+' · 学生上限999 · 教师上限60</div></div><div class="panel fadein">'+grid.outerHTML+'</div>'+backBtn;
 }
 function rCP(app){
   app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>💑 CP羁绊</h1></div><div class="panel fadein">
@@ -3680,8 +3805,29 @@ function rSettings(app){
   allOn.onclick=function(){G.disabledCPs.clear();render('settings');};
   ctrlRow.appendChild(allOn);
 
+  // ✨ 主题选择器
+  if(!G._theme)G._theme='dark';
+  const themeOpts=[
+    {id:'dark',n:'🌙 暗夜',d:'默认暗色主题'},
+    {id:'gold',n:'☀️ 金色',d:'暖色强调主题'},
+    {id:'witch',n:'💜 魔女',d:'紫色结界主题'},
+    {id:'light',n:'🌕 银月',d:'浅灰学院主题'},
+  ];
+  const themeRow=document.createElement('div');
+  themeRow.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';
+  themeOpts.forEach(function(t){
+    const btn=document.createElement('button');
+    btn.className='btn btn-xs '+(G._theme===t.id?'btn-p':'btn-s');
+    btn.textContent=t.n;
+    btn.title=t.d;
+    btn.onclick=function(){G._theme=t.id;_applyTheme(t.id);render('settings');};
+    themeRow.appendChild(btn);
+  });
+
   const backBtn='<button class="btn btn-s" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>';
-  app.innerHTML='<div style="text-align:center;padding:10px 0"><h1>⚙️ 设置</h1></div><div class="panel fadein"><h3>💑 CP感情线开关</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>'+cpList.outerHTML+ctrlRow.outerHTML+'</div>'+backBtn;
+  app.innerHTML='<div style="text-align:center;padding:10px 0"><h1>⚙️ 设置</h1></div>'+
+    '<div class="panel fadein"><h3>🎨 界面主题</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 8px">选择你喜欢的配色方案，立即生效。</p>'+themeRow.outerHTML+'</div>'+
+    '<div class="panel fadein"><h3>💑 CP感情线开关</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>'+cpList.outerHTML+ctrlRow.outerHTML+'</div>'+backBtn;
 }
 window._toggleCP=function(key){
   if(!G.disabledCPs)G.disabledCPs=new Set();
@@ -3689,6 +3835,25 @@ window._toggleCP=function(key){
   else G.disabledCPs.add(key);
   render('settings');
 };
+// ✨ 全局主题切换
+function _applyTheme(themeId){
+  const root=document.documentElement;
+  const themes={
+    dark:{'--bg':'#0d1117','--panel':'#161b22','--border':'#e94560','--text':'#e6edf3','--dim':'#8b949e','--accent':'#e94560','--gold':'#f0c040','--green':'#3fb950','--blue':'#58a6ff','--purple':'#bc8cff','--card':'#1c2128','--hover':'#252d38'},
+    gold:{'--bg':'#1a1a0e','--panel':'#2d2d1e','--border':'#f0c040','--text':'#e6edf3','--dim':'#b0a070','--accent':'#f0c040','--gold':'#ffd700','--green':'#3fb950','--blue':'#58a6ff','--purple':'#d4a017','--card':'#2a2a14','--hover':'#3a3a20'},
+    witch:{'--bg':'#0a0010','--panel':'#1a0a1e','--border':'#bc8cff','--text':'#e6d0ff','--dim':'#8b7a9e','--accent':'#bc8cff','--gold':'#e040fb','--green':'#3fb950','--blue':'#58a6ff','--purple':'#bc8cff','--card':'#1a0a1e','--hover':'#2a1a2e'},
+    light:{'--bg':'#f0f0f5','--panel':'#ffffff','--border':'#e94560','--text':'#1a1a2e','--dim':'#666680','--accent':'#c0392b','--gold':'#b8860b','--green':'#2d7d46','--blue':'#2d6db5','--purple':'#7b4fa0','--card':'#e8e8ee','--hover':'#dddde8'},
+  };
+  const t=themes[themeId]||themes['dark'];
+  Object.keys(t).forEach(function(k){root.style.setProperty(k,t[k]);});
+  try{localStorage.setItem('aotu4_theme',themeId);}catch(e){}
+  G._theme=themeId;
+}
+// 初始化主题
+(function(){
+  try{const saved=localStorage.getItem('aotu4_theme');if(saved&&['dark','gold','witch','light'].includes(saved)){if(!G._theme)G._theme=saved;_applyTheme(saved);}}catch(e){}
+  if(!G._theme)G._theme='dark';
+})();
 function rMem(app){
   const allCP=Object.keys(CP);
   const allCharCG=Object.keys(AFF90_EVENTS);
@@ -4423,14 +4588,39 @@ function battleLoop(){
     });
   });
 
-  // Enemies
+  // Enemies ✨ 增强渲染
   enemies.forEach(e=>{
     const clr=e.ch?.clr||'#f44';
+    const sk=BATTLE_CHAR_SKILLS[e.id];
+
+    // 身体光圈
     battleCtx.fillStyle=clr;battleCtx.beginPath();battleCtx.arc(e.x,e.y,14+Math.floor(e.aff/15),0,Math.PI*2);battleCtx.fill();
+    // 减速光环
+    if(e.slow>0){battleCtx.strokeStyle='#8bf';battleCtx.lineWidth=2;battleCtx.beginPath();battleCtx.arc(e.x,e.y,16+Math.floor(e.aff/15),0,Math.PI*2);battleCtx.stroke();}
+    // Emoji
     battleCtx.fillStyle='#fff';battleCtx.font='bold 9px sans-serif';battleCtx.textAlign='center';
     battleCtx.fillText(e.ch?.e||'?',e.x,e.y+4);
+
+    // ✨ 技能冷却条
+    if(sk&&e._cd!==undefined){
+      const cdMax=sk._cdMax||90; // 默认最大冷却
+      if(!sk._cdMax)sk._cdMax=e._cd>cdMax?e._cd:cdMax;
+      const cdPct=e._cd/sk._cdMax;
+      // 冷却背景
+      battleCtx.fillStyle='#222';battleCtx.fillRect(e.x-15,e.y-32,30,3);
+      // 冷却进度 (就绪=绿色)
+      battleCtx.fillStyle=cdPct<0.1?'#3fb950':cdPct<0.5?'#f0c040':'#888';
+      battleCtx.fillRect(e.x-15,e.y-32,30*cdPct,3);
+      // 技能名缩写
+      if(cdPct<0.1){
+        battleCtx.fillStyle='#3fb950';battleCtx.font='bold 6px sans-serif';
+        battleCtx.fillText(sk.n.slice(0,2),e.x,e.y-35);
+      }
+    }
+
     // HP bar
     battleCtx.fillStyle='#333';battleCtx.fillRect(e.x-15,e.y-22,30,4);
+    const hpGrad=ctx=>{const g=ctx.createLinearGradient(e.x-15,0,e.x+15,0);g.addColorStop(0,'#e94560');g.addColorStop(1,'#f0c040');return g;};
     battleCtx.fillStyle='#f44';battleCtx.fillRect(e.x-15,e.y-22,30*(e.hp/e.maxHp),4);
     // Worth
     battleCtx.fillStyle='#f0c040';battleCtx.font='bold 8px sans-serif';
