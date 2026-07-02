@@ -1,6 +1,8 @@
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  凹凸学园 · 百日倒数 v5.7                                   ║
+// ║  凹凸学园 · 百日倒数 v6.8                                   ║
+// ║  Babylon.js GUI架构移植：Control/Container/StackPanel/       ║
+// ║  Style/Observable/Theme + 魔女支线增强(侵蚀/残响/碎片)      ║
 // ║  心魔幻
 // ─── 因果境界 ───
 function getKarmaTier(k){
@@ -980,6 +982,7 @@ let G={
   mainChapter:1,sideQuests:{},completedSQ:[],
   lowSprDays:0,sprWarned:false,dailyEvents:0,schoolStreak:0,karma:0,_ksSpr:false,_ksEnergy:false,_ksHome:false,_tBonus:false,_bonusToday:false,
   witch_active:false,witch_day:0,witch_hero:null,
+  witch_corruption:0,witch_shards:[],witch_echoes_seen:[],witch_countdown:10,
   _tAngel:false,_tJournal:false,_tSeventh:false,_tWatch:false,
   _tStuco:false,_tSocial:false,_tEarly:false,_tNight:false,
   _tBento:false,_tRun:false,_tWeather:false,_tJoke:false,
@@ -996,6 +999,7 @@ function initG(){
   G.homestay=pk(HOMESTAY_POOL); // 随机借宿角色
   G.homeInfo=getHomeInfo(G.homestay); G.sideQuests={}; G.completedSQ=[]; G.lowSprDays=0; G.sprWarned=false; G.dailyEvents=0; G.schoolStreak=0;
   G.witch_active=false; G.witch_day=0; G.witch_hero=null;
+  G.witch_corruption=0; G.witch_shards=[]; G.witch_echoes_seen=[]; G.witch_countdown=10;
   G.karma=loadKarma();applyKarmaPassive(); G._ksSpr=false; G._ksEnergy=false; G._ksHome=false; G._tBonus=false; G._bonusToday=false;
   ['_tAngel','_tJournal','_tSeventh','_tWatch','_tStuco','_tSocial','_tEarly','_tNight','_tBento','_tRun','_tWeather','_tJoke','_tLucky','_tLib','_tRooftop','_tChill'].forEach(k=>G[k]=false);
 }
@@ -2309,6 +2313,12 @@ function triggerAch(id,name,desc){
 }
 // 自定义弹窗（替换alert，移动端体验更好）
 function showDialog(msg,cb){
+  // ✨ 优先使用引擎 Dialog 组件
+  if(typeof Dialog !== 'undefined'){
+    Dialog.show('',msg,[{text:'确定',type:'primary',callback:cb}]);
+    return;
+  }
+  // 回退：原生实现
   const d=document.createElement('div');
   d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center';
   d.innerHTML=`<div style="background:var(--panel);border:2px solid var(--gold);border-radius:14px;padding:24px;max-width:320px;text-align:center;animation:fadeIn 0.2s"><p style="white-space:pre-line;color:var(--text);line-height:1.8;font-size:0.9em">${msg}</p><button class="btn btn-p" style="margin-top:16px;padding:10px 36px">确定</button></div>`;
@@ -2316,8 +2326,13 @@ function showDialog(msg,cb){
   d.querySelector('button').onclick=function(){d.remove();if(cb)cb();};
   d.onclick=function(e){if(e.target===d){d.remove();if(cb)cb();}};
 }
-// 轻提示（不打断操作，2秒自动消失）
+// 轻提示（不打断操作，2秒自动消失）✨ 升级为引擎 Toast
 function showToastMsg(msg){
+  if(typeof Toast !== 'undefined'){
+    Toast.show(msg,'info',2000);
+    return;
+  }
+  // 回退：原生实现
   const t=document.createElement('div');
   t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:var(--panel);color:var(--text);border:1px solid var(--gold);border-radius:20px;padding:10px 24px;z-index:9990;font-size:0.85em;white-space:nowrap;animation:fadeIn 0.3s;pointer-events:none';
   t.textContent=msg;
@@ -2581,6 +2596,66 @@ const CHAR_WITCH_SLAY={
 };
 
 // ╔══════════════════════════════════════════════════════════════╗
+// ║  溃离魔女 · 记忆碎片 (Momentum 收集品系统移植)               ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+const WITCH_SHARDS = [
+  {id:'shard_1',n:'愿望的起点',e:'💫',
+   x:'「与分离的人——终会重逢。」\n\n这是你对孵化者说的第一句话。\n\n那时候——你刚和某某中学的人告别。\n\n你哭了。孵化者问你——\n\n「你想要什么？」\n\n你说——\n\n你不想再也见不到重要的人。',
+   day:0},
+  {id:'shard_2',n:'转学第一天',e:'🏫',
+   x:'你站在凹凸学园的校门口。\n\n校牌在阳光下反射着白光。\n\n新的教室。新的课桌。新的人。\n\n你又害怕又期待——\n\n和去某某中学第一天的心情一模一样。',
+   day:1},
+  {id:'shard_3',n:'第一个朋友',e:'🤝',
+   x:'谁第一个和你说话？\n\n你已经不太记得了。\n\n但那个人——那时候——\n\n也许只是说了句「这里有人吗」——\n\n你就觉得——这个学校——也许可以留下来。',
+   day:2},
+  {id:'shard_4',n:'午后的天台',e:'🌇',
+   x:'有人对你说——\n\n「天台是个好地方。」\n\n你站在栏杆边——风吹过来。\n\n下面是整个学园。\n\n你想着——\n\n如果时间能停在这里就好了。',
+   day:3},
+  {id:'shard_5',n:'日记的最后一页',e:'📓',
+   x:'「第87天。\n\n今天和他说了很多话。\n\n他问起我以前的事——\n\n我说——以前不重要。\n\n但我知道——\n\n以前很重要。\n\n只是我不能同时活在两个世界。」',
+   day:4},
+  {id:'shard_6',n:'不眠之夜',e:'🌙',
+   x:'你躺在借宿的床上——盯着天花板。\n\n灵魂宝石在床头柜上——又暗了一点。\n\n你在想——\n\n一百天后——你还会记得今天吗？\n\n孵化者说轮回不保留记忆。\n\n但你偷偷希望——至少——能记住一点点。',
+   day:5},
+  {id:'shard_7',n:'某某中学的回声',e:'📎',
+   x:'你记得某某中学。记得那里的走廊——\n\n那里也有一个天台。\n\n也有一个和你一起吃午饭的人。\n\n他的脸——在你记忆里已经有点模糊了。\n\n但你记得他的笑声。\n\n和凹凸学园某个人的笑声——很像。',
+   day:6},
+  {id:'shard_8',n:'灵魂宝石的裂痕',e:'💎',
+   x:'宝石上出现了一道细小的裂缝。\n\n不是被摔的。不是被撞的。\n\n是愿望自己在裂开。\n\n「与分离的人终会重逢」→\n\n到了必须分离的时候——\n\n愿望的背面——就是诅咒。',
+   day:7},
+  {id:'shard_9',n:'溃离的预兆',e:'🕳️',
+   x:'你开始不想起床。\n\n不是累。\n\n是害怕。\n\n每一天——离一百天又近了一步。\n\n每一天——羁绊更深了一点。\n\n分离——也变得更难了一点。\n\n你在想——\n\n如果所有人都困在这里——\n\n是不是就不用分离了？',
+   day:8},
+];
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  溃离魔女 · 残响事件 (Momentum Ghost 系统移植)               ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+const WITCH_ECHOES = [
+  // Day 2-8 随机触发的过往轮回记忆残响
+  {id:'echo_classroom',days:[2,3,4],chance:0.4,
+   title:'🏫 教室的残响',
+   text:'结界里闪过一道半透明的画面——\n\n是教室。是以前的教室。\n\n你坐在靠窗的位子——和现在一样。\n\n有人在叫你的名字。\n\n是某某中学的声音。\n\n但你看不清他的脸。\n\n画面闪烁了一下——消失了。\n\n结界里的记忆——只是残响。不是真的。\n\n但你的心还是慢了半拍。'},
+  {id:'echo_rooftop',days:[3,4,5],chance:0.35,
+   title:'🌇 天台的残响',
+   text:'天台的栏杆——是你在某某中学最喜欢的位置。\n\n现在——结界把它复制了出来。\n\n风吹过——带着不属于这个世界的温度。\n\n有人站在你旁边——\n\n是残影。不是真人。\n\n残影说了一句话——\n\n但你听不清内容。\n\n只听到最后一个词——是某个人的名字。\n\n不是你认识的任何人。\n\n是上一世——被你忘记的人。'},
+  {id:'echo_clock',days:[4,5,6],chance:0.3,
+   title:'⏰ 钟声的残响',
+   text:'走廊里——响起了不属于这个学校的钟声。\n\n是某某中学的下课铃。\n\n你条件反射地想站起来——\n\n但这不是你的教室。这不是你的学校。\n\n钟声在结界里回荡——越来越远——\n\n像有人在很远的地方——敲着一口不属于任何一个世界的钟。\n\n上一次听到这钟声——\n\n是转学的前一天。\n\n那是你最后一次——以某某中学学生的身份——走出校门。'},
+  {id:'echo_mirror',days:[5,6,7],chance:0.25,
+   title:'🪞 镜中的残响',
+   text:'你在结界里看到了一面镜子。\n\n镜子里的人——是你。\n\n但不是现在的你。\n\n是上一世的你。穿着不同的校服——站在不同的学校里——\n\n也在看着镜子。\n\n你们的目光穿过时间——\n\n同时说：「我不想走。」\n\n镜子碎了。残响消散。\n\n上一世的你——也说过同样的话。\n\n也变成了魔女。\n\n这个轮回——已经重复过很多次了。'},
+  {id:'echo_incubator',days:[6,7,8],chance:0.2,
+   title:'🐾 孵化者的残响',
+   text:'结界深处——传来孵化者的声音。\n\n不是对你说话。\n\n是对上一世的你。\n\n「你的愿望——是轮回。」\n\n「你会在新的世界——与旧日的人们重逢。」\n\n「但请记住——」\n\n「重逢的次数越多——分离的次数也就越多。」\n\n「每一世——你都会经历一次百日。」\n\n「每一世——你都会爱上新的人。」\n\n「每一世——你都会在第一百天——」\n\n声音忽然停了。\n\n残响——被结界吞掉了最后一句。'},
+  {id:'echo_hero',days:[7,8],chance:0.2,
+   title:'💫 英雄的残响',
+   text:'你看到了那个人。\n\n是来终结你的人。\n\n但在残响里——他是笑着的。\n\n你们在食堂——在走廊——在天台——\n\n你记起来了——\n\n这些事——确实发生过。\n\n只是不在这一世。\n\n你和他——在上一世——也是朋友。\n\n上一世的最后一天——\n\n他也站在你面前——\n\n表情——和这一世一模一样。\n\n残响里——你说了一句话。\n\n「下次——」\n\n然后残响断了。\n\n下次什么？\n\n你不记得了。他也不会知道。'},
+];
+
+// ╔══════════════════════════════════════════════════════════════╗
 // ║  溃离魔女 · 十日崩塌                                         ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -2675,19 +2750,60 @@ function renderWitchDay(app){
 function buildWitchShell(title,narration,choices,isFinalBattle){
   const hero=CH[G.witch_hero];
   const heroClr=hero?hero.clr:'#bc8cff';
-  let html=`<div class="cdbanner fadein" style="background:linear-gradient(135deg,#1a0a1e,#2d0a1e);border:2px solid var(--purple)">
+  const day=G.witch_day;
+  const corr=G.witch_corruption||0;
+  const shards=G.witch_shards||[];
+  const cd=10-day;
+
+  // ✨ 侵蚀等级
+  const corrTier=corr>=90?'🔴 完全侵蚀':corr>=60?'🟠 深度侵蚀':corr>=30?'🟡 中度侵蚀':'🟢 轻度侵蚀';
+  const corrClr=corr>=90?'#f85149':corr>=60?'#f0c040':corr>=30?'#58a6ff':'#3fb950';
+
+  // ✨ 结界滤镜 — 每天画面更暗更紫
+  const filterCSS=corr>=70
+    ?'filter:sepia(0.3) hue-rotate(-20deg) brightness(0.7);'
+    :corr>=40
+    ?'filter:sepia(0.15) hue-rotate(-10deg) brightness(0.85);'
+    :'';
+
+  let html=`<div class="cdbanner fadein" style="background:linear-gradient(135deg,#1a0a1e,#2d0a1e);border:2px solid var(--purple);${filterCSS}">
     <div style="text-align:center">
-      <div class="daynum" style="color:var(--purple);text-shadow:0 0 20px rgba(188,140,255,0.5)">${G.witch_day}</div>
+      <div class="daynum" style="color:var(--purple);text-shadow:0 0 20px rgba(188,140,255,0.5)">${day}</div>
       <div class="daylabel" style="color:var(--purple)">溃 离 纪 元</div>
     </div>
   </div>
-  <div class="statusbar fadein" style="background:#1a0a1e;border:1px solid var(--purple)">
+
+  <!-- ✨ 结界侵蚀状态面板 (移植自 Momentum Zone 系统) -->
+  <div class="statusbar fadein" style="background:#1a0a1e;border:1px solid var(--purple);flex-wrap:wrap;gap:6px">
     <span style="font-size:0.6em;color:var(--dim)">魔女结界</span>
     <span style="color:var(--purple);font-size:0.75em">💎 性质：溃离</span>
+    <span style="color:${corrClr};font-size:0.7em">${corrTier} ${corr}%</span>
     <span style="color:var(--dim);font-size:0.65em">悲叹之种</span>
     ${hero?`<span style="color:${heroClr};font-size:0.75em;margin-left:auto">${hero.e} ${hero.n} · 英雄</span>`:''}
   </div>
-  <div class="eventbox fadein" style="border-left:3px solid var(--purple);background:var(--card);margin:8px 0">
+
+  <!-- ✨ 侵蚀进度条 -->
+  <div style="background:#1a0a1e;border-radius:8px;padding:6px 10px;margin:4px 0;display:flex;align-items:center;gap:8px">
+    <span style="font-size:0.65em;color:var(--dim);white-space:nowrap">🕸️ 结界侵蚀</span>
+    <div style="flex:1;height:4px;background:#333;border-radius:2px;overflow:hidden">
+      <div style="height:100%;width:${corr}%;background:${corrClr};border-radius:2px;transition:width 0.8s ease"></div>
+    </div>
+    <span style="font-size:0.65em;color:${corrClr};font-weight:bold">${corr}%</span>
+  </div>
+
+  <!-- ✨ 倒计时 + 碎片计数 -->
+  <div style="display:flex;gap:8px;margin:4px 0;flex-wrap:wrap">
+    <div style="flex:1;background:#1a0a1e;border:1px solid var(--purple);border-radius:8px;padding:6px 10px;text-align:center">
+      <div style="font-size:0.6em;color:var(--dim)">⏱ 崩塌倒计时</div>
+      <div style="font-size:1.3em;font-weight:bold;color:${cd<=3?'#f85149':cd<=5?'#f0c040':'var(--purple)'};font-family:monospace">${cd} 天</div>
+    </div>
+    <div style="flex:1;background:#1a0a1e;border:1px solid #333;border-radius:8px;padding:6px 10px;text-align:center">
+      <div style="font-size:0.6em;color:var(--dim)">💠 记忆碎片</div>
+      <div style="font-size:1.3em;font-weight:bold;color:var(--gold);font-family:monospace">${shards.length} / 9</div>
+    </div>
+  </div>
+
+  <div class="eventbox fadein" style="border-left:3px solid var(--purple);background:var(--card);margin:8px 0;${filterCSS}">
     <p class="narration" style="white-space:pre-line">${narration}</p>
   </div>
   <div style="margin:8px 0">`;
@@ -2706,7 +2822,7 @@ function buildWitchShell(title,narration,choices,isFinalBattle){
     html+=`
     <button class="btn btn-p pulse" style="font-size:1.1em;padding:12px 36px;background:var(--purple);color:#fff;border:none;box-shadow:0 0 20px rgba(188,140,255,0.4)"
       onclick="window._witchAdvance()">
-      ${G.witch_day===9?'▸ 终末降临':'▸ 下一天'}
+      ${day===9?'▸ 终末降临':'▸ 下一天'}
     </button>`;
   }
 
@@ -2714,9 +2830,42 @@ function buildWitchShell(title,narration,choices,isFinalBattle){
   return html;
 }
 
-// ─── 魔女推进与终幕全局函数 ───
+// ─── 魔女推进与终幕全局函数 ✨ 增强版 ───
 window._witchAdvance=function(){
   curEv=null;
+  const day=G.witch_day;
+
+  // ✨ 更新结界侵蚀度 (每天+10%，末日=100%)
+  G.witch_corruption=Math.min(100,(day+1)*10);
+  G.witch_countdown=10-day-1;
+
+  // ✨ 记忆碎片收集检测 (Day 1-8, 每天30%概率发现碎片)
+  if(day>=1&&day<=8&&Math.random()<0.3){
+    const availableShards=WITCH_SHARDS.filter(s=>s.day<=day&&!G.witch_shards.includes(s.id));
+    if(availableShards.length>0){
+      const shard=availableShards[Math.floor(Math.random()*availableShards.length)];
+      G.witch_shards.push(shard.id);
+      // 显示碎片发现提示
+      setTimeout(()=>{
+        Toast.show(shard.e+' 发现记忆碎片：「'+shard.n+'」','affection',2500);
+      },500);
+    }
+  }
+
+  // ✨ 残响触发检测 (Day 2-8)
+  if(day>=2&&day<=8){
+    const echoes=WITCH_ECHOES.filter(e=>e.days.includes(day)&&!G.witch_echoes_seen.includes(e.id));
+    echoes.forEach(e=>{
+      if(Math.random()<e.chance){
+        G.witch_echoes_seen.push(e.id);
+        // 残响作为对话框弹出
+        setTimeout(()=>{
+          Dialog.show(e.title,e.text,[{text:'残响消散……',type:'primary',callback:null}]);
+        },800);
+      }
+    });
+  }
+
   advanceSlot();
   if(G.witch_day<=10&&G.witch_active)render('play');
 };
@@ -3649,7 +3798,17 @@ function renderWitchEnding(app){
       </div>
       <div style="font-size:0.65em;color:var(--dim)">悲叹之种消耗了积蓄的因果 —— 但核心的羁绊还在。</div>
       <div style="font-size:0.65em;color:var(--dim);margin-top:4px">累计因果値：${G.karma} · 性质「溃离」已记录</div>
+      ${G.witch_shards&&G.witch_shards.length>0?`<div style="font-size:0.7em;color:var(--gold);margin-top:4px">💠 回收记忆碎片：${G.witch_shards.length} / 9</div>`:''}
     </div>
+    ${G.witch_shards&&G.witch_shards.length>0?`
+    <div style="background:var(--card);border-radius:10px;padding:12px;margin-top:10px;text-align:left">
+      <div style="font-size:0.7em;color:var(--gold);margin-bottom:6px">💠 结界中回收的记忆：</div>
+      ${G.witch_shards.map(sid=>{
+        const s=WITCH_SHARDS.find(w=>w.id===sid);
+        return s?`<div style="font-size:0.7em;color:var(--dim);padding:4px 0;border-bottom:1px solid #222">${s.e} ${s.n}</div>`:'';
+      }).join('')}
+      <div style="font-size:0.65em;color:var(--purple);margin-top:6px">这些碎片——是TA存在过的证明。轮回之后——它们会留在因果的环里。</div>
+    </div>`:''}
   </div>`;
 }
 
@@ -3768,6 +3927,9 @@ let battleCtx=null,battleAnim=null,player=null,enemies=[],bullets=[],particles=[
 let battleScore=0,battleTime=60,battleWave=1,battleOver=false,battleWon=false;
 let battleIsMobile=false,battleJoystick={active:false,ox:0,oy:0,dx:0,dy:0,tid:null},battleCanvasScale=1;
 let battleLastTime=0,battlePaused=false,battleVisHandler=null;
+// ✨ 引擎增强
+let battleParticleSys=null,battleShake=null,battleFloatTexts=[];
+let battlePlayerCooldown=null; // 玩家射击冷却 (Cooldown)
 
 function resizeBattleCanvas(dpr){
   const vh=window.innerHeight;
@@ -3807,6 +3969,11 @@ function startHeartDemonBattle(){
   battleScore=0;battleTime=60;battleWave=1;battleOver=false;battleWon=false;
   enemies=[];bullets=[];particles=[];
   battleLastTime=performance.now();battlePaused=false;
+  // ✨ 初始化引擎增强
+  battleParticleSys=new ParticleSystem();
+  battleShake=new ScreenShake();
+  battleFloatTexts=[];
+  battlePlayerCooldown=new Cooldown(1000/Math.max(3,22-G.attr.INT*1.5)); // 每秒N发
   if(battleVisHandler)document.removeEventListener('visibilitychange',battleVisHandler);
   battleVisHandler=function(){battlePaused=document.hidden;if(!document.hidden)battleLastTime=performance.now();};
   document.addEventListener('visibilitychange',battleVisHandler);
@@ -3859,7 +4026,14 @@ function startHeartDemonBattle(){
 function spawnWave(){
   const count=3+battleWave*2;
   for(let i=0;i<count;i++)spawnEnemy(1);
+  // ✨ 新波次特效：屏幕中央环状冲击波
+  if(battleParticleSys){
+    battleParticleSys.ring(400,250,20+count*5,15+count*3,'rgba(188,140,255,0.6)',{speed:1.5+count*0.3,life:30,size:2.5});
+    battleShake.trigger(4,0.88);
+  }
   battleWave++;
+  // ✨ 波次提示
+  if(battleWave>1)Toast.show('🌊 第 '+battleWave+' 波！','warning',1500);
 }
 
 function spawnEnemy(n){
@@ -3954,11 +4128,20 @@ function battleLoop(){
   battleLastTime=now;
   if(battlePaused)dt=0; // 切后台期间暂停
   if(dt>0.5)dt=0.5;     // 防止切回来后巨大跳跃（最多损失0.5秒）
+  const dtMs=dt*1000;   // 毫秒版本，给Timer/Cooldown用
+
   battleTime-=dt;
   if(battleTime<=0){battleTime=0;battleOver=true;battleWon=true;renderBattleResult();return;}
   if(battleTime<=45&&battleWave===2)spawnWave();
   if(battleTime<=30&&battleWave===3)spawnWave();
   if(battleTime<=15&&battleWave===4)spawnWave();
+
+  // ✨ 更新引擎系统
+  battleParticleSys.update(dtMs);
+  battleShake.update();
+  battlePlayerCooldown.update(dtMs);
+  battleFloatTexts.forEach(ft=>ft.update());
+  battleFloatTexts=battleFloatTexts.filter(ft=>ft.alive);
 
   // Player movement
   if(battleIsMobile){
@@ -3991,6 +4174,10 @@ function battleLoop(){
   const spdMul=player.slow>0?0.5:1;
   player.x=Math.max(15,Math.min(785,player.x+player.vx*spdMul));
   player.y=Math.max(15,Math.min(485,player.y+player.vy*spdMul));
+  // ✨ 玩家移动拖尾
+  if(Math.abs(player.vx)>0.3||Math.abs(player.vy)>0.3){
+    battleParticleSys.trail(player.x,player.y,'#58a6ff',1.5,12);
+  }
   if(player.shootCD>0)player.shootCD--;
   if(player.slow>0)player.slow--;
   if(player.silence>0)player.silence--;
@@ -3998,8 +4185,8 @@ function battleLoop(){
   if(player._flash>0)player._flash--;
   if(player.invincible>0)player.invincible--;
 
-  // Auto-shoot
-  if(player.shootCD<=0&&player.silence<=0){
+  // Auto-shoot ✨ Cooldown 时间驱动
+  if(battlePlayerCooldown.ready&&player.silence<=0){
     if(battleIsMobile){
       // 手机：自动瞄准最近敌人
       let nearest=null,nd=Infinity;
@@ -4007,13 +4194,17 @@ function battleLoop(){
       if(nearest){
         const a=Math.atan2(nearest.y-player.y,nearest.x-player.x);
         bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
-        player.shootCD=player.shootRate;
+        battlePlayerCooldown.trigger();
+        // ✨ 枪口粒子特效
+        battleParticleSys.burst(player.x+Math.cos(a)*15,player.y+Math.sin(a)*15,a,3,'#58a6ff',{speed:1.5,life:8,spread:5,size:1.5});
       }
     }else if(player.mx!==undefined){
       // 桌面端：鼠标瞄准
       const a=Math.atan2(player.my-player.y,player.mx-player.x);
       bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:60,from:'player'});
-      player.shootCD=player.shootRate;
+      battlePlayerCooldown.trigger();
+      // ✨ 枪口粒子特效
+      battleParticleSys.burst(player.x+Math.cos(a)*15,player.y+Math.sin(a)*15,a,2,'#58a6ff',{speed:1.2,life:6,spread:3,size:1.5});
     }
   }
 
@@ -4061,15 +4252,21 @@ function battleLoop(){
   bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;});
   bullets=bullets.filter(b=>b.life>0&&b.x>0&&b.x<800&&b.y>0&&b.y<500);
 
-  // Player bullets hit enemy
+  // Player bullets hit enemy ✨ 增强特效
   bullets.filter(b=>b.from==='player').forEach(b=>{
     enemies.forEach(e=>{
       if(dist(b,e)<18+Math.max(0,e.aff/15)){
         e.hp-=player.dmg;b.life=0;
         if(e.hp<=0){
           battleScore+=e.worth;
-          // Death particles
-          for(let i=0;i<8;i++)particles.push({x:e.x,y:e.y,vx:rn(-3,3),vy:rn(-3,3),life:20,color:e.ch?.clr||'#fff'});
+          // ✨ 爆炸粒子 + 震动 + 浮动分数
+          battleParticleSys.explode(e.x,e.y,10,e.ch?.clr||'#f44',{speed:3,life:25,size:4});
+          battleShake.trigger(3,0.8);
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,e.x,e.y-10,'+'+e.worth,e.ch?.clr||'#f0c040'));
+        }else{
+          // ✨ 命中火花
+          battleParticleSys.burst(b.x,b.y,Math.atan2(b.vy,b.vx),3,'#ff0',{speed:2,life:8,spread:60,size:2});
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,b.x,b.y,'-'+player.dmg,'#f44'));
         }
       }
     });
@@ -4082,7 +4279,11 @@ function battleLoop(){
           e.hp-=4;b.life=0;
           if(e.hp<=0){
             battleScore+=e.worth;
-            for(let i=0;i<8;i++)particles.push({x:e.x,y:e.y,vx:rn(-3,3),vy:rn(-3,3),life:20,color:e.ch?.clr||'#fff'});
+            // ✨ 爆炸粒子
+            battleParticleSys.explode(e.x,e.y,8,e.ch?.clr||'#f44',{speed:2.5,life:20,size:3});
+            battleFloatTexts.push(FloatingText.spawn(battleCtx,e.x,e.y-10,'+'+e.worth,'#f0c040'));
+          }else{
+            battleParticleSys.burst(b.x,b.y,Math.atan2(b.vy,b.vx),2,'#ff0',{speed:1.5,life:6,spread:45,size:1.5});
           }
         }
       });
@@ -4095,42 +4296,63 @@ function battleLoop(){
         e1.hp-=0.8;e2.hp-=0.8;
         if(e1.hp<=0){
           battleScore+=e1.worth;
-          for(let i=0;i<8;i++)particles.push({x:e1.x,y:e1.y,vx:rn(-3,3),vy:rn(-3,3),life:20,color:e1.ch?.clr||'#fff'});
+          battleParticleSys.explode(e1.x,e1.y,6,e1.ch?.clr||'#f44',{speed:2,life:15,size:2.5});
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,e1.x,e1.y-10,'+'+e1.worth,'#f0c040'));
         }
         if(e2.hp<=0){
           battleScore+=e2.worth;
-          for(let i=0;i<8;i++)particles.push({x:e2.x,y:e2.y,vx:rn(-3,3),vy:rn(-3,3),life:20,color:e2.ch?.clr||'#fff'});
+          battleParticleSys.explode(e2.x,e2.y,6,e2.ch?.clr||'#f44',{speed:2,life:15,size:2.5});
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,e2.x,e2.y-10,'+'+e2.worth,'#f0c040'));
         }
       }
     });
   });
-  // Enemy bullets/contact hit player（霸体期间免疫伤害）
+  // Enemy bullets/contact hit player（霸体期间免疫伤害）✨ 增强受击反馈
   if(player.invincible<=0){
     enemies.forEach(e=>{
       if(e._bullets)e._bullets.forEach(b=>{
-        if(dist(b,player)<15){player.hp-=(b.dmg||4);if(b.slow)player.slow=Math.max(player.slow||0,b.slow);if(!b.pierce)b.life=0;player._flash=5;}
+        if(dist(b,player)<15){
+          const dmg=b.dmg||4;
+          player.hp-=dmg;if(b.slow)player.slow=Math.max(player.slow||0,b.slow);if(!b.pierce)b.life=0;player._flash=5;
+          battleShake.trigger(5,0.85);
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,player.x,player.y-20,'-'+dmg,'#f85149'));
+          battleParticleSys.burst(b.x,b.y,Math.atan2(b.vy,b.vx),4,'#f85149',{speed:2,life:10,spread:40,size:2});
+        }
       });
-      if(dist(e,player)<20){player.hp-=2;player._flash=5;}
+      if(dist(e,player)<20){
+        player.hp-=2;player._flash=5;
+        battleShake.trigger(3,0.9);
+        battleFloatTexts.push(FloatingText.spawn(battleCtx,player.x,player.y-20,'-2','#f85149'));
+      }
       if(e._trail)e._trail.forEach(t=>{
         if(dist(t,player)<18){player.hp-=3;}
       });
     });
   }
 
-  // Update particles
+  // Update old particles (legacy compat - 非引擎创建的粒子仍用旧系统)
   particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
   particles=particles.filter(p=>p.life>0);
 
   // Player death
   if(player.hp<=0){battleOver=true;battleWon=false;renderBattleResult();return;}
 
-  // ---- RENDER ----
+  // ---- RENDER ✨ 增强版 ----
+  // ✨ 应用屏幕震动
+  battleCtx.save();
+  if(battleShake.isShaking){
+    battleShake.apply(battleCtx);
+  }
+
   // Background grid
   battleCtx.strokeStyle='#1a1a2e';battleCtx.lineWidth=1;
   for(let i=0;i<800;i+=40){battleCtx.beginPath();battleCtx.moveTo(i,0);battleCtx.lineTo(i,500);battleCtx.stroke();}
   for(let i=0;i<500;i+=40){battleCtx.beginPath();battleCtx.moveTo(0,i);battleCtx.lineTo(800,i);battleCtx.stroke();}
 
-  // Particles
+  // ✨ 新粒子系统渲染
+  battleParticleSys.draw(battleCtx);
+
+  // Legacy particles (兼容旧代码中的粒子)
   particles.forEach(p=>{
     battleCtx.fillStyle=p.color;battleCtx.globalAlpha=p.life/20;
     battleCtx.fillRect(p.x-2,p.y-2,4,4);battleCtx.globalAlpha=1;
@@ -4168,6 +4390,12 @@ function battleLoop(){
   bullets.filter(b=>b.from==='player').forEach(b=>{
     battleCtx.fillStyle='#58a6ff';battleCtx.beginPath();battleCtx.arc(b.x,b.y,3,0,Math.PI*2);battleCtx.fill();
   });
+
+  // ✨ 浮动文字（伤害/分数）
+  battleFloatTexts.forEach(ft=>ft.draw(battleCtx));
+
+  // ✨ 恢复震动上下文（HUD 不震动）
+  battleCtx.restore();
 
   // Player
   if(player._flash%2===0){
@@ -4264,6 +4492,8 @@ function renderBattleResult(){
     G.attr.SPR=clamp(G.attr.SPR+sprGain,0,10);
     G.lowSprDays=0;G.sprWarned=false;
     G.flags['heart_demon_won']=true;
+    // ✨ Toast 战斗胜利通知
+    Toast.show('💀 心魔幻境 · 突破！精神 +'+sprGain,'success',2500);
     app.innerHTML=buildShell(`<div class="feedback fadein"><div class="fbtitle">💀 心魔幻境 · 突破！</div>
       <div class="fbtext">你战胜了内心深处的梦魇。\n\n那些扭曲的面孔恢复了原样——\n\n教室回来了。阳光照在课桌上。\n\n你深吸一口气。\n\n还活着。还能继续。</div>
       <div class="fbaff"><span class="fbup">🧘精神 +${sprGain}</span> <span style="color:var(--gold)">⭐得分 ${battleScore}</span></div>
@@ -4278,6 +4508,7 @@ function renderBattleResult(){
       const tied=sorted.filter(([,v])=>v===topAff);
       G.witch_hero=tied[Math.floor(Math.random()*tied.length)][0];
       G.witch_active=true;G.witch_day=0;G.attr.SPR=0;
+      G.witch_corruption=0;G.witch_shards=[];G.witch_echoes_seen=[];G.witch_countdown=10;
       G.flags['witch_transformation']=true;
       G.flags['witch_karma_at_transform']=currentKarma;
       document.removeEventListener('keydown',battleKeyDown);document.removeEventListener('keyup',battleKeyUp);
