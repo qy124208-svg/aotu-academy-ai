@@ -4604,6 +4604,7 @@ function battleTouchEnd(e){
 
 function battleLoop(){
   if(battleOver){renderBattleResult();return;}
+  try{
   battleCtx.clearRect(0,0,800,500);
   // delta time：适配所有刷新率，防止切后台时间跳跃
   const now=performance.now();
@@ -5003,6 +5004,7 @@ function battleLoop(){
     battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
   }
 
+  }catch(e){console.warn('battleLoop error:',e.message);}
   battleAnim=requestAnimationFrame(battleLoop);
 }
 
