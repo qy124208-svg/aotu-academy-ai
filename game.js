@@ -3971,64 +3971,140 @@ window._applyTheme=_applyTheme;
   if(!G._theme)G._theme='dark';
 })();
 function rMem(app){
-  const allCP=Object.keys(CP);
-  const allCharCG=Object.keys(AFF90_EVENTS);
-  const totalCount=allCP.length+allCharCG.length;
-  const unlockedCount=G.memories.filter(m=>m.startsWith('cg_')||allCP.includes(m)).length;
-  app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>📸 回忆相册</h1><div style="color:var(--dim);font-size:0.8em">CP事件解锁 · 好感满值解锁角色CG</div></div>
-<!-- CP回忆 -->
-<div class="panel fadein"><h2>💑 CP回忆</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
-  ${allCP.map(k=>{const cp=CP[k];const un=G.memories.includes(k);
-    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--gold)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="showDialog('${cp.n}：珍贵的百日回忆。')"`:''}>${un?cp.e:'🔒'}</div>`;}).join('')}
-</div></div>
-<!-- 角色CG -->
-<div class="panel fadein"><h2>💖 角色CG</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
-  ${allCharCG.map(id=>{const data=AFF90_EVENTS[id];const un=G.memories.includes('cg_'+id);
-    return`<div style="aspect-ratio:1;background:var(--card);border:2px solid ${un?'var(--accent)':'#30363d'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${un?'2.2em':'1.2em'};${un?'cursor:pointer;animation:pulse 2s infinite':'opacity:0.3'}" ${un?`onclick="showDialog('${data.n}：${CH[id]?.n||id}的专属回忆。')"`:''}>${un?data.e:'🔒'}</div>`;}).join('')}
-</div></div>
-<div style="font-size:0.8em;color:var(--dim);margin-top:8px">已解锁：${unlockedCount} / ${totalCount}</div>
-<button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>`;
-}
-function rJournal(app){
-  app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>📓 百日日记</h1><div style="color:var(--dim);font-size:0.8em">Day ${G.day} · 还剩 ${G.maxDay-G.day} 天</div></div>
-<div class="panel fadein">${G.journal.length===0?'<p style="color:var(--dim)">日记是空的。去经历些什么吧。</p>':G.journal.slice(-40).reverse().map(j=>`<div style="background:var(--card);border-radius:8px;padding:10px;margin:4px 0;border-left:3px solid #333;font-size:0.8em;line-height:1.6;color:var(--dim)"><div style="color:var(--accent);font-weight:bold;margin-bottom:3px">📅 Day ${j.day}${j.cp?' · '+CP[j.cp]?.n||'':''}</div><div style="white-space:pre-line">${j.t}</div></div>`).join('')}</div>
-<button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>`;
-}
+  app.innerHTML='';
+  var allCP=Object.keys(CP);var allCharCG=Object.keys(AFF90_EVENTS);
+  var totalCount=allCP.length+allCharCG.length;
+  var unlockedCount=G.memories.filter(function(m){return m.startsWith('cg_')||allCP.includes(m);}).length;
 
+  var root=document.createElement('div');root.style.cssText='max-width:600px;margin:0 auto';
 
-// ─── 任务面板 ───
-function rQuest(app){
-  const mc=MAIN_CHAPTERS['ch'+G.mainChapter];
-  const sqProgress=SIDE_QUESTS.map(sq=>{
-    const cur=G.sideQuests[sq.id]||1;
-    const done=G.completedSQ.includes(sq.id);
-    const max=sq.steps.length;
-    return {n:sq.n,e:sq.e,d:sq.d,id:sq.id,cur:done?max+1:cur,max,done};
-  }).sort((a,b)=>b.done-a.done||(b.cur-b.max)-(a.cur-a.max));
-  let html='<div style="text-align:center;padding:10px 0"><h1>📋 任务</h1></div>';
-  html+='<div class="panel fadein"><h2>📖 主线 · 第'+G.mainChapter+'章</h2>';
-  html+='<div style="background:var(--card);border:2px solid var(--gold);border-radius:10px;padding:14px;margin:8px 0">';
-  html+='<div style="font-weight:bold;color:var(--gold);font-size:1em">'+mc.t+'</div>';
-  html+='<div style="color:var(--dim);font-size:0.8em;white-space:pre-line;margin-top:4px">'+mc.d.slice(0,120)+'…</div>';
-  html+='<div style="font-size:0.7em;color:var(--accent);margin-top:6px">Day '+G.day+' · 进度 '+G.mainChapter+'/10</div>';
-  html+='</div></div>';
-  html+='<div class="panel fadein"><h2>📋 支线 ('+G.completedSQ.length+'/'+SIDE_QUESTS.length+')</h2>';
-  sqProgress.forEach(sq=>{
-    const stepData=SIDE_QUESTS.find(q=>q.id===sq.id)?.steps[sq.cur-1];
-    const bc=sq.done?'var(--green)':sq.cur>1?'var(--gold)':'#444';
-    const op=sq.cur>1||sq.done?1:0.5;
-    html+='<div style="background:var(--card);border-radius:8px;padding:10px;margin:4px 0;border-left:3px solid '+bc+';opacity:'+op+'">';
-    html+='<div style="display:flex;justify-content:space-between;align-items:center">';
-    html+='<span>'+sq.e+' <strong>'+sq.n+'</strong></span>';
-    html+='<span style="font-size:0.7em;color:'+(sq.done?'var(--green)':'var(--dim)')+'">'+(sq.done?'✅完成':sq.cur+'/'+sq.max)+'</span>';
-    html+='</div>';
-    html+='<div style="font-size:0.7em;color:var(--dim);margin-top:2px">'+sq.d+' · 好感≥'+(stepData?.req?.aff||'?')+'</div>';
-    html+='<div style="height:3px;background:#333;border-radius:2px;margin-top:4px"><div style="height:100%;background:'+(sq.done?'var(--green)':'var(--gold)')+';border-radius:2px;width:'+Math.min(100,(sq.cur/sq.max)*100)+'%"></div></div>';
-    html+='</div>';
+  var title=document.createElement('div');title.style.cssText='text-align:center;padding:10px 0';
+  title.innerHTML='<h1>📸 回忆相册</h1><div style="color:var(--dim);font-size:0.8em">CP事件解锁 · 好感满值解锁角色CG</div>';
+  root.appendChild(title);
+
+  // CP回忆
+  var cpPanel=document.createElement('div');cpPanel.className='panel fadein';
+  cpPanel.innerHTML='<h2>💑 CP回忆</h2>';
+  var cpGrid=document.createElement('div');cpGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px';
+  allCP.forEach(function(k){
+    var cp=CP[k];var un=G.memories.includes(k);
+    var card=document.createElement('div');
+    card.style.cssText='aspect-ratio:1;background:var(--card);border:2px solid '+(un?'var(--gold)':'#30363d')+';border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:'+(un?'2.2em':'1.2em')+';'+(un?'cursor:pointer;animation:pulse 2s infinite;box-shadow:0 0 10px rgba(240,192,64,0.3)':'opacity:0.3')+';transition:all 0.3s';
+    card.textContent=un?cp.e:'🔒';
+    if(un){card.title=cp.n+'：珍贵的百日回忆';card.onclick=function(){showDialog(cp.n+'：珍贵的百日回忆。');};}
+    cpGrid.appendChild(card);
   });
-  html+='</div>';
-  html+='<button class="btn btn-p" onclick="window._nav(\'play\')" style="display:block;margin:8px auto">🔙 返回</button>';
-  app.innerHTML=html;
+  cpPanel.appendChild(cpGrid);root.appendChild(cpPanel);
+
+  // 角色CG
+  var cgPanel=document.createElement('div');cgPanel.className='panel fadein';
+  cgPanel.innerHTML='<h2>💖 角色CG</h2>';
+  var cgGrid=document.createElement('div');cgGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px';
+  allCharCG.forEach(function(id){
+    var data=AFF90_EVENTS[id];var un=G.memories.includes('cg_'+id);
+    var card=document.createElement('div');
+    card.style.cssText='aspect-ratio:1;background:var(--card);border:2px solid '+(un?'var(--accent)':'#30363d')+';border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:'+(un?'2.2em':'1.2em')+';'+(un?'cursor:pointer;animation:pulse 2s infinite;box-shadow:0 0 10px rgba(233,69,96,0.3)':'opacity:0.3')+';transition:all 0.3s';
+    card.textContent=un?data.e:'🔒';
+    if(un){card.title=(CH[id]?.n||id)+'的专属回忆';card.onclick=function(){showDialog(data.n+'：'+(CH[id]?.n||id)+'的专属回忆。');};}
+    cgGrid.appendChild(card);
+  });
+  cgPanel.appendChild(cgGrid);root.appendChild(cgPanel);
+
+  var info=document.createElement('div');info.style.cssText='font-size:0.8em;color:var(--dim);margin-top:8px;text-align:center';
+  info.textContent='已解锁：'+unlockedCount+' / '+totalCount;root.appendChild(info);
+
+  var back=document.createElement('button');back.className='btn btn-p';back.textContent='🔙 返回';
+  back.onclick=function(){window._goBack();};back.style.cssText='display:block;margin:12px auto';
+  root.appendChild(back);
+  app.appendChild(root);
+}
+
+function rJournal(app){
+  app.innerHTML='';
+  var root=document.createElement('div');root.style.cssText='max-width:600px;margin:0 auto';
+
+  var title=document.createElement('div');title.style.cssText='text-align:center;padding:10px 0';
+  title.innerHTML='<h1>📓 百日日记</h1><div style="color:var(--dim);font-size:0.8em">Day '+G.day+' · 还剩 '+(G.maxDay-G.day)+' 天</div>';
+  root.appendChild(title);
+
+  var panel=document.createElement('div');panel.className='panel fadein';
+  if(G.journal.length===0){
+    panel.innerHTML='<p style="color:var(--dim);text-align:center">日记是空的。去经历些什么吧。</p>';
+  }else{
+    G.journal.slice(-40).reverse().forEach(function(j){
+      var entry=document.createElement('div');
+      entry.style.cssText='background:var(--card);border-radius:10px;padding:12px;margin:6px 0;border-left:4px solid var(--accent);font-size:0.85em;line-height:1.6;color:var(--dim);transition:all 0.2s';
+      entry.onmouseenter=function(){entry.style.borderLeftColor='var(--gold)';entry.style.background='var(--hover)';};
+      entry.onmouseleave=function(){entry.style.borderLeftColor='var(--accent)';entry.style.background='var(--card)';};
+      var header=document.createElement('div');header.style.cssText='color:var(--accent);font-weight:bold;margin-bottom:4px;font-size:0.8em';
+      header.textContent='📅 Day '+j.day+(j.cp?' · '+CP[j.cp]?.n||'':'');
+      entry.appendChild(header);
+      var body=document.createElement('div');body.style.cssText='white-space:pre-line';body.textContent=j.t;
+      entry.appendChild(body);
+      panel.appendChild(entry);
+    });
+  }
+  root.appendChild(panel);
+
+  var back=document.createElement('button');back.className='btn btn-p';back.textContent='🔙 返回';
+  back.onclick=function(){window._goBack();};back.style.cssText='display:block;margin:12px auto';
+  root.appendChild(back);
+  app.appendChild(root);
+}
+
+function rQuest(app){
+  app.innerHTML='';
+  var root=document.createElement('div');root.style.cssText='max-width:600px;margin:0 auto';
+
+  var title=document.createElement('div');title.style.cssText='text-align:center;padding:10px 0';
+  title.innerHTML='<h1>📋 任务</h1>';root.appendChild(title);
+
+  // 主线
+  var mc=MAIN_CHAPTERS['ch'+G.mainChapter];
+  var mainPanel=document.createElement('div');mainPanel.className='panel fadein';
+  mainPanel.innerHTML='<h2>📖 主线 · 第'+G.mainChapter+'章</h2>';
+  var mcCard=document.createElement('div');
+  mcCard.style.cssText='background:var(--card);border:2px solid var(--gold);border-radius:12px;padding:16px;margin:8px 0';
+  mcCard.innerHTML='<div style="font-weight:bold;color:var(--gold);font-size:1em">'+mc.t+'</div><div style="color:var(--dim);font-size:0.8em;white-space:pre-line;margin-top:4px">'+mc.d.slice(0,120)+'…</div>';
+  var mcBar=document.createElement('div');mcBar.style.cssText='height:6px;background:#333;border-radius:3px;margin-top:8px;overflow:hidden';
+  var mcFill=document.createElement('div');mcFill.style.cssText='height:100%;width:'+(G.mainChapter*10)+'%;background:linear-gradient(90deg,var(--gold),var(--accent));border-radius:3px';
+  mcBar.appendChild(mcFill);mcCard.appendChild(mcBar);
+  var mcInfo=document.createElement('div');mcInfo.style.cssText='font-size:0.7em;color:var(--accent);margin-top:4px';mcInfo.textContent='Day '+G.day+' · 进度 '+G.mainChapter+'/10';
+  mcCard.appendChild(mcInfo);mainPanel.appendChild(mcCard);root.appendChild(mainPanel);
+
+  // 支线
+  var sqProgress=SIDE_QUESTS.map(function(sq){
+    var cur=G.sideQuests[sq.id]||1;var done=G.completedSQ.includes(sq.id);var max=sq.steps.length;
+    return {n:sq.n,e:sq.e,d:sq.d,id:sq.id,cur:done?max+1:cur,max,done};
+  }).sort(function(a,b){return b.done-a.done||(b.cur-b.max)-(a.cur-a.max);});
+
+  var sqPanel=document.createElement('div');sqPanel.className='panel fadein';
+  sqPanel.innerHTML='<h2>📋 支线 ('+G.completedSQ.length+'/'+SIDE_QUESTS.length+')</h2>';
+
+  sqProgress.forEach(function(sq){
+    var bc=sq.done?'var(--green)':sq.cur>1?'var(--gold)':'#444';
+    var card=document.createElement('div');
+    card.style.cssText='background:var(--card);border-radius:10px;padding:12px;margin:6px 0;border-left:4px solid '+bc+';opacity:'+(sq.cur>1||sq.done?1:0.5);
+
+    var top=document.createElement('div');top.style.cssText='display:flex;justify-content:space-between;align-items:center';
+    top.innerHTML='<span>'+sq.e+' <strong>'+sq.n+'</strong></span><span style="font-size:0.7em;color:'+(sq.done?'var(--green)':'var(--dim)')+'">'+(sq.done?'✅完成':sq.cur+'/'+sq.max)+'</span>';
+    card.appendChild(top);
+
+    var desc=document.createElement('div');desc.style.cssText='font-size:0.7em;color:var(--dim);margin-top:2px';
+    var stepData=SIDE_QUESTS.find(function(q){return q.id===sq.id;});
+    desc.textContent=sq.d+' · 好感≥'+(stepData?.steps[sq.cur-1]?.req?.aff||'?');card.appendChild(desc);
+
+    var bar=document.createElement('div');bar.style.cssText='height:5px;background:#333;border-radius:3px;margin-top:6px;overflow:hidden';
+    var fill=document.createElement('div');fill.style.cssText='height:100%;width:'+Math.min(100,(sq.cur/sq.max)*100)+'%;background:'+(sq.done?'var(--green)':'var(--gold)')+';border-radius:3px;transition:width 0.5s';
+    bar.appendChild(fill);card.appendChild(bar);
+    sqPanel.appendChild(card);
+  });
+  root.appendChild(sqPanel);
+
+  var back=document.createElement('button');back.className='btn btn-p';back.textContent='🔙 返回';
+  back.onclick=function(){window._nav('play');};back.style.cssText='display:block;margin:12px auto';
+  root.appendChild(back);
+  app.appendChild(root);
 }
 
 // ─── 因果商店 ───
