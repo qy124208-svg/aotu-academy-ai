@@ -219,15 +219,17 @@ function _initBridge(){
     if(Vec2.hermite&&Vec2.catmullRom&&typeof battleLoop!=='undefined'){
       var _origBL=battleLoop;
       battleLoop=function(){
-        if(typeof battleCtx!=='undefined'&&typeof player!=='undefined'&&player&&player._flash>0){
-          var p0=new Vec2(0,0),t0=new Vec2(2,0),p1=new Vec2(0,0),t1=new Vec2(-2,0);
-          var off=Vec2.hermite(p0,t0,p1,t1,Math.sin(Date.now()*0.01)*0.5+0.5);
-          var a=new Vec2(0,0),b=new Vec2(60,30),c=new Vec2(120,0),d=new Vec2(180,30);
-          var pt=Vec2.catmullRom(a,b,c,d,0.5);
-          battleCtx.save();battleCtx.translate(off.x+pt.x*0.01,off.y+pt.y*0.01);
-        }
-        _origBL();
-        if(battleCtx&&player&&player._flash>0)battleCtx.restore();
+        try{
+          if(battleCtx&&player&&player._flash>0){
+            var p0=new Vec2(0,0),t0=new Vec2(2,0),p1=new Vec2(0,0),t1=new Vec2(-2,0);
+            var off=Vec2.hermite(p0,t0,p1,t1,Math.sin(Date.now()*0.01)*0.5+0.5);
+            var a=new Vec2(0,0),b=new Vec2(60,30),c=new Vec2(120,0),d=new Vec2(180,30);
+            var pt=Vec2.catmullRom(a,b,c,d,0.5);
+            battleCtx.save();battleCtx.translate(off.x,off.y);
+          }
+          _origBL();
+          if(battleCtx&&player&&player._flash>0)battleCtx.restore();
+        }catch(e){_origBL();}
       };
     }
     // barycentric: 伤害颜色
