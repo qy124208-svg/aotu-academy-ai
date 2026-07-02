@@ -2696,7 +2696,23 @@ function rCreate(app){
   var sb=_el('button','font-size:1.3em;padding:18px 60px;background:var(--accent);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 0 25px rgba(233,69,96,0.4);font-family:inherit;font-weight:bold;transition:all 0.2s','🎮 开始一百天倒计时');
   sb.onmouseenter=function(){sb.style.transform='scale(1.05)';sb.style.boxShadow='0 0 40px rgba(233,69,96,0.6)';};
   sb.onmouseleave=function(){sb.style.transform='scale(1)';sb.style.boxShadow='0 0 25px rgba(233,69,96,0.4)';};
-  sb.onclick=function(){var n=document.getElementById('pn').value||'见习天使';var g=document.getElementById('pg').value||'neutral';var homeId=ksHomeActive&&window._selHome?window._selHome:rndHome;initG(n,g,homeId,rndAttrs,rndTalents);if(typeof GameClock!=='undefined'){window._sessionClock=new GameClock();window._sessionClock.reset();}G.phase='play';advanceSlot();render('play');if(typeof Toast!=='undefined')Toast.show('🎮 一百天倒计时开始！','success',2500);};
+  sb.onclick=function(){
+    var n=document.getElementById('pn').value||'见习天使';
+    var g=document.getElementById('pg').value||'neutral';
+    initG();G.name=n;G.gender=g;
+    G.attr={};Object.keys(rndAttrs).forEach(function(k){G.attr[k]=rndAttrs[k];});
+    G.talents=rndTalents.map(function(t){return t.id;});
+    G.talentNames=rndTalents.map(function(t){return t.n;});
+    rndTalents.forEach(function(t){if(t&&t.eff)t.eff();});
+    var homeId=ksHomeActive&&window._selHome?window._selHome:rndHome;
+    G.homestay=homeId;G.homeInfo=getHomeInfo(homeId);
+    try{var bought=JSON.parse(localStorage.getItem('aotu4_shop')||'[]');bought.forEach(function(idx){var item=KARMA_SHOP[idx];if(item&&item.eff)item.eff();});localStorage.removeItem('aotu4_shop');}catch(e){}
+    G.dayType='weekday';G.loop=1;
+    try{var ae=localStorage.getItem('aotu4_ach');if(ae)G.achievements=JSON.parse(ae);}catch(e){}
+    if(typeof GameClock!=='undefined'){window._sessionClock=new GameClock();window._sessionClock.reset();}
+    G.phase='play';advanceSlot();render('play');
+    if(typeof Toast!=='undefined')Toast.show('🎮 一百天倒计时开始！','success',2500);
+  };
   sa.appendChild(sb);sa.appendChild(_el('div','color:var(--dim);font-size:0.75em;margin-top:10px','点击开始——每一天都不可重来'));
   app.appendChild(sa);
 }
