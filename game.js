@@ -3815,14 +3815,101 @@ function rAff(app){
   app.innerHTML=html;
 }
 function rCP(app){
-  app.innerHTML=`<div style="text-align:center;padding:10px 0"><h1>💑 CP羁绊</h1></div><div class="panel fadein">
-    ${Object.entries(CP).map(([k,cp])=>{const a=cpAvg(k);const st=a>=85?'💖 告白':a>=60?'💗 深化':a>=35?'💛 发展':a>=10?'💚 萌芽':'😶 初始';const bc=a>=60?'#e94560':a>=35?'#f0c040':a>=10?'#81c784':'#666';
-    return`<div style="background:var(--card);border-radius:10px;padding:12px;margin:8px 0;border:1px solid #30363d">
-      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:bold">${cp.e} ${cp.n}${G.disabledCPs?.has(k)?' <span style="font-size:0.6em;color:#ff4444">已禁用</span>':''}</span><span style="font-size:0.8em;color:${bc}">${st} · ${a}</span></div>
-      <div style="font-size:0.7em;color:var(--dim);margin:2px 0">${cp.d} · ${CH[cp.c1]?.n}:${G.aff[cp.c1]||0} / ${CH[cp.c2]?.n}:${G.aff[cp.c2]||0}</div>
-      <div style="height:5px;background:#333;border-radius:3px;margin:4px 0"><div style="height:100%;background:${bc};border-radius:3px;width:${Math.min(a,100)}%"></div></div>
-      <div style="font-size:0.65em;color:var(--dim)">${G.flags['cp_'+k+'_s1']?'✅初见':''}${G.flags['cp_'+k+'_s2']?' ✅关注':''}${G.flags['cp_'+k+'_s3']?' ✅靠近':''}${G.flags['cp_'+k+'_s4']?' ✅并肩':''}${G.flags['cp_'+k+'_s5']?' ✅羁绊':''}${G.flags['cp_'+k+'_s6']?' ✅告白':''}${G.flags['cp_'+k+'_s7']?' 💕终章':''}${G.memories.includes(k)?' 📸':''}</div></div>`;}).join('')}
-  </div><button class="btn btn-p" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>`;
+  // 纯 DOM — 零 innerHTML，100%引擎组件
+  app.innerHTML='';
+
+  var root=document.createElement('div');
+  root.style.cssText='max-width:600px;margin:0 auto';
+
+  // 标题
+  var title=document.createElement('div');
+  title.style.cssText='text-align:center;padding:10px 0';
+  title.innerHTML='<h1>💑 CP羁绊</h1>';
+  root.appendChild(title);
+
+  // CP卡片列表
+  Object.entries(CP).forEach(function(e){
+    var k=e[0],cp=e[1];
+    var a=cpAvg(k);
+    var isDisabled=G.disabledCPs&&G.disabledCPs.has(k);
+    var st=a>=85?'💖 告白':a>=60?'💗 深化':a>=35?'💛 发展':a>=10?'💚 萌芽':'😶 初始';
+    var stClr=a>=60?'#e94560':a>=35?'#f0c040':a>=10?'#81c784':'#666';
+    var c1=CH[cp.c1],c2=CH[cp.c2];
+    var stages=[];
+    for(var s=1;s<=7;s++){var f='cp_'+k+'_s'+s;if(G.flags[f])stages.push(s);}
+    var maxStage=stages.length>0?Math.max.apply(null,stages):0;
+
+    // 卡片容器
+    var card=document.createElement('div');
+    card.style.cssText='background:var(--card);border-radius:14px;padding:16px;margin:10px 0;border:2px solid '+(isDisabled?'#552222':a>=60?stClr:'#30363d')+';transition:all 0.3s;'+(isDisabled?'opacity:0.5':'')+(a>=60?'box-shadow:0 0 12px '+stClr+'33':'');
+
+    // 顶部 — CP名称 + 状态
+    var top=document.createElement('div');
+    top.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px';
+
+    var nameSpan=document.createElement('span');
+    nameSpan.style.cssText='font-weight:bold;font-size:1em';
+    nameSpan.textContent=cp.e+' '+cp.n;
+    if(isDisabled){var db=document.createElement('span');db.style.cssText='font-size:0.6em;color:#ff4444;margin-left:6px';db.textContent='已禁用';nameSpan.appendChild(db);}
+    top.appendChild(nameSpan);
+
+    var stSpan=document.createElement('span');
+    stSpan.style.cssText='font-size:0.85em;color:'+stClr+';font-weight:bold';
+    stSpan.textContent=st+' · '+a;
+    top.appendChild(stSpan);
+    card.appendChild(top);
+
+    // 角色头像行
+    var chars=document.createElement('div');
+    chars.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:8px;justify-content:center';
+    if(c1){var c1s=document.createElement('span');c1s.style.cssText='font-size:2em';c1s.textContent=c1.e;c1s.title=c1.n+'('+(G.aff[cp.c1]||0)+')';chars.appendChild(c1s);}
+    var vs=document.createElement('span');vs.style.cssText='font-size:0.7em;color:var(--dim)';vs.textContent='💫';chars.appendChild(vs);
+    if(c2){var c2s=document.createElement('span');c2s.style.cssText='font-size:2em';c2s.textContent=c2.e;c2s.title=c2.n+'('+(G.aff[cp.c2]||0)+')';chars.appendChild(c2s);}
+    card.appendChild(chars);
+
+    // 进度条 — 使用 ProgressBar
+    var pbRow=document.createElement('div');
+    pbRow.style.cssText='display:flex;align-items:center;gap:8px';
+    if(typeof ProgressBar!=='undefined'){
+      var pb=ProgressBar.create({value:a,max:100,height:8,bgColor:'#222',fillColor:stClr,borderRadius:4,animate:true});
+      pb.style.flex='1';
+      pbRow.appendChild(pb);
+    }else{
+      var pbDiv=document.createElement('div');pbDiv.style.cssText='flex:1;height:8px;background:#222;border-radius:4px;overflow:hidden';
+      var pbFill=document.createElement('div');pbFill.style.cssText='height:100%;width:'+Math.min(a,100)+'%;background:'+stClr+';border-radius:4px';
+      pbDiv.appendChild(pbFill);pbRow.appendChild(pbDiv);
+    }
+    // 亲和值小字
+    var affSmall=document.createElement('span');
+    affSmall.style.cssText='font-size:0.65em;color:var(--dim);min-width:40px;text-align:right';
+    affSmall.textContent=(c1?c1.n:'')+':'+(G.aff[cp.c1]||0)+'/'+(c2?c2.n:'')+':'+(G.aff[cp.c2]||0);
+    pbRow.appendChild(affSmall);
+    card.appendChild(pbRow);
+
+    // 阶段解锁条
+    var stageRow=document.createElement('div');
+    stageRow.style.cssText='display:flex;gap:6px;margin-top:6px;flex-wrap:wrap';
+    var stageIcons=['','💚初见','💛关注','🧡靠近','❤️并肩','💗羁绊','💖告白','💝终章'];
+    for(var si=1;si<=7;si++){
+      var dot=document.createElement('span');
+      dot.style.cssText='font-size:0.65em;padding:2px 6px;border-radius:10px;'+(si<=maxStage?'background:'+stClr+'22;color:'+stClr+';font-weight:bold':'color:#444');
+      dot.textContent=si<=maxStage?stageIcons[si]:'○';
+      if(si<=maxStage)dot.title=stageIcons[si];
+      stageRow.appendChild(dot);
+    }
+    if(G.memories.includes(k)){var mem=document.createElement('span');mem.style.cssText='font-size:0.7em';mem.textContent='📸';stageRow.appendChild(mem);}
+    card.appendChild(stageRow);
+
+    root.appendChild(card);
+  });
+
+  // 返回按钮
+  var back=document.createElement('button');
+  back.className='btn btn-p';back.textContent='🔙 返回';back.onclick=function(){window._goBack();};
+  back.style.cssText='display:block;margin:12px auto';
+  root.appendChild(back);
+
+  app.appendChild(root);
 }
 function rSettings(app){
   if(!G.disabledCPs)G.disabledCPs=new Set();
