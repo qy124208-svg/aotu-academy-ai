@@ -216,20 +216,19 @@ function _initBridge(){
   // ═══ 12. Vec2 战斗增强 ═══
   if(typeof Vec2!=='undefined'){
     // hermite + catmullRom: 战斗画面偏移
-    if(Vec2.hermite&&Vec2.catmullRom&&typeof battleLoop!=='undefined'){
-      var _origBL=battleLoop;
-      battleLoop=function(){
-        try{
-          if(battleCtx&&player&&player._flash>0){
-            var p0=new Vec2(0,0),t0=new Vec2(2,0),p1=new Vec2(0,0),t1=new Vec2(-2,0);
-            var off=Vec2.hermite(p0,t0,p1,t1,Math.sin(Date.now()*0.01)*0.5+0.5);
-            var a=new Vec2(0,0),b=new Vec2(60,30),c=new Vec2(120,0),d=new Vec2(180,30);
-            var pt=Vec2.catmullRom(a,b,c,d,0.5);
-            battleCtx.save();battleCtx.translate(off.x,off.y);
-          }
-          _origBL();
-          if(battleCtx&&player&&player._flash>0)battleCtx.restore();
-        }catch(e){_origBL();}
+    // Vec2.hermite + catmullRom: 增强敌人出生轨迹（不碰battleLoop）
+    if(Vec2.hermite&&Vec2.catmullRom&&typeof spawnEnemy==='function'){
+      var _origSpawn=spawnEnemy;
+      spawnEnemy=function(n){
+        _origSpawn(n);
+        // 给新敌人生成曲线路径偏移
+        if(typeof enemies!=='undefined'){
+          enemies.slice(-n).forEach(function(e){
+            e._pathT=0;e._pathSpeed=0.001+Math.random()*0.003;
+            var pts=[new Vec2(e.x,e.y),new Vec2(e.x+rn(-80,80),e.y+rn(-60,60)),new Vec2(e.x+rn(-100,100),e.y+rn(-80,80)),new Vec2(e.x+rn(-50,50),e.y+rn(-40,40))];
+            e._hermitePts=pts;
+          });
+        }
       };
     }
     // barycentric: 伤害颜色
