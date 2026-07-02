@@ -2478,21 +2478,21 @@ function _startTitleParticles(){
   // 流星 — 10条
   for(var mi=0;mi<10;mi++){
     var m=_newMeteor(W,H,meteorColors);
-    m.life=0; // 初始隐藏，随机延迟后出现
-    m.delay=Math.random()*300+50;
+    m.delay=mi*60+Math.random()*40; // 陆续出场，0~10秒内分布
     _titleParticles.push(m);
   }
 
   function _newMeteor(w,h,colors){
-    var angle=Math.random()*0.8+1.2; // 主要方向：右下→左上 (弧度1.2~2.0)
+    var angle=Math.random()*0.8+1.2;
     var speed=Math.random()*3+2;
+    var lifeVal=Math.random()*150+100; // 流星飞行帧数
     return {
       x:Math.random()*w*0.8+w*0.1,
       y:Math.random()*h*0.9+h*0.05,
       vx:-Math.cos(angle)*speed,
       vy:-Math.sin(angle)*speed,
       len:Math.random()*100+50,
-      life:0, maxLife:0, delay:0,
+      life:lifeVal, maxLife:lifeVal, delay:0,
       color:colors[Math.floor(Math.random()*colors.length)],
       size:Math.random()*2+1,
       bright:Math.random()<0.2,
