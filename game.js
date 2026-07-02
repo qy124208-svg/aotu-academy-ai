@@ -3914,10 +3914,10 @@ function rSettings(app){
     '</div>';
   });
 
-  // 主题选择 — inline onclick
+  // 主题选择 — inline onclick 使用 window 函数
   var themeHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">';
   [{id:'dark',n:'🌙 暗夜'},{id:'gold',n:'☀️ 金色'},{id:'witch',n:'💜 魔女'},{id:'light',n:'🌕 银月'}].forEach(function(t){
-    themeHTML+='<button class="btn btn-xs '+(G._theme===t.id?'btn-p':'btn-s')+'" onclick="window._applyTheme(\''+t.id+'\');render(\'settings\')">'+t.n+'</button>';
+    themeHTML+='<button class="btn btn-xs '+(G._theme===t.id?'btn-p':'btn-s')+'" onclick="window._setTheme(&quot;'+t.id+'&quot;)">'+t.n+'</button>';
   });
   themeHTML+='</div>';
 
@@ -3925,8 +3925,8 @@ function rSettings(app){
     '<div class="panel fadein"><h3>🎨 界面主题</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 8px">选择你喜欢的配色方案，立即生效。</p>'+themeHTML+'</div>'+
     '<div class="panel fadein"><h3>💑 CP感情线开关</h3><p style="color:var(--dim);font-size:0.75em;margin:4px 0 12px">禁用后——该CP的日历事件和随机事件不会触发。已触发过的阶段不受影响。</p>'+cpHTML+
     '<div style="margin-top:12px;text-align:center">'+
-      '<button class="btn btn-xs btn-s" onclick="Object.keys(CP).forEach(function(k){G.disabledCPs.add(k)});render(\'settings\')">全部禁用</button> '+
-      '<button class="btn btn-xs btn-p" onclick="G.disabledCPs.clear();render(\'settings\')">全部启用</button>'+
+      '<button class="btn btn-xs btn-s" onclick="window._disableAllCP()">全部禁用</button> '+
+      '<button class="btn btn-xs btn-p" onclick="window._enableAllCP()">全部启用</button>'+
     '</div></div>'+
     '<button class="btn btn-s" onclick="window._goBack()" style="display:block;margin:8px auto">🔙 返回</button>';
 }
@@ -3936,6 +3936,9 @@ window._toggleCP=function(key){
   else G.disabledCPs.add(key);
   render('settings');
 };
+window._disableAllCP=function(){Object.keys(CP).forEach(function(k){G.disabledCPs.add(k);});render('settings');};
+window._enableAllCP=function(){G.disabledCPs.clear();render('settings');};
+window._setTheme=function(id){G._theme=id;_applyTheme(id);render('settings');};
 // ✨ 全局主题切换
 function _applyTheme(themeId){
 window._applyTheme=_applyTheme;
