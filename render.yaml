@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: aotu-academy-ai
+    env: node
+    buildCommand: ""
+    startCommand: node server.js
+    envVars:
+      - key: AI_API_KEY
+        sync: false
+      - key: PORT
+        value: "3000"
