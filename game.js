@@ -4529,18 +4529,19 @@ function spawnEnemy(n){
         case 3:x=-20;y=Math.random()*500;break;
       }
     }
-    // ✨ Vec2.hermite + catmullRom: 用曲线偏移出生位置
+    var enemy={id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0,_pathT:0,_pathSpeed:0.001+Math.random()*0.003};
+    // ✨ Vec2.hermite + catmullRom: 为每帧生成曲线控制点
     if(typeof Vec2!=='undefined'&&Vec2.hermite&&Vec2.catmullRom){
       try{
-        var hx=x,hy=y;
-        var p0=new Vec2(hx-60,hy-40),p1=new Vec2(hx-20,hy-20),p2=new Vec2(hx+20,hy+20),p3=new Vec2(hx,hy);
-        var halfWay=Vec2.catmullRom(p0,p1,p2,p3,0.5);
-        var t1=new Vec2(20,0),t2=new Vec2(-20,0);
-        var smoothPos=Vec2.hermite(new Vec2(hx,hy),t1,halfWay,t2,0.5);
-        if(smoothPos&&isFinite(smoothPos.x)){x=smoothPos.x;y=smoothPos.y;}
+        var p0=new Vec2(enemy.x-60,enemy.y-40),p1=new Vec2(enemy.x-20,enemy.y-20);
+        var p2=new Vec2(enemy.x+20,enemy.y+20),p3=new Vec2(enemy.x+rn(-60,60),enemy.y+rn(-50,50));
+        var t1=Vec2.random(25),t2=Vec2.random(25);
+        var m1=Vec2.hermite(p0,t1,p3,t2,0.33);
+        var m2=Vec2.hermite(p0,t1,p3,t2,0.66);
+        if(m1&&m2&&isFinite(m1.x))enemy._hermitePts=[p0,m1,m2,p3];
       }catch(e){}
     }
-    enemies.push({id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0});
+    enemies.push(enemy);
   }
 }
 
