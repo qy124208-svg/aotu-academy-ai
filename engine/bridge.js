@@ -223,11 +223,13 @@ function _initBridge(){
       FloatingText.spawn=function(ctx,x,y,text,color){
         var dmg=parseInt(text)||0;
         if(dmg!==0){
-          var lo=new Vec2(100,200,100),mi=new Vec2(240,192,64),hi=new Vec2(240,60,60);
+          var lo=new Vec2(100,200),mi=new Vec2(240,192),hi=new Vec2(240,60);
           var t=Math.min(1,Math.abs(dmg)/15),bc;
           if(t<0.5)bc=Vec2.barycentric(lo,mi,hi,t*2,0);
           else bc=Vec2.barycentric(lo,mi,hi,1-(t-0.5)*2,t*2-1);
-          color='rgb('+Math.floor(bc.x)+','+Math.floor(bc.y)+','+Math.floor(bc.z)+')';
+          var r=Math.floor(bc.x),g=Math.floor(bc.y);
+          var b=Math.floor(255-t*200);
+          color='rgb('+r+','+g+','+b+')';
         }
         return _origFT(ctx,x,y,text,color);
       };
