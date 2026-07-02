@@ -3144,6 +3144,7 @@ function buildShell(content){
   menuHTML+='<button class="btn btn-menu" title="快速存档" onclick="window._save()">💾<span class="btxt">存档</span></button>';
   menuHTML+='<button class="btn btn-menu" title="读取存档" onclick="window._nav(\'load\')">📂<span class="btxt">读档</span></button>';
   menuHTML+='<button class="btn btn-menu" title="设置" onclick="window._nav(\'settings\')">⚙️</button>';
+  menuHTML+='<button class="btn btn-menu" title="游戏统计" onclick="window._showStats()">📊<span class="btxt">统计</span></button>';
   menuHTML+='</div>';
 
   // ─── 状态栏 (inline HTML，确保 outerHTML 兼容) ───
