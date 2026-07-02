@@ -211,6 +211,14 @@ class Vec2 {
     return new Vec2(Math.cos(rad) * length, Math.sin(rad) * length);
   }
 
+  /** fromAngle 复用版 — 写入 out，零分配 */
+  static fromAngleTo(out, deg, length = 1) {
+    const rad = deg * Math.PI / 180;
+    out.x = Math.cos(rad) * length;
+    out.y = Math.sin(rad) * length;
+    return out;
+  }
+
   /** 随机方向 */
   static random(length = 1) {
     const angle = Math.random() * Math.PI * 2;
@@ -225,6 +233,12 @@ class Vec2 {
   }
 
   // ─── 工具方法 ───
+
+  /** 原地设置值（零分配复用） */
+  set(x, y) {
+    this.x = x; this.y = y;
+    return this;
+  }
 
   clone() {
     return new Vec2(this.x, this.y);
@@ -267,6 +281,14 @@ class Vec2 {
     );
   }
 
+  /** catmullRom 复用版 — 写入 out，零分配 */
+  static catmullRomTo(out, p0, p1, p2, p3, t) {
+    const t2 = t * t, t3 = t2 * t;
+    out.x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+    out.y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+    return out;
+  }
+
   /**
    * Hermite 样条插值
    * @param {Vec2} p1 - 起点
@@ -286,6 +308,18 @@ class Vec2 {
       h1 * a.x + h2 * b.x + h3 * ta.x + h4 * tb.x,
       h1 * a.y + h2 * b.y + h3 * ta.y + h4 * tb.y
     );
+  }
+
+  /** hermite 复用版 — 写入 out，零分配 */
+  static hermiteTo(out, p1, t1, p2, t2, amount) {
+    const a2 = amount * amount, a3 = a2 * amount;
+    const h1 = 2 * a3 - 3 * a2 + 1;
+    const h2 = -2 * a3 + 3 * a2;
+    const h3 = a3 - 2 * a2 + amount;
+    const h4 = a3 - a2;
+    out.x = h1 * p1.x + h2 * p2.x + h3 * t1.x + h4 * t2.x;
+    out.y = h1 * p1.y + h2 * p2.y + h3 * t1.y + h4 * t2.y;
+    return out;
   }
 
   /**

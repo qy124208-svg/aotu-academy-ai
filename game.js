@@ -4400,6 +4400,8 @@ let battleLastTime=0,battlePaused=false,battleVisHandler=null;
 // ✨ 引擎增强
 let battleParticleSys=null,battleShake=null,battleFloatTexts=[];
 let battlePlayerCooldown=null; // 玩家射击冷却 (Cooldown)
+// ✨ Vec2 复用池 — 零GC战斗 (7个对象覆盖所有每帧运算)
+let _bvCp=null,_bvCv=null,_bvTv=null,_bvCurVel=null,_bvTargetVel=null,_bvZero=null,_bvSmooth=null;
 
 function resizeBattleCanvas(dpr){
   const vh=window.innerHeight;
@@ -4444,6 +4446,10 @@ function startHeartDemonBattle(){
   battleShake=new ScreenShake();
   battleFloatTexts=[];
   battlePlayerCooldown=new Cooldown(1000/Math.max(3,22-G.attr.INT*1.5)); // 每秒N发
+  // ✨ 初始化 Vec2 复用池（每帧零分配）
+  _bvCp=new Vec2(0,0);_bvCv=new Vec2(0,0);_bvTv=new Vec2(0,0);
+  _bvCurVel=new Vec2(0,0);_bvTargetVel=new Vec2(0,0);
+  _bvZero=new Vec2(0,0);_bvSmooth=new Vec2(0,0);
   if(battleVisHandler)document.removeEventListener('visibilitychange',battleVisHandler);
   battleVisHandler=function(){battlePaused=document.hidden;if(!document.hidden)battleLastTime=performance.now();};
   document.addEventListener('visibilitychange',battleVisHandler);
@@ -4710,26 +4716,25 @@ function battleLoop(){
       }
     }
     const target=e._target||player;
-    if(e._dash>0){e._dash--;}else{
+        if(e._dash>0){e._dash--;}else{
       const a=Math.atan2(target.y-e.y,target.x-e.x);
-      // ✨ Vec2 每帧：catmullRom曲线位置 + hermite速度平滑
-      if(typeof Vec2!=='undefined'&&Vec2.catmullRom&&Vec2.hermite&&e._hermitePts&&e._hermitePts.length===4){
+      // ✨ Vec2 每帧：catmullRom曲线 + hermite速度平滑（复用池·零分配）
+      if(typeof Vec2!=='undefined'&&Vec2.catmullRomTo&&e._hermitePts&&e._hermitePts.length===4){
         e._pathT=(e._pathT||0)+(e._pathSpeed||0.002);
         if(e._pathT>1)e._pathT-=1;
-        var cp=Vec2.catmullRom(e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
-        if(cp&&isFinite(cp.x)&&isFinite(cp.y)){
-          var cv=new Vec2(cp.x-e.x,cp.y-e.y);cv.length=e.spd*0.7;
-          var tv=Vec2.fromAngle(a*180/Math.PI,e.spd*0.3);
-          // hermite平滑速度过渡：从当前速度→目标速度
-          var curVel=new Vec2(e.vx,e.vy);
-          var targetVel=new Vec2(cv.x+tv.x,cv.y+tv.y);
-          var smoothVel=Vec2.hermite(curVel,new Vec2(0,0),targetVel,new Vec2(0,0),0.3);
-          if(smoothVel&&isFinite(smoothVel.x)){e.vx=smoothVel.x;e.vy=smoothVel.y;}
-          else{e.vx=targetVel.x;e.vy=targetVel.y;}
+        Vec2.catmullRomTo(_bvCp,e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
+        if(isFinite(_bvCp.x)&&isFinite(_bvCp.y)){
+          _bvCv.set(_bvCp.x-e.x,_bvCp.y-e.y);_bvCv.length=e.spd*0.7;
+          Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd*0.3);
+          _bvCurVel.set(e.vx,e.vy);
+          _bvTargetVel.set(_bvCv.x+_bvTv.x,_bvCv.y+_bvTv.y);
+          Vec2.hermiteTo(_bvSmooth,_bvCurVel,_bvZero,_bvTargetVel,_bvZero,0.3);
+          if(isFinite(_bvSmooth.x)){e.vx=_bvSmooth.x;e.vy=_bvSmooth.y;}
+          else{e.vx=_bvTargetVel.x;e.vy=_bvTargetVel.y;}
         }else{e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
       }else if(typeof Vec2!=='undefined'){
-        const dir=Vec2.fromAngle(a*180/Math.PI,e.spd);
-        e.vx=dir.x;e.vy=dir.y;
+        Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd);
+        e.vx=_bvTv.x;e.vy=_bvTv.y;
       }else{
         e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;
       }
@@ -5005,7 +5010,7 @@ function battleLoop(){
     battleCtx.fillText('WASD 移动 | 鼠标瞄准 | 点击射击 | 生存60秒即胜利',400,485);
   }
 
-  }catch(e){console.warn('battleLoop error:',e.message);}
+  }catch(e){console.warn('battleLoop error:',e.message,e.stack);}
   battleAnim=requestAnimationFrame(battleLoop);
 }
 
