@@ -5177,6 +5177,12 @@ const AC_ARTIFACTS=[
   {id:11,n:'反击装甲',cost:35,d:'受击反弹50%伤害',eff:function(t){t.forEach(function(p){p._reflect=0.5;});}},
   {id:12,n:'不灭守护',cost:55,d:'首个阵亡棋子复活30%HP',eff:function(t){acState._revive=true;}},
   {id:13,n:'风神庇护',cost:45,d:'受技能伤害后3秒无敌',eff:function(t){t.forEach(function(p){p._windGod=true;});}},
+  {id:14,n:'矢量增幅',cost:35,d:'远程攻击命中2个目标',eff:function(t){t.forEach(function(p){if(p.range>1)p._multiShot=2;});}},
+  {id:15,n:'元力超载',cost:40,d:'技能伤害+80%',eff:function(t){t.forEach(function(p){p._skillAmp=1.8;});}},
+  {id:16,n:'暗影元力',cost:35,d:'普攻附带30%魔法伤害',eff:function(t){t.forEach(function(p){p._magicDmg=0.3;});}},
+  {id:17,n:'生命共鸣',cost:45,d:'HP<40%时全队回复500HP',eff:function(t){acState._healBurst=true;t.forEach(function(p){p._healTrigger=0.4;});}},
+  {id:18,n:'大赛应援',cost:30,d:'相邻友方攻速+30%',eff:function(t){t.forEach(function(p){p._cheerAura=0.3;});}},
+  {id:19,n:'排名护符',cost:35,d:'全队15%闪避概率',eff:function(t){t.forEach(function(p){p._dodge=0.15;});}},
 ];
 
 function acMakePiece(ch,aff,side,homeX,homeY){
@@ -5246,7 +5252,7 @@ window._acStart=function(){
   var dpr=window.devicePixelRatio||1,app=document.getElementById('app');
   var enemyIds=window._acEnemy,dayScale=1+G.day/200;
 
-  acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false};
+  acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false,_revive:false,_healBurst:false,_healUsed:false};
   acFloatTexts=[];acProjectiles=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
 
   var playerPieces=[],enemyPieces=[];
@@ -5313,10 +5319,16 @@ function acBattleLoop(){
     if(p._flash>0)p._flash--;
     if(p._windTimer>0){p._windTimer-=dt;if(p._windTimer<=0)p._windTimer=0;}
     if(p._regen>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._regen*dt);
+    // 生命共鸣: HP<40%触发全员回血
+    if(acState._healBurst&&!acState._healUsed&&p.hp>0&&p.hp/p.maxHp<(p._healTrigger||0.4)){
+      var team=p.side==='player'?acState.player:acState.enemy;acState._healUsed=true;
+      team.forEach(function(m){if(m.alive){m.hp=Math.min(m.maxHp,m.hp+500);acFloatTexts.push(FloatingText.spawn(acCtx,m.x,m.y-15,'💚+500','#3fb950'));}});
+    }
+    // 大赛应援: 检测相邻友方光环
+    var nearCheer=false;if(p._cheerAura){var sq=p.side==='player'?acState.player:acState.enemy;sq.forEach(function(m){if(m!==p&&m.alive&&m._cheerAura&&acDist(p,m)<80)nearCheer=true;});}
     if(p._moving){p._mvTimer-=dt;if(p._mvTimer<=0){p.x=p._mvTx;p.y=p._mvTy;p._moving=false;}else{var t=1-p._mvTimer/0.3;p.x=p.homeX+(p._mvTx-p.homeX)*t;p.y=p.homeY+(p._mvTy-p.homeY)*t;return;}}
-    // 风神庇护: 无敌期间不受伤害 (由技能命中触发)
     var hasWind=p._windTimer>0;
-    p.actTime+=dt*p.spd;
+    p.actTime+=dt*p.spd*(nearCheer?1.3:1);
     if(p.actTime>=75/(p.spd+50)){
       p.actTime=0;
       // 技能检测
@@ -5325,7 +5337,7 @@ function acBattleLoop(){
       var target2=acFindTarget(p,enemies2);
       if(target2&&target2.alive&&p._skillCd<=0&&p._skillCdMax<99){
         p._skillCd=p._skillCdMax*(p._skillCdMul||1);
-        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5));if(target2._windTimer>0){tdmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'🛡️无敌!','#58a6ff'));}else target2.hp-=tdmg;target2._flash=10;
+        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5)*(p._skillAmp||1));if(target2._windTimer>0){tdmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'🛡️无敌!','#58a6ff'));}else{if(Math.random()<((target2._dodge||0)+(target2._windTimer>0?1:0))){tdmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💨闪避!','#58a6ff'));}else target2.hp-=tdmg;}target2._flash=10;
         if(target2._reflect>0){var rdmg=Math.floor(tdmg*target2._reflect);p.hp-=rdmg;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}
         if(target2._windGod){target2._windTimer=3;target2._windGod=false;}
         acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-15,'⚡技能!-'+tdmg,'#f0c040'));
@@ -5339,9 +5351,12 @@ function acBattleLoop(){
             var a2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0'});
           }else{// 近战
             p._mvTx=target2.homeX;p._mvTy=target2.homeY;p._mvTimer=0.3;p._moving=true;
-            var dmg=p.atk;if(target2._dmgReduc>0)dmg=Math.floor(dmg*(1-target2._dmgReduc));target2.hp-=dmg;target2._flash=6;
+            var dmg=p.atk;if(target2._dmgReduc>0)dmg=Math.floor(dmg*(1-target2._dmgReduc));dmg+=Math.floor(p.atk*(p._magicDmg||0));
+            if(Math.random()<((target2._dodge||0)+(target2._windTimer>0?1:0))){dmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💨闪避!','#58a6ff'));}else target2.hp-=dmg;target2._flash=6;
             if(target2._reflect>0){var rdmg2=Math.floor(dmg*target2._reflect);p.hp-=rdmg2;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg2,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}
             acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-10,'-'+dmg,'#f44'));
+            // 矢量增幅: 额外命中第2个目标
+            if(p._multiShot>=2){var extra=enemies2.filter(function(x){return x!==target2&&x.alive;});if(extra.length>0){var e2=extra[0];var edmg=Math.floor(dmg*0.7);if(!(Math.random()<(e2._dodge||0))){e2.hp-=edmg;e2._flash=4;acFloatTexts.push(FloatingText.spawn(acCtx,e2.x,e2.y-10,'🎯-'+edmg,'#58a6ff'));if(e2.hp<=0){e2.alive=false;acParticles.explode(e2.x,e2.y,10,e2.clr||'#f44',{speed:3,life:15,size:3});}}}}
             acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});
             if(target2.hp<=0){if(acState._revive&&target2.side==='player'){target2.hp=Math.floor(target2.maxHp*0.3);target2.alive=true;acState._revive=false;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'💚复活!','#3fb950'));}else{target2.alive=false;acParticles.explode(target2.x,target2.y,12,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}
               if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
