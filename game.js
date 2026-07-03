@@ -4566,7 +4566,7 @@ function spawnEnemy(n){
     const id=pk(ids);const ch=CH[id];
     const aff=G.aff[id]||0;
     const hp=10+Math.floor(aff/10);
-    const spd=1+Math.random()*1.5+aff*0.02;
+    const spd=2.5+Math.random()*3+aff*0.03;
     const worth=1+Math.floor(aff/20);
     // 随机从屏幕各处出现——边缘或内部（但离玩家至少100px）
     let x,y;
@@ -4763,7 +4763,7 @@ function battleLoop(){
     // Pick target: 40% chance to target another enemy, 60% player
     if(!e._target||e._target.hp<=0||Math.random()<0.005){
       const others=enemies.filter(o=>o!==e&&o.hp>0);
-      if(others.length>0&&Math.random()<0.4){
+      if(others.length>0&&Math.random()<0.6){
         e._target=pk(others);
       }else{
         e._target=player;
@@ -4778,13 +4778,9 @@ function battleLoop(){
         if(e._pathT>1)e._pathT-=1;
         Vec2.catmullRomTo(_bvCp,e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
         if(isFinite(_bvCp.x)&&isFinite(_bvCp.y)){
-          _bvCv.set(_bvCp.x-e.x,_bvCp.y-e.y);_bvCv.length=e.spd*0.4;
-          Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd*0.6);
-          _bvCurVel.set(e.vx,e.vy);
-          _bvTargetVel.set(_bvCv.x+_bvTv.x,_bvCv.y+_bvTv.y);
-          Vec2.hermiteTo(_bvSmooth,_bvCurVel,_bvZero,_bvTargetVel,_bvZero,0.6);
-          if(isFinite(_bvSmooth.x)){e.vx=_bvSmooth.x;e.vy=_bvSmooth.y;}
-          else{e.vx=_bvTargetVel.x;e.vy=_bvTargetVel.y;}
+          _bvCv.set(_bvCp.x-e.x,_bvCp.y-e.y);_bvCv.length=e.spd*0.15;
+          Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd*0.85);
+          e.vx=_bvCv.x+_bvTv.x;e.vy=_bvCv.y+_bvTv.y;
         }else{e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
       }else if(typeof Vec2!=='undefined'){
         Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd);
