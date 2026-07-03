@@ -4584,8 +4584,8 @@ function spawnEnemy(n){
       }
     }
     var enemy={id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0,_pathT:0,_pathSpeed:0.001+Math.random()*0.003};
-    // ✨ Vec2.hermite + catmullRom: 为每帧生成曲线控制点
-    if(typeof Vec2!=='undefined'&&Vec2.hermite&&Vec2.catmullRom){
+    // ✨ Vec2 hermiteTo + catmullRomTo: 零分配曲线控制点
+    if(typeof Vec2!=='undefined'&&Vec2.hermiteTo&&Vec2.catmullRomTo){
       try{
         // 控制点用纯对象（catmullRomTo只读.x/.y，无需Vec2实例）
         var hp0={x:enemy.x-60,y:enemy.y-40};
