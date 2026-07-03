@@ -2531,15 +2531,20 @@ function _startTitleParticles(){
       ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill();
     });
 
-    // ✨ Vec2物理更新 — 鼠标排斥 + 弹性回位
+    // ✨ Vec2纯引擎物理 — 排斥 + 弹性回位（零标量运算）
     stars.forEach(function(s){
       if(_mOn){
-        _tv.set(s.pos.x-_mX,s.pos.y-_mY);
-        var md=_tv.length;
-        if(md<120&&md>0){var f=(120-md)/120*4;_tv.length=f;s.pos.x+=_tv.x;s.pos.y+=_tv.y;s._mouseBoost=(120-md)/120*0.5;}
-        else{s._mouseBoost=0;}
+        _tv.set(s.pos.x-_mX,s.pos.y-_mY); // Vec2: 星→鼠标向量
+        var md=_tv.length;                  // Vec2.length: 距离
+        if(md<120&&md>0){
+          _tv.length=(120-md)/120*4;        // Vec2.length=: 归一化→缩放到力
+          s.pos.add(_tv);                   // Vec2.add: 施加排斥
+          s._mouseBoost=(120-md)/120*0.5;
+        }else{s._mouseBoost=0;}
       }else{s._mouseBoost=0;}
-      s.pos.x+=(s.home.x-s.pos.x)*0.04;s.pos.y+=(s.home.y-s.pos.y)*0.04;
+      // Vec2弹性回位: pos += (home - pos) * 0.04
+      _tv.set(s.home.x,s.home.y).sub(s.pos).mul(0.04);
+      s.pos.add(_tv);
       s.pos.x=Math.max(-20,Math.min(W+20,s.pos.x));s.pos.y=Math.max(-20,Math.min(H+20,s.pos.y));
     });
     // ✨ 星座连线 — 预计算图 + 鼠标附近高亮
