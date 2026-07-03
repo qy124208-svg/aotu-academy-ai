@@ -5164,16 +5164,19 @@ function renderBattleResult(){
 let acAnim=null,acCtx=null,acCanvas=null,acState=null,acLastTime=0,acParticles=null,acFloatTexts=[],acShake=null,acProjectiles=[];
 const AC_COLS=4,AC_ROWS=4,AC_CELL_W=160,AC_CELL_H=100,AC_OFFX=80,AC_OFFY=60;
 const AC_ARTIFACTS=[
-  {id:1,n:'虎啸龙吟',cost:40,d:'全队攻击+20%',eff:function(t){t.forEach(function(p){p.atk=Math.floor(p.atk*1.2);});}},
-  {id:2,n:'铁壁铜墙',cost:30,d:'全队HP+25%',eff:function(t){t.forEach(function(p){p.hp=Math.floor(p.hp*1.25);p.maxHp=Math.floor(p.maxHp*1.25);});}},
-  {id:3,n:'疾风步',cost:30,d:'全队速度+25%',eff:function(t){t.forEach(function(p){p.spd*=1.25;});}},
-  {id:4,n:'回春术',cost:40,d:'全队每秒恢复1%HP',eff:function(t){t.forEach(function(p){p._regen=1;});}},
-  {id:5,n:'嗜血',cost:35,d:'击杀恢复10%HP',eff:function(t){t.forEach(function(p){p._lifesteal=0.1;});}},
-  {id:6,n:'奇袭',cost:50,d:'开局秒杀1个随机敌人',eff:function(t){acState._opener=true;}},
-  {id:7,n:'八卦阵',cost:40,d:'全队减伤15%',eff:function(t){t.forEach(function(p){p._dmgReduc=0.15;});}},
-  {id:8,n:'空城计',cost:45,d:'上阵≤5人时全队+30%',eff:function(t){if(t.length<=5)t.forEach(function(p){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;});}},
-  {id:9,n:'天命',cost:30,d:'10%概率额外1棋子',eff:function(t){acState._lucky=true;}},
-  {id:10,n:'无双乱舞',cost:35,d:'技能冷却-30%',eff:function(t){t.forEach(function(p){p._skillCdMul=0.7;});}},
+  {id:1,n:'元力觉醒',cost:40,d:'全队攻击+20%',eff:function(t){t.forEach(function(p){p.atk=Math.floor(p.atk*1.2);});}},
+  {id:2,n:'裁判球护盾',cost:30,d:'全队HP+25%',eff:function(t){t.forEach(function(p){p.hp=Math.floor(p.hp*1.25);p.maxHp=Math.floor(p.maxHp*1.25);});}},
+  {id:3,n:'大赛疾走',cost:30,d:'全队速度+25%',eff:function(t){t.forEach(function(p){p.spd*=1.25;});}},
+  {id:4,n:'丹尼尔医疗舱',cost:40,d:'全队每秒恢复1%HP',eff:function(t){t.forEach(function(p){p._regen=1;});}},
+  {id:5,n:'积分收割',cost:35,d:'击杀恢复10%HP',eff:function(t){t.forEach(function(p){p._lifesteal=0.1;});}},
+  {id:6,n:'排名突袭',cost:50,d:'开局秒杀1个随机敌人',eff:function(t){acState._opener=true;}},
+  {id:7,n:'元力矩阵',cost:40,d:'全队减伤15%',eff:function(t){t.forEach(function(p){p._dmgReduc=0.15;});}},
+  {id:8,n:'孤军奋战',cost:45,d:'上阵≤5人时全队+30%',eff:function(t){if(t.length<=5)t.forEach(function(p){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;});}},
+  {id:9,n:'主角光环',cost:30,d:'10%概率额外1棋子',eff:function(t){acState._lucky=true;}},
+  {id:10,n:'元力爆发',cost:35,d:'技能冷却-30%',eff:function(t){t.forEach(function(p){p._skillCdMul=0.7;});}},
+  {id:11,n:'反击装甲',cost:35,d:'受击反弹50%伤害',eff:function(t){t.forEach(function(p){p._reflect=0.5;});}},
+  {id:12,n:'不灭守护',cost:55,d:'首个阵亡棋子复活30%HP',eff:function(t){acState._revive=true;}},
+  {id:13,n:'风神庇护',cost:45,d:'受技能伤害后3秒无敌',eff:function(t){t.forEach(function(p){p._windGod=true;});}},
 ];
 
 function acMakePiece(ch,aff,side,homeX,homeY){
@@ -5308,8 +5311,11 @@ function acBattleLoop(){
   allPieces.forEach(function(p){
     if(!p.alive)return;
     if(p._flash>0)p._flash--;
+    if(p._windTimer>0){p._windTimer-=dt;if(p._windTimer<=0)p._windTimer=0;}
     if(p._regen>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._regen*dt);
     if(p._moving){p._mvTimer-=dt;if(p._mvTimer<=0){p.x=p._mvTx;p.y=p._mvTy;p._moving=false;}else{var t=1-p._mvTimer/0.3;p.x=p.homeX+(p._mvTx-p.homeX)*t;p.y=p.homeY+(p._mvTy-p.homeY)*t;return;}}
+    // 风神庇护: 无敌期间不受伤害 (由技能命中触发)
+    var hasWind=p._windTimer>0;
     p.actTime+=dt*p.spd;
     if(p.actTime>=75/(p.spd+50)){
       p.actTime=0;
@@ -5319,10 +5325,12 @@ function acBattleLoop(){
       var target2=acFindTarget(p,enemies2);
       if(target2&&target2.alive&&p._skillCd<=0&&p._skillCdMax<99){
         p._skillCd=p._skillCdMax*(p._skillCdMul||1);
-        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5));target2.hp-=tdmg;target2._flash=10;
+        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5));if(target2._windTimer>0){tdmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'🛡️无敌!','#58a6ff'));}else target2.hp-=tdmg;target2._flash=10;
+        if(target2._reflect>0){var rdmg=Math.floor(tdmg*target2._reflect);p.hp-=rdmg;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}
+        if(target2._windGod){target2._windTimer=3;target2._windGod=false;}
         acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-15,'⚡技能!-'+tdmg,'#f0c040'));
         acParticles.explode(target2.x,target2.y,8,p.clr||'#ff0',{speed:4,life:12,size:4});
-        if(target2.hp<=0){target2.alive=false;acParticles.explode(target2.x,target2.y,15,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(3,0.85);
+        if(target2.hp<=0){if(acState._revive&&target2.side==='player'){target2.hp=Math.floor(target2.maxHp*0.3);target2.alive=true;acState._revive=false;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'💚复活!','#3fb950'));}else{target2.alive=false;acParticles.explode(target2.x,target2.y,15,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(3,0.85);}
           if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
       }else{
         // 普通攻击
@@ -5332,9 +5340,10 @@ function acBattleLoop(){
           }else{// 近战
             p._mvTx=target2.homeX;p._mvTy=target2.homeY;p._mvTimer=0.3;p._moving=true;
             var dmg=p.atk;if(target2._dmgReduc>0)dmg=Math.floor(dmg*(1-target2._dmgReduc));target2.hp-=dmg;target2._flash=6;
+            if(target2._reflect>0){var rdmg2=Math.floor(dmg*target2._reflect);p.hp-=rdmg2;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg2,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}
             acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-10,'-'+dmg,'#f44'));
             acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});
-            if(target2.hp<=0){target2.alive=false;acParticles.explode(target2.x,target2.y,12,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);
+            if(target2.hp<=0){if(acState._revive&&target2.side==='player'){target2.hp=Math.floor(target2.maxHp*0.3);target2.alive=true;acState._revive=false;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'💚复活!','#3fb950'));}else{target2.alive=false;acParticles.explode(target2.x,target2.y,12,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}
               if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
           }
         }
