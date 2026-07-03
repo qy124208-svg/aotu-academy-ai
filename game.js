@@ -2404,23 +2404,48 @@ function rTitle(app){
         return'<span style="background:var(--card);border:1px solid #444;padding:4px 10px;border-radius:6px;font-size:0.7em">🏆 '+a.split('_').pop()+'</span>';
       }).join('')+'</div>'
     )+'</div>'+
-    '<div class="panel fadein"><h2>🖼️ 角色立绘</h2>'+
-    '<p style="color:var(--dim);font-size:0.75em;margin-bottom:10px">导入自定义头像替换 emoji。不导入则延用默认。</p>'+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:3px">'+
-    Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).map(function(id){
-      var ch=CH[id],has=!!_charImgCache[id];
-      return '<div style="background:var(--card);border:1px '+(has?'solid var(--gold)':'dashed #444')+';border-radius:10px;padding:3px;text-align:center;cursor:pointer;min-height:74px" onclick="window._uploadCharImg(\''+id+'\')" onmouseenter="this.style.borderColor=\'var(--gold)\'" onmouseleave="this.style.borderColor=\''+(has?'var(--gold)':'#444')+'\'">'+
-        (has
-          ?'<img src="'+_charImgCache[id]+'" style="width:36px;height:36px;object-fit:cover;border-radius:50%;margin:1px 0"><div style="font-size:0.5em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.45em;color:#888;margin-top:1px;cursor:pointer" onclick="event.stopPropagation();removeCharImage(\''+id+'\');render(\'title\');">🗑</div>'
-          :'<div style="font-size:1.3em;margin:3px 0">'+ch.e+'</div><div style="font-size:0.5em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.45em;color:var(--gold);margin-top:1px">📷</div>'
-        )+
-      '</div>';
-    }).join('')+
-    '</div>'+
-    '<button style="display:block;margin:6px auto 0;padding:2px 8px;border-radius:5px;cursor:pointer;background:var(--card);color:var(--dim);border:1px solid #444;font-family:inherit;font-size:0.55em" onclick="window._clearAllCharImages()">🗑 清除全部立绘</button>'+
-    '</div>'+
     '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.9.1 · Vec2星座星空 + 心魔幻境零GC修复</span></div>'+
     '</div>';
+
+  // ✨ 角色立绘面板（DOM方式，安全渲染）
+  try{
+    var tc=document.getElementById('titleContent');
+    if(tc){
+      var panel=document.createElement('div');panel.className='panel fadein';
+      panel.innerHTML='<h2>🖼️ 角色立绘</h2><p style="color:var(--dim);font-size:0.75em;margin-bottom:8px">导入自定义头像替换 emoji。不导入则延用默认。</p>';
+      var grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:3px';
+      Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).forEach(function(id){
+        var ch=CH[id],has=!!_charImgCache[id];
+        var slot=document.createElement('div');
+        slot.style.cssText='background:var(--card);border:1px '+(has?'solid var(--gold)':'dashed #444')+';border-radius:10px;padding:3px;text-align:center;cursor:pointer;min-height:72px';
+        slot.onclick=function(){window._uploadCharImg(id);};
+        slot.onmouseenter=function(){slot.style.borderColor='var(--gold)';};
+        slot.onmouseleave=function(){slot.style.borderColor=has?'var(--gold)':'#444';};
+        if(has){
+          var img=document.createElement('img');img.src=_charImgCache[id];img.style.cssText='width:34px;height:34px;object-fit:cover;border-radius:50%;margin:1px 0';
+          slot.appendChild(img);
+          slot.appendChild(Object.assign(document.createElement('div'),{style:'font-size:0.5em;color:var(--dim)',textContent:ch.n}));
+          var rm=document.createElement('div');rm.style.cssText='font-size:0.45em;color:#888;margin-top:1px;cursor:pointer';rm.textContent='🗑';
+          rm.onclick=function(e){e.stopPropagation();removeCharImage(id);render('title');};
+          slot.appendChild(rm);
+        }else{
+          slot.appendChild(Object.assign(document.createElement('div'),{style:'font-size:1.2em;margin:3px 0',textContent:ch.e}));
+          slot.appendChild(Object.assign(document.createElement('div'),{style:'font-size:0.5em;color:var(--dim)',textContent:ch.n}));
+          slot.appendChild(Object.assign(document.createElement('div'),{style:'font-size:0.45em;color:var(--gold);margin-top:1px',textContent:'📷'}));
+        }
+        grid.appendChild(slot);
+      });
+      panel.appendChild(grid);
+      var clr=document.createElement('button');clr.style.cssText='display:block;margin:6px auto 0;padding:2px 8px;border-radius:5px;cursor:pointer;background:var(--card);color:var(--dim);border:1px solid #444;font-family:inherit;font-size:0.55em';clr.textContent='🗑 清除全部立绘';
+      clr.onclick=function(){window._clearAllCharImages();};
+      panel.appendChild(clr);
+      // 插在成就面板之后、版本信息之前
+      var panels=tc.querySelectorAll('.panel');
+      var beforeEl=tc.querySelector('div[style*="text-align:center;font-size:0.65em"]');
+      if(beforeEl)tc.insertBefore(panel,beforeEl);
+      else tc.appendChild(panel);
+    }
+  }catch(e){console.warn('立绘面板渲染失败:',e);}
 
   // ✨ 启动星空背景 (先停掉旧动画)
   if(_titleAnim){cancelAnimationFrame(_titleAnim);_titleAnim=null;}
