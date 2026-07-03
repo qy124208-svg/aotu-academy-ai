@@ -2404,7 +2404,7 @@ function rTitle(app){
         return'<span style="background:var(--card);border:1px solid #444;padding:4px 10px;border-radius:6px;font-size:0.7em">🏆 '+a.split('_').pop()+'</span>';
       }).join('')+'</div>'
     )+'</div>'+
-    '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.8 · Babylon.js GUI移植 + 魔女支线增强</span></div>'+
+    '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.9.1 · Vec2星座星空 + 心魔幻境零GC修复</span></div>'+
     '</div>';
 
   // ✨ 启动星空背景 (先停掉旧动画)
@@ -2437,20 +2437,39 @@ function _startTitleParticles(){
   if(!_titleParticles)_titleParticles=[];
   _titleParticles.length=0;
 
-  // ✨ 深空星空背景
-  // 500颗星星 — 大小/亮度/闪烁周期各不同
-  var stars=[];
+  // ✨ Vec2星座星空 — 500颗星 + 预计算星座图 + 鼠标波动
+  var stars=[],brightStars=[];
   for(var si=0;si<500;si++){
-    var bright=Math.random()<0.02?'bright':Math.random()<0.08?'medium':'dim'; // 2%亮星 8%中亮 90%暗星
+    var bright=Math.random()<0.02?'bright':Math.random()<0.08?'medium':'dim';
+    var sx=Math.random()*W,sy=Math.random()*H;
     stars.push({
-      x:Math.random()*W, y:Math.random()*H,
+      pos:new Vec2(sx,sy),home:new Vec2(sx,sy),
       r: bright==='bright'?Math.random()*2+1.5 : bright==='medium'?Math.random()*1.2+0.5 : Math.random()*0.6+0.2,
       baseAlpha: bright==='bright'?Math.random()*0.4+0.6 : bright==='medium'?Math.random()*0.3+0.4 : Math.random()*0.2+0.15,
       twinkleSpeed: Math.random()*0.02+0.005,
       twinkleOffset: Math.random()*Math.PI*2,
-      hue: Math.random()<0.1?Math.random()*60+30 : 0, // 10% 暖色星
+      hue: Math.random()<0.1?Math.random()*60+30 : 0,
+      bright:bright,_mouseBoost:0,
     });
+    if(bright==='bright'||bright==='medium')brightStars.push(si);
   }
+  // ✨ 预计算星座连线：每颗亮星连接最近2-3颗邻居(基于home位置，静态)
+  var connections=[],_cp={};
+  brightStars.forEach(function(i){
+    var nbrs=[];brightStars.forEach(function(j){if(i!==j){var dx=stars[i].home.x-stars[j].home.x,dy=stars[i].home.y-stars[j].home.y,d=Math.sqrt(dx*dx+dy*dy);if(d<180)nbrs.push({j:j,d:d});}});
+    nbrs.sort(function(a,b){return a.d-b.d;});
+    for(var k=0;k<Math.min(stars[i].bright==='bright'?3:2,nbrs.length);k++){
+      var a=Math.min(i,nbrs[k].j),b=Math.max(i,nbrs[k].j),key=a+'_'+b;
+      if(!_cp[key]){_cp[key]=true;connections.push({a:a,b:b});}
+    }
+  });
+  // ✨ 鼠标追踪 (Vec2临时复用)
+  var _mX=W/2,_mY=H/2,_mOn=false;
+  var _docMove=function(e){if(!_titleCanvas)return;_mX=e.clientX;_mY=e.clientY;_mOn=true;};
+  document.addEventListener('mousemove',_docMove);
+  document.addEventListener('touchmove',function(e){if(e.touches[0]){_mX=e.touches[0].clientX;_mY=e.touches[0].clientY;_mOn=true;}},{passive:true});
+  document.addEventListener('mouseleave',function(){_mOn=false;});
+  var _tv=new Vec2(0,0);
 
   // ✨ 星云光晕 — 4个虚化光斑
   var nebulaColors=['rgba(188,140,255,','rgba(88,166,255,','rgba(240,192,64,','rgba(233,69,96,'];
@@ -2512,20 +2531,44 @@ function _startTitleParticles(){
       ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill();
     });
 
-    // ⭐ 星星 — 独立闪烁
+    // ✨ Vec2物理更新 — 鼠标排斥 + 弹性回位
+    stars.forEach(function(s){
+      if(_mOn){
+        _tv.set(s.pos.x-_mX,s.pos.y-_mY);
+        var md=_tv.length;
+        if(md<120&&md>0){var f=(120-md)/120*4;_tv.length=f;s.pos.x+=_tv.x;s.pos.y+=_tv.y;s._mouseBoost=(120-md)/120*0.5;}
+        else{s._mouseBoost=0;}
+      }else{s._mouseBoost=0;}
+      s.pos.x+=(s.home.x-s.pos.x)*0.04;s.pos.y+=(s.home.y-s.pos.y)*0.04;
+      s.pos.x=Math.max(-20,Math.min(W+20,s.pos.x));s.pos.y=Math.max(-20,Math.min(H+20,s.pos.y));
+    });
+    // ✨ 星座连线 — 预计算图 + 鼠标附近高亮
+    connections.forEach(function(c){
+      var sa=stars[c.a],sb=stars[c.b];
+      var dx=sa.pos.x-sb.pos.x,dy=sa.pos.y-sb.pos.y,dist=Math.sqrt(dx*dx+dy*dy);
+      var ba=Math.max(0,1-dist/180)*0.2;
+      var midX=(sa.pos.x+sb.pos.x)/2,midY=(sa.pos.y+sb.pos.y)/2;
+      var md2=_mOn?Math.sqrt((midX-_mX)*(midX-_mX)+(midY-_mY)*(midY-_mY)):999;
+      var mg=md2<150?(150-md2)/150*0.35:0;
+      var alpha=ba+mg;
+      if(alpha>0.015){
+        ctx.strokeStyle='rgba(188,140,255,'+alpha+')';ctx.lineWidth=0.6;
+        ctx.beginPath();ctx.moveTo(sa.pos.x,sa.pos.y);ctx.lineTo(sb.pos.x,sb.pos.y);ctx.stroke();
+      }
+    });
+    // ⭐ 星星 — 闪烁 + Vec2位置 + 鼠标靠近变暖
     var t=Date.now()*0.001;
     stars.forEach(function(s){
       var flicker=Math.sin(t*s.twinkleSpeed+s.twinkleOffset)*0.3;
-      var a=Math.max(0.05,s.baseAlpha+flicker);
-      // 亮星加光晕
+      var a=Math.max(0.05,s.baseAlpha+flicker+(s._mouseBoost||0));
       if(s.baseAlpha>0.5){
         ctx.fillStyle='rgba(255,255,'+(255-s.hue)+','+(a*0.1)+')';
-        ctx.beginPath();ctx.arc(s.x,s.y,s.r*3,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(s.pos.x,s.pos.y,s.r*3,0,Math.PI*2);ctx.fill();
       }
-      // 星点本体
-      var starColor=s.hue>0?'rgba(255,255,'+(200-s.hue)+','+a+')':'rgba(255,255,255,'+a+')';
-      ctx.fillStyle=starColor;
-      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+      var bst=s._mouseBoost||0;
+      var sc=s.hue>0?'rgba(255,255,'+(200-s.hue)+','+a+')':'rgba(255,'+Math.max(150,255-bst*100)+','+Math.max(100,255-bst*150)+','+a+')';
+      ctx.fillStyle=sc;
+      ctx.beginPath();ctx.arc(s.pos.x,s.pos.y,s.r,0,Math.PI*2);ctx.fill();
     });
 
     // ☄️ 流星
