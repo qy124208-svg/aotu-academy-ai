@@ -918,6 +918,8 @@ const AFF100_EVENTS={
 // 存储：localStorage 'aotu4_karma'
 function loadKarma(){try{const v=localStorage.getItem('aotu4_karma');return v?parseInt(v)||0:0;}catch(e){return 0;}}
 function saveKarma(v){try{localStorage.setItem('aotu4_karma',String(v));console.log("💾 因果值已保存:",v);return true;}catch(e){return false;}}
+function spendKarma(v){var k=loadKarma();if(k>=v){saveKarma(k-v);return true;}return false;}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
 
 // ─── 轮回结算：计算本轮回获得的因果值 ───
 function calcKarmaEarned(){
@@ -5156,17 +5158,31 @@ function renderBattleResult(){
 }
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  周末自走棋 · 战术推演 (v6.10)                                ║
+// ║  周末自走棋 · 战术推演 v6.11 — 战前商店+CP协力+技能+弹道     ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-let acAnim=null,acCtx=null,acCanvas=null,acState=null,acLastTime=0,acParticles=null,acFloatTexts=[],acShake=null;
+let acAnim=null,acCtx=null,acCanvas=null,acState=null,acLastTime=0,acParticles=null,acFloatTexts=[],acShake=null,acProjectiles=[];
 const AC_COLS=4,AC_ROWS=4,AC_CELL_W=160,AC_CELL_H=100,AC_OFFX=80,AC_OFFY=60;
+const AC_ARTIFACTS=[
+  {id:1,n:'虎啸龙吟',cost:40,d:'全队攻击+20%',eff:function(t){t.forEach(function(p){p.atk=Math.floor(p.atk*1.2);});}},
+  {id:2,n:'铁壁铜墙',cost:30,d:'全队HP+25%',eff:function(t){t.forEach(function(p){p.hp=Math.floor(p.hp*1.25);p.maxHp=Math.floor(p.maxHp*1.25);});}},
+  {id:3,n:'疾风步',cost:30,d:'全队速度+25%',eff:function(t){t.forEach(function(p){p.spd*=1.25;});}},
+  {id:4,n:'回春术',cost:40,d:'全队每秒恢复1%HP',eff:function(t){t.forEach(function(p){p._regen=1;});}},
+  {id:5,n:'嗜血',cost:35,d:'击杀恢复10%HP',eff:function(t){t.forEach(function(p){p._lifesteal=0.1;});}},
+  {id:6,n:'奇袭',cost:50,d:'开局秒杀1个随机敌人',eff:function(t){acState._opener=true;}},
+  {id:7,n:'八卦阵',cost:40,d:'全队减伤15%',eff:function(t){t.forEach(function(p){p._dmgReduc=0.15;});}},
+  {id:8,n:'空城计',cost:45,d:'上阵≤5人时全队+30%',eff:function(t){if(t.length<=5)t.forEach(function(p){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;});}},
+  {id:9,n:'天命',cost:30,d:'10%概率额外1棋子',eff:function(t){acState._lucky=true;}},
+  {id:10,n:'无双乱舞',cost:35,d:'技能冷却-30%',eff:function(t){t.forEach(function(p){p._skillCdMul=0.7;});}},
+];
 
 function acMakePiece(ch,aff,side,homeX,homeY){
   var hp=15+Math.floor(aff/8),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.03,spd=2+aff*0.04;
+  var sk=BATTLE_CHAR_SKILLS[ch.id];var scd=(sk?3+Math.random()*5:99);
   return{id:ch.id,name:ch.n,emoji:ch.e,clr:ch.clr,hp:hp,maxHp:hp,atk:atk,spd:spd,
     x:homeX,y:homeY,homeX:homeX,homeY:homeY,side:side,alive:true,actTime:Math.random()*30,
-    _target:null,_moving:false,_mvTx:0,_mvTy:0,_mvTimer:0,_flash:0,_cpBond:false};
+    _target:null,_moving:false,_mvTx:0,_mvTy:0,_mvTimer:0,_flash:0,_cpBond:false,
+    _skillCd:scd,_skillCdMax:scd,_regen:0,_lifesteal:0,_dmgReduc:0,_skillCdMul:1,_boosted:false,range:sk&&sk.n?2:1};
 }
 
 function acApplyCPBond(team){
@@ -5177,31 +5193,71 @@ function acApplyCPBond(team){
 
 function acDist(a,b){var dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
 
+// ─── 战前准备阶段 ───
 function startAutoChess(){
   var app=document.getElementById('app');if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}
-  G.dailyEvents++;var dpr=window.devicePixelRatio||1;
-  var isMobile='ontouchstart' in window||(navigator.maxTouchPoints||0)>0;
-
-  // 选我方5棋子: 亲和度最高的8个中随机5个
+  G.dailyEvents++;
   var ranked=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});
-  var playerPool=ranked.slice(0,8);shuffle(playerPool);var playerIds=playerPool.slice(0,5);
-  // 敌方: 亲和度最低6个中选5个 + 天数加成
   var enemyPool=ranked.slice(-6);shuffle(enemyPool);var enemyIds=enemyPool.slice(0,5);
-  var dayScale=1+G.day/200;
+  window._acPool=ranked.slice(0,8);window._acPicked=[];window._acEnemy=enemyIds;
+  window._acArtifact=null;window._acBoosted=null;
+  acPrepRender(app);
+}
 
-  acState={over:false,winner:null,speedMul:1,battleTime:0};
-  acFloatTexts=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
+function acPrepRender(app){
+  var karma=loadKarma();var pool=window._acPool,picked=window._acPicked||[];
+  var h='<div style="max-width:820px;margin:0 auto;padding:8px">';
+  h+='<h2 style="text-align:center;color:var(--gold);margin:8px 0">🎲 战术推演 · 阵容准备</h2>';
+  h+='<p style="text-align:center;color:var(--dim);font-size:0.8em">点选5名角色上阵 · 因果值: '+karma+'</p>';
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0">';
+  pool.forEach(function(id,i){
+    var ch=CH[id],sel=picked.indexOf(id)>=0;
+    h+='<div onclick="window._acToggle(\''+id+'\')" style="background:'+(sel?'var(--gold)':'var(--card)')+';border:2px '+(sel?'solid var(--gold)':'solid #444')+';border-radius:10px;padding:8px;text-align:center;cursor:pointer;transition:all 0.2s;'+(sel?'transform:scale(1.05);':'')+'">';
+    h+='<div style="font-size:1.5em">'+ch.e+'</div><div style="font-size:0.7em;color:'+(sel?'#0d1117':'var(--dim)')+'">'+ch.n+'</div>';
+    h+='<div style="font-size:0.55em;color:'+(sel?'#0d1117':'#555')+'">❤️'+(G.aff[id]||0)+'</div></div>';
+  });h+='</div>';
+  h+='<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0">';
+  h+='<button class="btn btn-s" onclick="window._acPickArtifact()" style="background:#1a1a2e;border:1px solid var(--gold)">🎴 战术道具 ('+(window._acArtifact?window._acArtifact.n:'30-50因果')+')</button>';
+  h+='<button class="btn btn-s" onclick="window._acReroll()" style="background:#1a1a2e;border:1px solid #58a6ff">🔄 重选棋子 (-10)</button>';
+  h+='<button class="btn btn-s" onclick="window._acBoost()" style="background:#1a1a2e;border:1px solid #bc8cff">💪 强化棋子 (-20)</button>';
+  h+='<button class="btn btn-p pulse" onclick="window._acStart()" style="font-size:1.1em;'+(picked.length===5?'':'opacity:0.5')+'">⚔️ 开战 ('+picked.length+'/5)</button>';
+  h+='</div></div>';
+  if(window._acLastMsg)h+='<div style="text-align:center;color:var(--dim);font-size:0.7em;margin:4px 0">'+window._acLastMsg+'</div>';
+  app.innerHTML=h;
+}
+window._acToggle=function(id){var p=window._acPicked||[];var i=p.indexOf(id);if(i>=0)p.splice(i,1);else if(p.length<5)p.push(id);window._acPicked=p;acPrepRender(document.getElementById('app'));};
+window._acPickArtifact=function(){
+  var karma=loadKarma();if(window._acArtifact){window._acLastMsg='已有道具: '+window._acArtifact.n;acPrepRender(document.getElementById('app'));return;}
+  var pool=AC_ARTIFACTS.filter(function(a){return karma>=a.cost;});if(pool.length===0){window._acLastMsg='因果值不足';acPrepRender(document.getElementById('app'));return;}
+  shuffle(pool);var opts=pool.slice(0,3);
+  var h='<div style="text-align:center;padding:20px"><h2>🎴 选择战术道具</h2><p style="color:var(--dim)">因果值: '+karma+'</p>';
+  opts.forEach(function(a){h+='<button class="btn btn-choice" onclick="window._acDoArtifact('+a.id+')" style="display:block;width:100%;margin:6px 0;text-align:left;padding:12px"><b>'+a.n+'</b> <span style="color:var(--gold)">(-'+a.cost+')</span><br><small style="color:var(--dim)">'+a.d+'</small></button>';});
+  h+='<button class="btn btn-s" onclick="acPrepRender(document.getElementById(\'app\'))" style="margin-top:10px">取消</button></div>';
+  document.getElementById('app').innerHTML=h;
+};
+window._acDoArtifact=function(id){var a=AC_ARTIFACTS.find(function(x){return x.id===id;});if(!a)return;var k=loadKarma();if(k<a.cost){window._acLastMsg='因果值不足';return;}spendKarma(a.cost);window._acArtifact=a;window._acLastMsg='已装备: '+a.n+' (-'+a.cost+')';acPrepRender(document.getElementById('app'));};
+window._acReroll=function(){var k=loadKarma();if(k<10){window._acLastMsg='因果值不足 (需10)';acPrepRender(document.getElementById('app'));return;}spendKarma(10);var ranked=Object.keys(CH).filter(function(x){return CH[x]&&CH[x].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var pool=window._acPool;var i=Math.floor(Math.random()*pool.length);var top=ranked.slice(0,12);var newId=top[Math.floor(Math.random()*top.length)];while(pool.indexOf(newId)>=0)newId=top[Math.floor(Math.random()*top.length)];pool[i]=newId;window._acLastMsg='重选了 '+CH[newId].n;acPrepRender(document.getElementById('app'));};
+window._acBoost=function(){var k=loadKarma();if(k<20){window._acLastMsg='因果值不足 (需20)';acPrepRender(document.getElementById('app'));return;}if(window._acBoosted){window._acLastMsg='已强化过: '+CH[window._acBoosted].n;acPrepRender(document.getElementById('app'));return;}var p=window._acPicked||[];if(p.length===0)return;spendKarma(20);window._acBoosted=p[0];window._acLastMsg='已强化: '+CH[p[0]].n+' +30%';acPrepRender(document.getElementById('app'));};
+window._acStart=function(){
+  var picked=window._acPicked||[];if(picked.length!==5)return;
+  var dpr=window.devicePixelRatio||1,app=document.getElementById('app');
+  var enemyIds=window._acEnemy,dayScale=1+G.day/200;
 
-  // 生成棋子
+  acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false};
+  acFloatTexts=[];acProjectiles=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
+
   var playerPieces=[],enemyPieces=[];
-  var gridPos=[[0,0],[1,0],[0,1],[1,1],[0,2],[1,2],[0,3],[1,3]]; // 左4列
-  var egridPos=[[2,0],[3,0],[2,1],[3,1],[2,2],[3,2],[2,3],[3,3]]; // 右2列
-  playerIds.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+gridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+gridPos[i][1]*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(ch,aff,'player',cx,cy));});
+  var gridPos=[[0,0],[1,0],[0,1],[1,1],[0,2],[1,2],[0,3],[1,3]];
+  var egridPos=[[2,0],[3,0],[2,1],[3,1],[2,2],[3,2],[2,3],[3,3]];
+  picked.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+gridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+gridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'player',cx,cy);if(window._acBoosted===id){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;p._boosted=true;}playerPieces.push(p);});
   enemyIds.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+egridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+egridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'enemy',cx,cy);p.hp=Math.floor(p.hp*dayScale);p.maxHp=Math.floor(p.maxHp*dayScale);p.atk=Math.floor(p.atk*dayScale);enemyPieces.push(p);});
   acApplyCPBond(playerPieces);acApplyCPBond(enemyPieces);
+  // 道具生效
+  if(window._acArtifact)window._acArtifact.eff(playerPieces);
+  if(acState._opener&&enemyPieces.length>0){var ri=Math.floor(Math.random()*enemyPieces.length);enemyPieces[ri].hp=0;enemyPieces[ri].alive=false;}
+  if(acState._lucky&&Math.random()<0.1){var ep=ranked.slice(0,12);var ex=ep[Math.floor(Math.random()*ep.length)];var ecx=AC_OFFX+gridPos[0][0]*AC_CELL_W+AC_CELL_W/2,ecy=AC_OFFY+gridPos[0][1]*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(CH[ex],G.aff[ex]||0,'player',ecx,ecy));}
   acState.player=playerPieces;acState.enemy=enemyPieces;
 
-  // Canvas
   app.innerHTML='<canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px;background:#0a0a12;display:block;margin:10px auto;cursor:default"></canvas>';
   acCanvas=document.getElementById('acCanvas');acCtx=acCanvas.getContext('2d');
   acCanvas.width=Math.floor(800*dpr);acCanvas.height=Math.floor(500*dpr);
@@ -5210,7 +5266,7 @@ function startAutoChess(){
   acCtx.setTransform(dpr,0,0,dpr,0,0);
   document.addEventListener('keydown',acKeyDown);acLastTime=performance.now();
   acAnim=requestAnimationFrame(acBattleLoop);
-}
+};
 
 function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acState.speedMul===1?2:1;}}
 
@@ -5226,32 +5282,66 @@ function acBattleLoop(){
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
   acParticles.update(dt*1000);acShake.update();
   for(var fi=acFloatTexts.length-1;fi>=0;fi--){acFloatTexts[fi].update();if(!acFloatTexts[fi].alive)acFloatTexts.splice(fi,1);}
+  // 弹道更新
+  for(var pr=acProjectiles.length-1;pr>=0;pr--){var pro=acProjectiles[pr];pro.x+=pro.vx*dt*300;pro.y+=pro.vy*dt*300;pro.life-=dt;if(pro.life<=0||pro.x<0||pro.x>800||pro.y<0||pro.y>500){acProjectiles.splice(pr,1);continue;}
+    var sideCheck=pro.from==='player'?acState.enemy:acState.player;
+    for(var si=0;si<sideCheck.length;si++){var sp=sideCheck[si];if(!sp.alive)continue;if(acDist(pro,sp)<18){sp.hp-=pro.dmg;sp._flash=6;acFloatTexts.push(FloatingText.spawn(acCtx,sp.x,sp.y-10,'-'+pro.dmg,'#f44'));acParticles.burst(sp.x,sp.y,Math.atan2(pro.vy,pro.vx),3,pro.clr,{speed:2,life:6,spread:20,size:1.5});acProjectiles.splice(pr,1);if(sp.hp<=0){sp.alive=false;acParticles.explode(sp.x,sp.y,12,sp.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}break;}}}
 
-  // 更新所有棋子
+  // CP协力检测 (每8秒)
+  acState._cpBondTimer-=dt;
+  if(acState._cpBondTimer<=0){acState._cpBondTimer=8;
+    [acState.player,acState.enemy].forEach(function(team){
+      var alive=team.filter(function(p){return p.alive&&p._cpBond;});
+      Object.keys(CP).forEach(function(k){var p=k.split('_');
+        var a=alive.find(function(x){return x.id===p[0];}),b=alive.find(function(x){return x.id===p[1];});
+        if(a&&b&&acDist(a,b)<100){var tgt=acFindTarget(a,a.side==='player'?acState.enemy:acState.player);
+          if(tgt){tgt.hp-=a.atk*2;a._mvTx=tgt.homeX;a._mvTy=tgt.homeY;a._mvTimer=0.25;a._moving=true;
+            acFloatTexts.push(FloatingText.spawn(acCtx,tgt.x,tgt.y-15,'💥羁绊!','#bc8cff'));
+            acParticles.explode((a.x+b.x)/2,(a.y+b.y)/2,20,'#bc8cff',{speed:5,life:15,size:5});acShake.trigger(4,0.9);
+            if(tgt.hp<=0){tgt.alive=false;acParticles.explode(tgt.x,tgt.y,15,tgt.clr||'#f44',{speed:3,life:20,size:3});}}
+        }});
+    });
+  }
+
+  // 更新棋子 + 回春/嗜血
   var allPieces=acState.player.concat(acState.enemy);
   allPieces.forEach(function(p){
     if(!p.alive)return;
     if(p._flash>0)p._flash--;
-    // 移动动画
+    if(p._regen>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._regen*dt);
     if(p._moving){p._mvTimer-=dt;if(p._mvTimer<=0){p.x=p._mvTx;p.y=p._mvTy;p._moving=false;}else{var t=1-p._mvTimer/0.3;p.x=p.homeX+(p._mvTx-p.homeX)*t;p.y=p.homeY+(p._mvTy-p.homeY)*t;return;}}
-    // 行动
     p.actTime+=dt*p.spd;
     if(p.actTime>=75/(p.spd+50)){
       p.actTime=0;
-      var enemies=p.side==='player'?acState.enemy:acState.player;
-      var target=acFindTarget(p,enemies);
-      if(target&&target.alive){
-        // 移动攻击
-        p._mvTx=target.homeX;p._mvTy=target.homeY;p._mvTimer=0.3;p._moving=true;
-        target.hp-=p.atk;target._flash=8;
-        acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-10,'-'+p.atk,'#f44'));
-        acParticles.burst(target.x,target.y,Math.atan2(target.y-p.y,target.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});
-        if(target.hp<=0){target.alive=false;acParticles.explode(target.x,target.y,12,target.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}
+      // 技能检测
+      p._skillCd-=dt;
+      var enemies2=p.side==='player'?acState.enemy:acState.player;
+      var target2=acFindTarget(p,enemies2);
+      if(target2&&target2.alive&&p._skillCd<=0&&p._skillCdMax<99){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);
+        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5));target2.hp-=tdmg;target2._flash=10;
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-15,'⚡技能!-'+tdmg,'#f0c040'));
+        acParticles.explode(target2.x,target2.y,8,p.clr||'#ff0',{speed:4,life:12,size:4});
+        if(target2.hp<=0){target2.alive=false;acParticles.explode(target2.x,target2.y,15,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(3,0.85);
+          if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
+      }else{
+        // 普通攻击
+        if(target2&&target2.alive){
+          if(p.range>1){// 远程弹道
+            var a2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0'});
+          }else{// 近战
+            p._mvTx=target2.homeX;p._mvTy=target2.homeY;p._mvTimer=0.3;p._moving=true;
+            var dmg=p.atk;if(target2._dmgReduc>0)dmg=Math.floor(dmg*(1-target2._dmgReduc));target2.hp-=dmg;target2._flash=6;
+            acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-10,'-'+dmg,'#f44'));
+            acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});
+            if(target2.hp<=0){target2.alive=false;acParticles.explode(target2.x,target2.y,12,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);
+              if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
+          }
+        }
       }
     }
   });
 
-  // 检查胜负
   var pAlive=acState.player.filter(function(p){return p.alive;}).length;
   var eAlive=acState.enemy.filter(function(p){return p.alive;}).length;
   if(pAlive===0||eAlive===0){acState.over=true;acState.winner=pAlive>0?'player':'enemy';}
@@ -5262,76 +5352,49 @@ function acBattleLoop(){
 
 function acRender(){
   acCtx.clearRect(0,0,800,500);
-  // 网格
   for(var r=0;r<4;r++){for(var c=0;c<4;c++){
     var gx=AC_OFFX+c*AC_CELL_W,gy=AC_OFFY+r*AC_CELL_H;
-    acCtx.strokeStyle=c<2?'rgba(88,166,255,0.2)':'rgba(233,69,96,0.2)';
-    acCtx.lineWidth=1;acCtx.strokeRect(gx,gy,AC_CELL_W,AC_CELL_H);
+    acCtx.strokeStyle=c<2?'rgba(88,166,255,0.2)':'rgba(233,69,96,0.2)';acCtx.lineWidth=1;acCtx.strokeRect(gx,gy,AC_CELL_W,AC_CELL_H);
   }}
-  // 中间分割线
   acCtx.strokeStyle='rgba(255,255,255,0.15)';acCtx.lineWidth=2;
   acCtx.beginPath();acCtx.moveTo(AC_OFFX+2*AC_CELL_W,AC_OFFY);acCtx.lineTo(AC_OFFX+2*AC_CELL_W,AC_OFFY+4*AC_CELL_H);acCtx.stroke();
-
   // CP连线
   acCtx.lineWidth=1;
-  [acState.player,acState.enemy].forEach(function(team){
-    var alive=team.filter(function(p){return p.alive&&p._cpBond;});
-    for(var i=0;i<alive.length;i++){for(var j=i+1;j<alive.length;j++){
-      if(acDist(alive[i],alive[j])<200){acCtx.strokeStyle='rgba(188,140,255,0.3)';acCtx.beginPath();acCtx.moveTo(alive[i].x,alive[i].y);acCtx.lineTo(alive[j].x,alive[j].y);acCtx.stroke();}
-    }}
+  [acState.player,acState.enemy].forEach(function(team){var alive=team.filter(function(p){return p.alive&&p._cpBond;});
+    for(var i=0;i<alive.length;i++){for(var j=i+1;j<alive.length;j++){if(acDist(alive[i],alive[j])<200){acCtx.strokeStyle='rgba(188,140,255,0.3)';acCtx.beginPath();acCtx.moveTo(alive[i].x,alive[i].y);acCtx.lineTo(alive[j].x,alive[j].y);acCtx.stroke();}}}
   });
-
-  // 粒子 + 浮动文字
+  // 弹道
+  acProjectiles.forEach(function(pr){acCtx.fillStyle=pr.clr;acCtx.beginPath();acCtx.arc(pr.x,pr.y,3,0,Math.PI*2);acCtx.fill();});
   if(acShake.isShaking){acCtx.save();acShake.apply(acCtx);acParticles.draw(acCtx);acCtx.restore();}else{acParticles.draw(acCtx);}
   acFloatTexts.forEach(function(ft){ft.draw(acCtx);});
-
-  // 棋子
-  [acState.player,acState.enemy].forEach(function(team){
-    team.forEach(function(p){
-      if(!p.alive)return;
-      if(p._flash%2===0){
-        // 光环
-        acCtx.fillStyle=p.clr||'#58a6ff';
-        acCtx.beginPath();acCtx.arc(p.x,p.y,20+(p._cpBond?4:0),0,Math.PI*2);acCtx.fill();
-        if(p._cpBond){acCtx.strokeStyle='#bc8cff';acCtx.lineWidth=2;acCtx.beginPath();acCtx.arc(p.x,p.y,24,0,Math.PI*2);acCtx.stroke();}
-        // emoji/头像
-        acCtx.fillStyle='#fff';acCtx.font='bold 14px sans-serif';acCtx.textAlign='center';
-        acCtx.fillText(p.emoji,p.x,p.y+5);
-        // HP条
-        var bw=36,bh=4,bx=p.x-bw/2,by=p.y-28;
-        acCtx.fillStyle='#333';acCtx.fillRect(bx,by,bw,bh);
-        acCtx.fillStyle=p.hp/p.maxHp>0.5?'#3fb950':p.hp/p.maxHp>0.25?'#f0c040':'#e94560';
-        acCtx.fillRect(bx,by,bw*(p.hp/p.maxHp),bh);
-        // 名字
-        acCtx.fillStyle='rgba(255,255,255,0.6)';acCtx.font='9px sans-serif';
-        acCtx.fillText(p.name.slice(0,2),p.x,by-4);
-      }
-    });
-  });
-
-  // HUD
+  [acState.player,acState.enemy].forEach(function(team){team.forEach(function(p){
+    if(!p.alive)return;if(p._flash%2===0){
+      acCtx.fillStyle=p.clr||'#58a6ff';acCtx.beginPath();acCtx.arc(p.x,p.y,20+(p._cpBond?4:0)+(p._boosted?2:0),0,Math.PI*2);acCtx.fill();
+      if(p._cpBond){acCtx.strokeStyle='#bc8cff';acCtx.lineWidth=2;acCtx.beginPath();acCtx.arc(p.x,p.y,24,0,Math.PI*2);acCtx.stroke();}
+      if(p._boosted){acCtx.strokeStyle='#f0c040';acCtx.lineWidth=1.5;acCtx.beginPath();acCtx.arc(p.x,p.y,26,0,Math.PI*2);acCtx.stroke();}
+      acCtx.fillStyle='#fff';acCtx.font='bold 14px sans-serif';acCtx.textAlign='center';acCtx.fillText(p.emoji,p.x,p.y+5);
+      var bw=36,bh=4,bx=p.x-bw/2,by=p.y-28;
+      acCtx.fillStyle='#333';acCtx.fillRect(bx,by,bw,bh);
+      acCtx.fillStyle=p.hp/p.maxHp>0.5?'#3fb950':p.hp/p.maxHp>0.25?'#f0c040':'#e94560';
+      acCtx.fillRect(bx,by,bw*(p.hp/p.maxHp),bh);
+      acCtx.fillStyle='rgba(255,255,255,0.6)';acCtx.font='9px sans-serif';acCtx.fillText(p.name.slice(0,2),p.x,by-4);
+      if(p._regen>0){acCtx.fillStyle='#3fb950';acCtx.font='7px sans-serif';acCtx.fillText('+'+Math.floor(p.maxHp*p._regen)+'/s',p.x,by-12);}
+    }
+  });});
   acCtx.fillStyle='rgba(0,0,0,0.7)';acCtx.fillRect(0,0,800,40);
-  acCtx.fillStyle='#fff';acCtx.font='bold 16px sans-serif';acCtx.textAlign='left';
-  acCtx.fillText('🎲 战术推演',15,28);
+  acCtx.fillStyle='#fff';acCtx.font='bold 16px sans-serif';acCtx.textAlign='left';acCtx.fillText('🎲 战术推演',15,28);
   acCtx.fillStyle='#f0c040';acCtx.fillText('⏱ '+Math.floor(acState.battleTime)+'s',300,28);
-  var pAlive=acState.player.filter(function(p){return p.alive;}).length;
-  var eAlive=acState.enemy.filter(function(p){return p.alive;}).length;
-  acCtx.fillStyle='#58a6ff';acCtx.fillText('💙 '+pAlive+' vs '+eAlive+' ❤️',500,28);
+  var pa=acState.player.filter(function(p){return p.alive;}).length,ea=acState.enemy.filter(function(p){return p.alive;}).length;
+  acCtx.fillStyle='#58a6ff';acCtx.fillText('💙 '+pa+' vs '+ea+' ❤️',500,28);
   acCtx.fillStyle=acState.speedMul>1?'#3fb950':'#888';acCtx.fillText(acState.speedMul+'x',730,28);
-
-  if(acState.over){
-    acCtx.fillStyle='rgba(0,0,0,0.5)';acCtx.fillRect(0,0,800,500);
-    acCtx.fillStyle='#fff';acCtx.font='bold 36px sans-serif';acCtx.textAlign='center';
-    acCtx.fillText(acState.winner==='player'?'🎉 胜利！':'💀 败北',400,250);
-  }
+  if(window._acArtifact)acCtx.fillText('🎴'+window._acArtifact.n,620,28);
+  if(acState.over){acCtx.fillStyle='rgba(0,0,0,0.5)';acCtx.fillRect(0,0,800,500);acCtx.fillStyle='#fff';acCtx.font='bold 36px sans-serif';acCtx.textAlign='center';acCtx.fillText(acState.winner==='player'?'🎉 胜利！':'💀 败北',400,250);}
 }
 
 function acEnd(){
-  if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}
-  document.removeEventListener('keydown',acKeyDown);
-  var won=acState.winner==='player';
-  var sprDelta=won?3+Math.floor(Math.random()*3):-(2+Math.floor(Math.random()*2));
-  G.attr.SPR=Math.max(0,Math.min(10,G.attr.SPR+sprDelta));
+  if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}document.removeEventListener('keydown',acKeyDown);
+  var won=acState.winner==='player';var sprDelta=won?3+Math.floor(Math.random()*3):-(2+Math.floor(Math.random()*2));
+  G.attr.SPR=Math.max(0,Math.min(10,G.attr.SPR+sprDelta));window._acArtifact=null;window._acBoosted=null;
   var app=document.getElementById('app');
   app.innerHTML=buildShell('<div class="feedback fadein"><div class="fbtitle">'+(won?'🎉 战术推演 · 胜利！':'💀 战术推演 · 败北')+'</div>'+
     '<p style="font-size:1.1em;color:var(--dim)">'+acState.player.filter(function(p){return p.alive;}).length+' 人生还 vs '+acState.enemy.filter(function(p){return p.alive;}).length+' 人生还</p>'+
