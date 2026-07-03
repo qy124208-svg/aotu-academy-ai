@@ -3455,7 +3455,7 @@ function advanceSlot(){
       if(G.energy<=25){
         G.attr.SPR=clamp(G.attr.SPR-rn(1,2),0,10);
       }
-      G.slot='morning';G.day++;G.dailyEvents=0; // 重置每日事件计数
+      G.slot='morning';G.day++;G.dailyEvents=0;G.flags['ac_today']=false; // 重置每日计数
       // 连续上学天数追踪
       if(G.dayType==='weekend'||G.dayType==='festival'){G.schoolStreak=0;}
       else{G.schoolStreak=(G.schoolStreak||0)+1;}
@@ -3627,6 +3627,13 @@ function renderNoon(app){
 
 // ─── 周末自由探索渲染 ───
 function renderWeekendExplore(app,label){
+  // ✨ 50%概率触发自走棋
+  if(Math.random()<0.5&&!G.flags['ac_today']){
+    G.flags['ac_today']=true;
+    curEv={type:'auto_chess',narration:'🎲 战术推演\n\n周末的学园里——有同学在组织一场战术推演游戏。\n\n「来一局？规则很简单——\n选好阵容，让棋子自己战斗。」\n\n你看到几个熟悉的面孔已经摆好了阵型。',
+      choices:[{t:'🎲 来一局！',a:[],f:''}]};
+    render('event');return;
+  }
   const locPool=Object.keys(LC_OUT);
   const events=genEventPreviews(locPool,4,genWeekendEvent,{cpChance:G._tSeventh?0.35:0.20});
   const title=label==='上午'?'🏙️ 周末上午 —— 去哪里逛逛？':'☕ 周末午后 —— 有什么在等着呢？';
@@ -3893,6 +3900,7 @@ window._ch=function(idx){
     }
     return;
   }
+  if(curEv.type==='auto_chess'){startAutoChess();return;}
   // 今日事件计数（强制结束和请假不计数——不是"社交"事件）
   if(curEv.type!=='forced_end'&&curEv.type!=='sick_leave'){
     G.dailyEvents++;
@@ -5147,8 +5155,191 @@ function renderBattleResult(){
   }
 }
 
-// ─── iOS Safari :active修复：空touchstart使:active生效 ───
-document.addEventListener('touchstart',function(){},{passive:true});
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  周末自走棋 · 战术推演 (v6.10)                                ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+let acAnim=null,acCtx=null,acCanvas=null,acState=null,acLastTime=0,acParticles=null,acFloatTexts=[],acShake=null;
+const AC_COLS=4,AC_ROWS=4,AC_CELL_W=160,AC_CELL_H=100,AC_OFFX=80,AC_OFFY=60;
+
+function acMakePiece(ch,aff,side,homeX,homeY){
+  var hp=15+Math.floor(aff/8),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.03,spd=2+aff*0.04;
+  return{id:ch.id,name:ch.n,emoji:ch.e,clr:ch.clr,hp:hp,maxHp:hp,atk:atk,spd:spd,
+    x:homeX,y:homeY,homeX:homeX,homeY:homeY,side:side,alive:true,actTime:Math.random()*30,
+    _target:null,_moving:false,_mvTx:0,_mvTy:0,_mvTimer:0,_flash:0,_cpBond:false};
+}
+
+function acApplyCPBond(team){
+  var ids=team.map(function(p){return p.id;}),bonus={};
+  Object.keys(CP).forEach(function(k){var p=k.split('_');if(ids.indexOf(p[0])>=0&&ids.indexOf(p[1])>=0){bonus[p[0]]=true;bonus[p[1]]=true;}});
+  team.forEach(function(p){if(bonus[p.id]){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;p._cpBond=true;}});
+}
+
+function acDist(a,b){var dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
+
+function startAutoChess(){
+  var app=document.getElementById('app');if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}
+  G.dailyEvents++;var dpr=window.devicePixelRatio||1;
+  var isMobile='ontouchstart' in window||(navigator.maxTouchPoints||0)>0;
+
+  // 选我方5棋子: 亲和度最高的8个中随机5个
+  var ranked=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});
+  var playerPool=ranked.slice(0,8);shuffle(playerPool);var playerIds=playerPool.slice(0,5);
+  // 敌方: 亲和度最低6个中选5个 + 天数加成
+  var enemyPool=ranked.slice(-6);shuffle(enemyPool);var enemyIds=enemyPool.slice(0,5);
+  var dayScale=1+G.day/200;
+
+  acState={over:false,winner:null,speedMul:1,battleTime:0};
+  acFloatTexts=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
+
+  // 生成棋子
+  var playerPieces=[],enemyPieces=[];
+  var gridPos=[[0,0],[1,0],[0,1],[1,1],[0,2],[1,2],[0,3],[1,3]]; // 左4列
+  var egridPos=[[2,0],[3,0],[2,1],[3,1],[2,2],[3,2],[2,3],[3,3]]; // 右2列
+  playerIds.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+gridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+gridPos[i][1]*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(ch,aff,'player',cx,cy));});
+  enemyIds.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+egridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+egridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'enemy',cx,cy);p.hp=Math.floor(p.hp*dayScale);p.maxHp=Math.floor(p.maxHp*dayScale);p.atk=Math.floor(p.atk*dayScale);enemyPieces.push(p);});
+  acApplyCPBond(playerPieces);acApplyCPBond(enemyPieces);
+  acState.player=playerPieces;acState.enemy=enemyPieces;
+
+  // Canvas
+  app.innerHTML='<canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px;background:#0a0a12;display:block;margin:10px auto;cursor:default"></canvas>';
+  acCanvas=document.getElementById('acCanvas');acCtx=acCanvas.getContext('2d');
+  acCanvas.width=Math.floor(800*dpr);acCanvas.height=Math.floor(500*dpr);
+  acCanvas.style.width=Math.min(window.innerWidth-16,800)+'px';
+  acCanvas.style.height=Math.floor(Math.min(window.innerWidth-16,800)*500/800)+'px';
+  acCtx.setTransform(dpr,0,0,dpr,0,0);
+  document.addEventListener('keydown',acKeyDown);acLastTime=performance.now();
+  acAnim=requestAnimationFrame(acBattleLoop);
+}
+
+function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acState.speedMul===1?2:1;}}
+
+function acFindTarget(piece,enemies){
+  var best=null,bd=Infinity;
+  for(var i=0;i<enemies.length;i++){var e=enemies[i];if(!e.alive)continue;var d=acDist(piece,e);if(d<bd){bd=d;best=e;}}
+  return best;
+}
+
+function acBattleLoop(){
+  if(acState.over){acRender();return;}
+  var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
+  if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
+  acParticles.update(dt*1000);acShake.update();
+  for(var fi=acFloatTexts.length-1;fi>=0;fi--){acFloatTexts[fi].update();if(!acFloatTexts[fi].alive)acFloatTexts.splice(fi,1);}
+
+  // 更新所有棋子
+  var allPieces=acState.player.concat(acState.enemy);
+  allPieces.forEach(function(p){
+    if(!p.alive)return;
+    if(p._flash>0)p._flash--;
+    // 移动动画
+    if(p._moving){p._mvTimer-=dt;if(p._mvTimer<=0){p.x=p._mvTx;p.y=p._mvTy;p._moving=false;}else{var t=1-p._mvTimer/0.3;p.x=p.homeX+(p._mvTx-p.homeX)*t;p.y=p.homeY+(p._mvTy-p.homeY)*t;return;}}
+    // 行动
+    p.actTime+=dt*p.spd;
+    if(p.actTime>=75/(p.spd+50)){
+      p.actTime=0;
+      var enemies=p.side==='player'?acState.enemy:acState.player;
+      var target=acFindTarget(p,enemies);
+      if(target&&target.alive){
+        // 移动攻击
+        p._mvTx=target.homeX;p._mvTy=target.homeY;p._mvTimer=0.3;p._moving=true;
+        target.hp-=p.atk;target._flash=8;
+        acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-10,'-'+p.atk,'#f44'));
+        acParticles.burst(target.x,target.y,Math.atan2(target.y-p.y,target.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});
+        if(target.hp<=0){target.alive=false;acParticles.explode(target.x,target.y,12,target.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}
+      }
+    }
+  });
+
+  // 检查胜负
+  var pAlive=acState.player.filter(function(p){return p.alive;}).length;
+  var eAlive=acState.enemy.filter(function(p){return p.alive;}).length;
+  if(pAlive===0||eAlive===0){acState.over=true;acState.winner=pAlive>0?'player':'enemy';}
+  acRender();
+  if(!acState.over)acAnim=requestAnimationFrame(acBattleLoop);
+  else setTimeout(function(){acEnd();},1500);
+}
+
+function acRender(){
+  acCtx.clearRect(0,0,800,500);
+  // 网格
+  for(var r=0;r<4;r++){for(var c=0;c<4;c++){
+    var gx=AC_OFFX+c*AC_CELL_W,gy=AC_OFFY+r*AC_CELL_H;
+    acCtx.strokeStyle=c<2?'rgba(88,166,255,0.2)':'rgba(233,69,96,0.2)';
+    acCtx.lineWidth=1;acCtx.strokeRect(gx,gy,AC_CELL_W,AC_CELL_H);
+  }}
+  // 中间分割线
+  acCtx.strokeStyle='rgba(255,255,255,0.15)';acCtx.lineWidth=2;
+  acCtx.beginPath();acCtx.moveTo(AC_OFFX+2*AC_CELL_W,AC_OFFY);acCtx.lineTo(AC_OFFX+2*AC_CELL_W,AC_OFFY+4*AC_CELL_H);acCtx.stroke();
+
+  // CP连线
+  acCtx.lineWidth=1;
+  [acState.player,acState.enemy].forEach(function(team){
+    var alive=team.filter(function(p){return p.alive&&p._cpBond;});
+    for(var i=0;i<alive.length;i++){for(var j=i+1;j<alive.length;j++){
+      if(acDist(alive[i],alive[j])<200){acCtx.strokeStyle='rgba(188,140,255,0.3)';acCtx.beginPath();acCtx.moveTo(alive[i].x,alive[i].y);acCtx.lineTo(alive[j].x,alive[j].y);acCtx.stroke();}
+    }}
+  });
+
+  // 粒子 + 浮动文字
+  if(acShake.isShaking){acCtx.save();acShake.apply(acCtx);acParticles.draw(acCtx);acCtx.restore();}else{acParticles.draw(acCtx);}
+  acFloatTexts.forEach(function(ft){ft.draw(acCtx);});
+
+  // 棋子
+  [acState.player,acState.enemy].forEach(function(team){
+    team.forEach(function(p){
+      if(!p.alive)return;
+      if(p._flash%2===0){
+        // 光环
+        acCtx.fillStyle=p.clr||'#58a6ff';
+        acCtx.beginPath();acCtx.arc(p.x,p.y,20+(p._cpBond?4:0),0,Math.PI*2);acCtx.fill();
+        if(p._cpBond){acCtx.strokeStyle='#bc8cff';acCtx.lineWidth=2;acCtx.beginPath();acCtx.arc(p.x,p.y,24,0,Math.PI*2);acCtx.stroke();}
+        // emoji/头像
+        acCtx.fillStyle='#fff';acCtx.font='bold 14px sans-serif';acCtx.textAlign='center';
+        acCtx.fillText(p.emoji,p.x,p.y+5);
+        // HP条
+        var bw=36,bh=4,bx=p.x-bw/2,by=p.y-28;
+        acCtx.fillStyle='#333';acCtx.fillRect(bx,by,bw,bh);
+        acCtx.fillStyle=p.hp/p.maxHp>0.5?'#3fb950':p.hp/p.maxHp>0.25?'#f0c040':'#e94560';
+        acCtx.fillRect(bx,by,bw*(p.hp/p.maxHp),bh);
+        // 名字
+        acCtx.fillStyle='rgba(255,255,255,0.6)';acCtx.font='9px sans-serif';
+        acCtx.fillText(p.name.slice(0,2),p.x,by-4);
+      }
+    });
+  });
+
+  // HUD
+  acCtx.fillStyle='rgba(0,0,0,0.7)';acCtx.fillRect(0,0,800,40);
+  acCtx.fillStyle='#fff';acCtx.font='bold 16px sans-serif';acCtx.textAlign='left';
+  acCtx.fillText('🎲 战术推演',15,28);
+  acCtx.fillStyle='#f0c040';acCtx.fillText('⏱ '+Math.floor(acState.battleTime)+'s',300,28);
+  var pAlive=acState.player.filter(function(p){return p.alive;}).length;
+  var eAlive=acState.enemy.filter(function(p){return p.alive;}).length;
+  acCtx.fillStyle='#58a6ff';acCtx.fillText('💙 '+pAlive+' vs '+eAlive+' ❤️',500,28);
+  acCtx.fillStyle=acState.speedMul>1?'#3fb950':'#888';acCtx.fillText(acState.speedMul+'x',730,28);
+
+  if(acState.over){
+    acCtx.fillStyle='rgba(0,0,0,0.5)';acCtx.fillRect(0,0,800,500);
+    acCtx.fillStyle='#fff';acCtx.font='bold 36px sans-serif';acCtx.textAlign='center';
+    acCtx.fillText(acState.winner==='player'?'🎉 胜利！':'💀 败北',400,250);
+  }
+}
+
+function acEnd(){
+  if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}
+  document.removeEventListener('keydown',acKeyDown);
+  var won=acState.winner==='player';
+  var sprDelta=won?3+Math.floor(Math.random()*3):-(2+Math.floor(Math.random()*2));
+  G.attr.SPR=Math.max(0,Math.min(10,G.attr.SPR+sprDelta));
+  var app=document.getElementById('app');
+  app.innerHTML=buildShell('<div class="feedback fadein"><div class="fbtitle">'+(won?'🎉 战术推演 · 胜利！':'💀 战术推演 · 败北')+'</div>'+
+    '<p style="font-size:1.1em;color:var(--dim)">'+acState.player.filter(function(p){return p.alive;}).length+' 人生还 vs '+acState.enemy.filter(function(p){return p.alive;}).length+' 人生还</p>'+
+    '<p style="color:'+(won?'#3fb950':'#e94560')+';font-size:1.3em;font-weight:bold">'+(won?'+':'-')+Math.abs(sprDelta)+' SPR</p>'+
+    '<button class="btn btn-p" onclick="window._adv()">继续 ▸</button></div>');
+}
+
+// ═══════════════════════════════════════════════════════════════
 
 // ─── 启动 ───
 // ═══════════════════════════════════════════
