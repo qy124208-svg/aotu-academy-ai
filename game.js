@@ -186,9 +186,9 @@ function getHomeInfo(charId){
   if(fam){
     const members=fam.members.map(id=>CH[id]).filter(Boolean);
     const otherMembers=members.filter(m=>m.id!==charId);
-    return{host,members,otherMembers,isFamily:true,displayName:fam.name,homeLabel:fam.name,allEmoji:members.map(m=>m.e).join(''),allNames:members.map(m=>m.e+' '+m.n).join('、')};
+    return{host,members,otherMembers,isFamily:true,displayName:fam.name,homeLabel:fam.name,allEmoji:members.map(m=>m.e).join(''),allNames:members.map(m=>m.e+' '+m.n).join('、'),allEmojiHTML:members.map(m=>charIcon(m.id,22)).join('')};
   }
-  return{host,members:[host],otherMembers:[],isFamily:false,displayName:host.n+'家',homeLabel:host.n+'家',allEmoji:host.e,allNames:host.e+' '+host.n};
+  return{host,members:[host],otherMembers:[],isFamily:false,displayName:host.n+'家',homeLabel:host.n+'家',allEmoji:host.e,allNames:host.e+' '+host.n,allEmojiHTML:charIcon(charId,22)};
 }
 function pickHomestay(talentIds){
   // 30%概率从天赋关联角色中选，70%纯随机
@@ -1029,7 +1029,7 @@ function getDayName(day){
 }
 function slotLabel(slot){
   const hs=CH[G.homestay];const home=G.homeInfo||getHomeInfo(G.homestay);
-  const hn=home?`${home.isFamily?home.allEmoji+' '+home.displayName:hs.e+' '+hs.n+'家'}`:'';
+  const hn=home?`${home.isFamily?home.allEmojiHTML+' '+home.displayName:charIcon(G.homestay,20)+' '+hs.n+'家'}`:'';
   switch(slot){
     case'morning':return`🌅 早晨 · ${hn}`;
     case'class1':return'📖 上午课';
@@ -2705,12 +2705,12 @@ function rCreate(app){
     var hg=_el('div','display:flex;flex-wrap:wrap;gap:8px;justify-content:center');
     HOMESTAY_POOL.forEach(function(hid){var c=CH[hid];if(!c)return;var sel=window._selHome===hid;
       var b=_el('button','padding:10px 14px;cursor:pointer;border-radius:10px;font-family:inherit;transition:all 0.2s;'+(sel?'background:var(--accent);color:#fff;border:2px solid var(--accent);transform:scale(1.05)':'background:var(--card);color:var(--text);border:1px solid #555'));
-      b.innerHTML='<div style="font-size:1.5em">'+c.e+'</div><div style="font-size:0.7em;margin-top:2px">'+c.n+'</div>';
+      b.innerHTML='<div>'+charIcon(hid,28)+'</div><div style="font-size:0.7em;margin-top:2px">'+c.n+'</div>';
       b.onclick=function(){window._selHome=hid;render('create');};hg.appendChild(b);
     });hc.appendChild(hg);
   }else{
     hc.style.cssText+='background:var(--card);border:2px solid var(--accent)';
-    hc.innerHTML=rndHomeInfo.isFamily?'<div style="font-size:2em">'+rndHomeInfo.allEmoji+'</div><div style="font-weight:bold;font-size:1.2em;color:var(--gold);margin:6px 0">'+rndHomeInfo.displayName+'</div><div style="font-size:0.8em;color:var(--dim)">'+rndHomeInfo.allNames+'</div><div style="font-size:0.7em;color:var(--dim);margin-top:4px">你寄宿在这里——和他们一起度过一百天</div>':'<div style="font-size:3em">'+rndHomeInfo.host.e+'</div><div style="font-weight:bold;font-size:1.1em;color:var(--gold);margin:6px 0">'+rndHomeInfo.displayName+'</div><div style="font-size:0.75em;color:var(--dim)">'+rndHomeInfo.host.c+' · 你将以这里为起点——度过一百天</div>';
+    hc.innerHTML=rndHomeInfo.isFamily?'<div>'+rndHomeInfo.allEmojiHTML+'</div><div style="font-weight:bold;font-size:1.2em;color:var(--gold);margin:6px 0">'+rndHomeInfo.displayName+'</div><div style="font-size:0.8em;color:var(--dim)">'+rndHomeInfo.allNames+'</div><div style="font-size:0.7em;color:var(--dim);margin-top:4px">你寄宿在这里——和他们一起度过一百天</div>':'<div>'+charIcon(rndHome,40)+'</div><div style="font-weight:bold;font-size:1.1em;color:var(--gold);margin:6px 0">'+rndHomeInfo.displayName+'</div><div style="font-size:0.75em;color:var(--dim)">'+rndHomeInfo.host.c+' · 你将以这里为起点——度过一百天</div>';
     var rhb=_el('button','display:block;margin:10px auto 0;padding:6px 16px;border-radius:6px;cursor:pointer;background:var(--card);color:var(--text);border:1px solid #444;font-family:inherit;font-size:0.8em','🏠 换一个借宿家庭');
     rhb.onclick=function(){window._rndHome=pk(HOMESTAY_POOL);render('create');};hc.appendChild(rhb);
   }
@@ -2748,6 +2748,25 @@ function rCreate(app){
     p4.appendChild(card);
   });app.appendChild(p4);
 
+  // ✨ 角色立绘导入
+  var p5=_el('div','','<h2>🖼️ 角色立绘（可选）</h2>');p5.className='panel fadein';
+  p5.appendChild(_el('p','color:var(--dim);font-size:0.75em;margin-bottom:10px','导入自定义头像——游戏中的角色 emoji 将被替换。不导入则延用默认 emoji。'));
+  var ig=_el('div','display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:5px');
+  Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).forEach(function(id){
+    var ch=CH[id],hasImg=!!_charImgCache[id];
+    var slot=_el('div','background:var(--card);border:1px '+(hasImg?'solid var(--gold)':'dashed #444')+';border-radius:10px;padding:5px;text-align:center;cursor:pointer;transition:all 0.2s;min-height:88px');
+    slot.innerHTML=hasImg
+      ?'<img src="'+_charImgCache[id]+'" style="width:44px;height:44px;object-fit:cover;border-radius:50%;margin:2px 0"><div style="font-size:0.6em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.5em;color:#888;margin-top:1px" onclick="event.stopPropagation();removeCharImage(\''+id+'\');render(\'create\');">🗑 移除</div>'
+      :'<div style="font-size:1.6em;margin:6px 0">'+ch.e+'</div><div style="font-size:0.6em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.5em;color:var(--gold);margin-top:1px">📷 导入</div>';
+    slot.onclick=function(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>200*1024){if(typeof Toast!=='undefined')Toast.show('⚠️ 需小于200KB','error',2000);return;}var r=new FileReader();r.onload=function(ev){saveCharImage(id,ev.target.result);render('create');};r.readAsDataURL(f);};inp.click();};
+    slot.onmouseenter=function(){slot.style.borderColor='var(--gold)';};slot.onmouseleave=function(){slot.style.borderColor=hasImg?'var(--gold)':'#444';};
+    ig.appendChild(slot);
+  });
+  p5.appendChild(ig);
+  var clrAll=_el('button','display:block;margin:8px auto 0;padding:3px 10px;border-radius:6px;cursor:pointer;background:var(--card);color:var(--dim);border:1px solid #444;font-family:inherit;font-size:0.65em','🗑 清除全部立绘');
+  clrAll.onclick=function(){Object.keys(CH).forEach(function(k){removeCharImage(k);});render('create');};
+  p5.appendChild(clrAll);app.appendChild(p5);
+
   var sa=_el('div','text-align:center;margin:24px 0');
   var sb=_el('button','font-size:1.3em;padding:18px 60px;background:var(--accent);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 0 25px rgba(233,69,96,0.4);font-family:inherit;font-weight:bold;transition:all 0.2s','🎮 开始一百天倒计时');
   sb.onmouseenter=function(){sb.style.transform='scale(1.05)';sb.style.boxShadow='0 0 40px rgba(233,69,96,0.6)';};
@@ -2772,6 +2791,13 @@ function rCreate(app){
   sa.appendChild(sb);sa.appendChild(_el('div','color:var(--dim);font-size:0.75em;margin-top:10px','点击开始——每一天都不可重来'));
   app.appendChild(sa);
 }
+
+// ✨ 角色立绘存储系统 — localStorage base64
+var _charImgCache={};
+(function(){try{Object.keys(CH).forEach(function(id){var d=localStorage.getItem('aotu4_img_'+id);if(d)_charImgCache[id]=d;});}catch(e){}})();
+function saveCharImage(id,b64){try{localStorage.setItem('aotu4_img_'+id,b64);_charImgCache[id]=b64;}catch(e){if(typeof Toast!=='undefined')Toast.show('⚠️ 图片太大，请压缩到200KB以内','error',2000);}}
+function removeCharImage(id){localStorage.removeItem('aotu4_img_'+id);delete _charImgCache[id];}
+function charIcon(id,size){size=size||24;var img=_charImgCache[id];if(img)return'<img src="'+img+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">';var c=CH[id];return c?c.e:'?';}
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  溃离魔女 · 角色击杀文本（18人，性格化）                       ║
@@ -2922,7 +2948,7 @@ function renderWitchDay(app){
   const heroEmoji=hero?hero.e:'💫';
   const home=G.homeInfo||getHomeInfo(G.homestay);
   const hs=CH[G.homestay];
-  const homeLabel=home?(home.isFamily?home.allEmoji+' '+home.displayName:hs.e+' '+hs.n+'家'):'';
+  const homeLabel=home?(home.isFamily?home.allEmojiHTML+' '+home.displayName:charIcon(G.homestay,20)+' '+hs.n+'家'):'';
   let heroFamily=[];
   const heroFam=FAMILY_HOMES[G.witch_hero];
   if(heroFam)heroFamily=heroFam.members.filter(id=>id!==G.witch_hero);
@@ -3175,7 +3201,7 @@ function buildShell(content){
   html+='<div><div class="daynum" id="dayDisp">'+dl+'</div><div class="daylabel">DAYS LEFT</div></div>';
   html+='<div style="text-align:right;font-size:0.7em;color:var(--dim)">';
   html+='<div>Day '+G.day+' / 100</div><div>'+dn+' · '+dtTag+'</div>';
-  if(home)html+='<div> '+(home.isFamily?home.allEmoji+' '+home.displayName:hs.e+' '+hs.n+'家')+'</div>';
+  if(home)html+='<div> '+(home.isFamily?home.allEmojiHTML+' '+home.displayName:charIcon(G.homestay,20)+' '+hs.n+'家')+'</div>';
   html+='<div style="color:var(--gold);font-size:0.85em;margin-top:2px">'+(G.mainChapter?'Ch.'+G.mainChapter+' '+(MAIN_CHAPTERS['ch'+G.mainChapter]?.t||''):'')+'</div>';
   html+='</div></div>';
   html+='<div class="daysbar"><div class="daysfill" style="width:'+pct+'%"></div></div>';
@@ -3498,7 +3524,7 @@ function renderMorning(app){
   // 周末早晨：提供"睡懒觉"选项
   if(G.dayType==='weekend'||G.dayType==='festival'){
     const sprGain=rn(1,2);
-    const homeLabel=home.isFamily?`${home.allEmoji} ${home.displayName}`:`${hs.e} ${hs.n}家`;
+    const homeLabel=home.isFamily?`${home.allEmojiHTML} ${home.displayName}`:`${charIcon(G.homestay,20)} ${hs.n}家`;
     app.innerHTML=buildShell(`<div class="panel fadein" style="text-align:center"><h2>🌅 周末早晨 · ${homeLabel}</h2>
       <p style="color:var(--dim);line-height:2">阳光从窗帘缝隙漏进来。<br>今天不用早起。</p>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
@@ -3514,7 +3540,7 @@ function renderMorning(app){
   }
   // 否则简短早晨（融入角色个性风味，家庭成员偶尔出镜）
   const flav=getFlavor(G.homestay);
-  const homeLabel=home.isFamily?`${home.allEmoji} ${home.displayName}`:`${hs.e} ${hs.n}家`;
+  const homeLabel=home.isFamily?`${home.allEmojiHTML} ${home.displayName}`:`${charIcon(G.homestay,20)} ${hs.n}家`;
   const msgs=[`🏠 ${homeLabel}。`,`清晨的阳光照进来。`];
   if(flav&&Math.random()<0.6)msgs.push(flav.morning);
   else if(home.isFamily&&home.otherMembers.length>0&&Math.random()<0.4){
@@ -3716,7 +3742,7 @@ function renderEvening(app){
   }
   const home=G.homeInfo||getHomeInfo(G.homestay);
   const flav=getFlavor(G.homestay);
-  const homeLabel=home.isFamily?`${home.allEmoji} ${home.displayName}`:`${hs.e} ${hs.n}家`;
+  const homeLabel=home.isFamily?`${home.allEmojiHTML} ${home.displayName}`:`${charIcon(G.homestay,20)} ${hs.n}家`;
   const msgs=[`🌙 回到${homeLabel}。`];
   if(flav&&Math.random()<0.6)msgs.push(flav.evening);
   else if(home.isFamily&&home.otherMembers.length>0&&Math.random()<0.4){
