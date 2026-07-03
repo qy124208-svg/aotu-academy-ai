@@ -990,6 +990,15 @@ let G={
 };
 let curEv=null,toastQ=[];
 
+// ✨ 角色立绘存储 — 必须在initG之前初始化（getHomeInfo依赖charIcon）
+var _charImgCache={};
+(function(){try{Object.keys(CH).forEach(function(id){var d=localStorage.getItem('aotu4_img_'+id);if(d)_charImgCache[id]=d;});}catch(e){}})();
+function saveCharImage(id,b64){try{localStorage.setItem('aotu4_img_'+id,b64);_charImgCache[id]=b64;}catch(e){if(typeof Toast!=='undefined')Toast.show('⚠️ 图片太大，请压缩到200KB以内','error',2000);}}
+function removeCharImage(id){localStorage.removeItem('aotu4_img_'+id);delete _charImgCache[id];}
+function charIcon(id,size){size=size||24;var img=_charImgCache[id];if(img)return'<img src="'+img+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">';var c=CH[id];return c?c.e:'?';}
+window._uploadCharImg=function(id){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>200*1024){if(typeof Toast!=='undefined')Toast.show('⚠️ 需小于200KB','error',2000);return;}var r=new FileReader();r.onload=function(ev){saveCharImage(id,ev.target.result);render('title');};r.readAsDataURL(f);};inp.click();};
+window._clearAllCharImages=function(){Object.keys(CH).forEach(function(k){removeCharImage(k);});render('title');};
+
 function initG(){
   G.day=1;G.slot='morning';G.energy=100;
   G.attr={INT:rn(2,8),CHR:rn(2,8),STR:rn(2,8),AFF:rn(2,8),SPR:rn(2,8)}; // 随机属性！
@@ -2443,6 +2452,35 @@ function rTitle(app){
     else tc.appendChild(panel);
   }catch(e){console.warn('立绘面板渲染失败:',e);}}
 
+  // ✨ 角色立绘面板
+  var tc=document.getElementById('titleContent');
+  if(tc){try{
+    var p=document.createElement('div');p.className='panel fadein';
+    p.innerHTML='<h2>🖼️ 角色立绘</h2><p style=\"color:var(--dim);font-size:0.75em;margin-bottom:8px\">导入头像替换 emoji。不导入则延用默认。</p>';
+    var g=document.createElement('div');g.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:2px';
+    Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).forEach(function(id){
+      var ch=CH[id],has=!!_charImgCache[id];
+      var s=document.createElement('div');s.style.cssText='background:var(--card);border:1px '+(has?'solid var(--gold)':'dashed #444')+';border-radius:10px;padding:3px;text-align:center;cursor:pointer;min-height:68px';
+      s.onclick=function(){window._uploadCharImg(id);};
+      s.onmouseenter=function(){this.style.borderColor='var(--gold)';};
+      s.onmouseleave=function(){this.style.borderColor=has?'var(--gold)':'#444';};
+      if(has){
+        var im=document.createElement('img');im.src=_charImgCache[id];im.style.cssText='width:32px;height:32px;object-fit:cover;border-radius:50%;margin:1px 0';s.appendChild(im);
+        var d1=document.createElement('div');d1.style.cssText='font-size:0.48em;color:var(--dim)';d1.textContent=ch.n;s.appendChild(d1);
+        var d2=document.createElement('div');d2.style.cssText='font-size:0.42em;color:#888;margin-top:1px;cursor:pointer';d2.textContent='🗑';d2.onclick=function(e){e.stopPropagation();removeCharImage(id);render('title');};s.appendChild(d2);
+      }else{
+        var e1=document.createElement('div');e1.style.cssText='font-size:1.1em;margin:3px 0';e1.textContent=ch.e;s.appendChild(e1);
+        var e2=document.createElement('div');e2.style.cssText='font-size:0.48em;color:var(--dim)';e2.textContent=ch.n;s.appendChild(e2);
+        var e3=document.createElement('div');e3.style.cssText='font-size:0.42em;color:var(--gold);margin-top:1px';e3.textContent='📷';s.appendChild(e3);
+      }
+      g.appendChild(s);
+    });
+    p.appendChild(g);
+    var cb=document.createElement('button');cb.style.cssText='display:block;margin:4px auto 0;padding:2px 6px;border-radius:5px;cursor:pointer;background:var(--card);color:var(--dim);border:1px solid #444;font-family:inherit;font-size:0.5em';cb.textContent='🗑 清除全部';cb.onclick=function(){window._clearAllCharImages();};p.appendChild(cb);
+    var bef=tc.querySelector('div[style*=\"text-align:center;font-size:0.65em\"]');
+    if(bef)tc.insertBefore(p,bef);else tc.appendChild(p);
+  }catch(e){console.warn('立绘面板:',e);}}
+
   // ✨ 启动星空背景 (先停掉旧动画)
   if(_titleAnim){cancelAnimationFrame(_titleAnim);_titleAnim=null;}
   if(_titleParticles)_titleParticles.length=0;
@@ -2808,15 +2846,6 @@ function rCreate(app){
   sa.appendChild(sb);sa.appendChild(_el('div','color:var(--dim);font-size:0.75em;margin-top:10px','点击开始——每一天都不可重来'));
   app.appendChild(sa);
 }
-
-// ✨ 角色立绘存储系统 — localStorage base64
-var _charImgCache={};
-(function(){try{Object.keys(CH).forEach(function(id){var d=localStorage.getItem('aotu4_img_'+id);if(d)_charImgCache[id]=d;});}catch(e){}})();
-function saveCharImage(id,b64){try{localStorage.setItem('aotu4_img_'+id,b64);_charImgCache[id]=b64;}catch(e){if(typeof Toast!=='undefined')Toast.show('⚠️ 图片太大，请压缩到200KB以内','error',2000);}}
-function removeCharImage(id){localStorage.removeItem('aotu4_img_'+id);delete _charImgCache[id];}
-function charIcon(id,size){size=size||24;var img=_charImgCache[id];if(img)return'<img src="'+img+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">';var c=CH[id];return c?c.e:'?';}
-window._uploadCharImg=function(id){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>200*1024){if(typeof Toast!=='undefined')Toast.show('⚠️ 需小于200KB','error',2000);return;}var r=new FileReader();r.onload=function(ev){saveCharImage(id,ev.target.result);render('title');};r.readAsDataURL(f);};inp.click();};
-window._clearAllCharImages=function(){Object.keys(CH).forEach(function(k){removeCharImage(k);});render('title');};
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  溃离魔女 · 角色击杀文本（18人，性格化）                       ║
