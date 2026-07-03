@@ -4583,17 +4583,17 @@ function spawnEnemy(n){
         case 3:x=-20;y=Math.random()*500;break;
       }
     }
-    var enemy={id,x,y,vx:0,vy:0,spd,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0,_pathT:0,_pathSpeed:0.001+Math.random()*0.003};
+    var enemy={id,x,y,vx:0,vy:0,spd:1.5+Math.random()*2.5+aff*0.02,hp,maxHp:hp,worth,ch,aff,_cd:rn(30,90),_bullets:[],_trail:[],_dash:0,_buff:0,_clones:0,_clone:false,_predict:null,_target:null,slow:0,silence:0,reverse:0,_flash:0,_pathT:0,_pathSpeed:0.004+Math.random()*0.006};
     // ✨ Vec2 hermiteTo + catmullRomTo: 零分配曲线控制点
     if(typeof Vec2!=='undefined'&&Vec2.hermiteTo&&Vec2.catmullRomTo){
       try{
         // 控制点用纯对象（catmullRomTo只读.x/.y，无需Vec2实例）
-        var hp0={x:enemy.x-60,y:enemy.y-40};
-        var hp3={x:enemy.x+rn(-60,60),y:enemy.y+rn(-50,50)};
-        // 切线：内联三角函数替代 Vec2.random(25) → 零分配
+        var hp0={x:enemy.x-150,y:enemy.y-120};
+        var hp3={x:enemy.x+rn(-150,150),y:enemy.y+rn(-120,120)};
+        // 切线：更大幅度 → 曲线覆盖更广区域
         var ta1=Math.random()*Math.PI*2, ta2=Math.random()*Math.PI*2;
-        var ht1={x:Math.cos(ta1)*25,y:Math.sin(ta1)*25};
-        var ht2={x:Math.cos(ta2)*25,y:Math.sin(ta2)*25};
+        var ht1={x:Math.cos(ta1)*60,y:Math.sin(ta1)*60};
+        var ht2={x:Math.cos(ta2)*60,y:Math.sin(ta2)*60};
         // 借用战斗复用池Vec2计算中间点（同步执行，帧内后续会覆盖，安全复用）
         if(!_bvCp||!_bvCv){_bvCp=new Vec2(0,0);_bvCv=new Vec2(0,0);}
         Vec2.hermiteTo(_bvCp,hp0,ht1,hp3,ht2,0.33);
@@ -4778,11 +4778,11 @@ function battleLoop(){
         if(e._pathT>1)e._pathT-=1;
         Vec2.catmullRomTo(_bvCp,e._hermitePts[0],e._hermitePts[1],e._hermitePts[2],e._hermitePts[3],e._pathT);
         if(isFinite(_bvCp.x)&&isFinite(_bvCp.y)){
-          _bvCv.set(_bvCp.x-e.x,_bvCp.y-e.y);_bvCv.length=e.spd*0.7;
-          Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd*0.3);
+          _bvCv.set(_bvCp.x-e.x,_bvCp.y-e.y);_bvCv.length=e.spd*0.4;
+          Vec2.fromAngleTo(_bvTv,a*180/Math.PI,e.spd*0.6);
           _bvCurVel.set(e.vx,e.vy);
           _bvTargetVel.set(_bvCv.x+_bvTv.x,_bvCv.y+_bvTv.y);
-          Vec2.hermiteTo(_bvSmooth,_bvCurVel,_bvZero,_bvTargetVel,_bvZero,0.3);
+          Vec2.hermiteTo(_bvSmooth,_bvCurVel,_bvZero,_bvTargetVel,_bvZero,0.6);
           if(isFinite(_bvSmooth.x)){e.vx=_bvSmooth.x;e.vy=_bvSmooth.y;}
           else{e.vx=_bvTargetVel.x;e.vy=_bvTargetVel.y;}
         }else{e.vx=Math.cos(a)*e.spd;e.vy=Math.sin(a)*e.spd;}
