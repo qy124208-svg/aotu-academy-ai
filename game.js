@@ -4539,12 +4539,18 @@ function spawnEnemy(n){
     // ✨ Vec2.hermite + catmullRom: 为每帧生成曲线控制点
     if(typeof Vec2!=='undefined'&&Vec2.hermite&&Vec2.catmullRom){
       try{
-        var p0=new Vec2(enemy.x-60,enemy.y-40),p1=new Vec2(enemy.x-20,enemy.y-20);
-        var p2=new Vec2(enemy.x+20,enemy.y+20),p3=new Vec2(enemy.x+rn(-60,60),enemy.y+rn(-50,50));
-        var t1=Vec2.random(25),t2=Vec2.random(25);
-        var m1=Vec2.hermite(p0,t1,p3,t2,0.33);
-        var m2=Vec2.hermite(p0,t1,p3,t2,0.66);
-        if(m1&&m2&&isFinite(m1.x))enemy._hermitePts=[p0,m1,m2,p3];
+        // 控制点用纯对象（catmullRomTo只读.x/.y，无需Vec2实例）
+        var hp0={x:enemy.x-60,y:enemy.y-40};
+        var hp3={x:enemy.x+rn(-60,60),y:enemy.y+rn(-50,50)};
+        // 切线：内联三角函数替代 Vec2.random(25) → 零分配
+        var ta1=Math.random()*Math.PI*2, ta2=Math.random()*Math.PI*2;
+        var ht1={x:Math.cos(ta1)*25,y:Math.sin(ta1)*25};
+        var ht2={x:Math.cos(ta2)*25,y:Math.sin(ta2)*25};
+        // 借用战斗复用池Vec2计算中间点（同步执行，帧内后续会覆盖，安全复用）
+        if(!_bvCp||!_bvCv){_bvCp=new Vec2(0,0);_bvCv=new Vec2(0,0);}
+        Vec2.hermiteTo(_bvCp,hp0,ht1,hp3,ht2,0.33);
+        Vec2.hermiteTo(_bvCv,hp0,ht1,hp3,ht2,0.66);
+        if(isFinite(_bvCp.x))enemy._hermitePts=[hp0,{x:_bvCp.x,y:_bvCp.y},{x:_bvCv.x,y:_bvCv.y},hp3];
       }catch(e){}
     }
     enemies.push(enemy);
@@ -4633,8 +4639,8 @@ function battleLoop(){
   battleParticleSys.update(dtMs);
   battleShake.update();
   battlePlayerCooldown.update(dtMs);
-  battleFloatTexts.forEach(ft=>ft.update());
-  battleFloatTexts=battleFloatTexts.filter(ft=>ft.alive);
+  for(var fti=0;fti<battleFloatTexts.length;fti++)battleFloatTexts[fti].update();
+  for(var fti2=battleFloatTexts.length-1;fti2>=0;fti2--){if(!battleFloatTexts[fti2].alive)battleFloatTexts.splice(fti2,1);}
 
   // Player movement ✨ 使用 Keyboard 轮询 (回退到 battleLegacyKeys)
   const kDown=function(k){return (typeof Keyboard!=='undefined'?Keyboard.keyDown(k):battleLegacyKeys[k]===true);};
@@ -4702,8 +4708,8 @@ function battleLoop(){
     }
   }
 
-  // Update enemies
-  enemies=enemies.filter(e=>e.hp>0);
+  // Update enemies ✨ 原地移除（零数组分配）
+  for(let ei=enemies.length-1;ei>=0;ei--){if(enemies[ei].hp<=0)enemies.splice(ei,1);}
   enemies.forEach(e=>{
     if(e._clone&&e._clones===undefined)e._clones=0;
     // Pick target: 40% chance to target another enemy, 60% player
@@ -4750,41 +4756,36 @@ function battleLoop(){
     // Execute character skill against current target
     const sk=BATTLE_CHAR_SKILLS[e.id];
     if(sk&&sk.act&&Math.random()<0.03)sk.act(e,target);
-    // Enemy bullets (move)
+    // Enemy bullets (move) ✨ 原地移除
     if(e._bullets&&e._bullets.length>0){
-      e._bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;});
-      e._bullets=e._bullets.filter(b=>b.life>0&&b.x>0&&b.x<800&&b.y>0&&b.y<500);
+      for(var ebi=e._bullets.length-1;ebi>=0;ebi--){var eb=e._bullets[ebi];eb.x+=eb.vx;eb.y+=eb.vy;eb.life--;if(eb.life<=0||eb.x<0||eb.x>800||eb.y<0||eb.y>500)e._bullets.splice(ebi,1);}
     }
-    // Trail
+    // Trail ✨ 原地移除
     if(e._trail&&e._trail.length>0){
-      e._trail.forEach(t=>t.life--);
-      e._trail=e._trail.filter(t=>t.life>0);
+      for(var eti=e._trail.length-1;eti>=0;eti--){e._trail[eti].life--;if(e._trail[eti].life<=0)e._trail.splice(eti,1);}
     }
   });
 
-  // Update bullets
-  bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;});
-  bullets=bullets.filter(b=>b.life>0&&b.x>0&&b.x<800&&b.y>0&&b.y<500);
+  // Update bullets ✨ 原地移除
+  for(let bi=bullets.length-1;bi>=0;bi--){var b=bullets[bi];b.x+=b.vx;b.y+=b.vy;b.life--;if(b.life<=0||b.x<0||b.x>800||b.y<0||b.y>500)bullets.splice(bi,1);}
 
-  // Player bullets hit enemy ✨ 增强特效
-  bullets.filter(b=>b.from==='player').forEach(b=>{
-    enemies.forEach(e=>{
-      if(dist(b,e)<18+Math.max(0,e.aff/15)){
-        e.hp-=player.dmg;b.life=0;
-        if(e.hp<=0){
-          battleScore+=e.worth;
-          // ✨ 爆炸粒子 + 震动 + 浮动分数
-          battleParticleSys.explode(e.x,e.y,10,e.ch?.clr||'#f44',{speed:3,life:25,size:4});
+  // Player bullets hit enemy ✨ 增强特效（直接遍历，不创建临时数组）
+  for(var pbi=0;pbi<bullets.length;pbi++){var pb=bullets[pbi];if(pb.from!=='player')continue;
+    for(var pei=0;pei<enemies.length;pei++){var pe=enemies[pei];
+      if(dist(pb,pe)<18+Math.max(0,pe.aff/15)){
+        pe.hp-=player.dmg;pb.life=0;
+        if(pe.hp<=0){
+          battleScore+=pe.worth;
+          battleParticleSys.explode(pe.x,pe.y,10,pe.ch?.clr||'#f44',{speed:3,life:25,size:4});
           battleShake.trigger(3,0.8);
-          battleFloatTexts.push(FloatingText.spawn(battleCtx,e.x,e.y-10,'+'+e.worth,e.ch?.clr||'#f0c040'));
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,pe.x,pe.y-10,'+'+pe.worth,pe.ch?.clr||'#f0c040'));
         }else{
-          // ✨ 命中火花
-          battleParticleSys.burst(b.x,b.y,Math.atan2(b.vy,b.vx),3,'#ff0',{speed:2,life:8,spread:60,size:2});
-          battleFloatTexts.push(FloatingText.spawn(battleCtx,b.x,b.y,'-'+player.dmg,'#f44'));
+          battleParticleSys.burst(pb.x,pb.y,Math.atan2(pb.vy,pb.vx),3,'#ff0',{speed:2,life:8,spread:60,size:2});
+          battleFloatTexts.push(FloatingText.spawn(battleCtx,pb.x,pb.y,'-'+player.dmg,'#f44'));
         }
       }
-    });
-  });
+    }
+  }
   // Enemy bullets hit other enemies（互相对攻）
   enemies.forEach(shooter=>{
     if(shooter._bullets)shooter._bullets.forEach(b=>{
@@ -4844,9 +4845,8 @@ function battleLoop(){
     });
   }
 
-  // Update old particles (legacy compat - 非引擎创建的粒子仍用旧系统)
-  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
-  particles=particles.filter(p=>p.life>0);
+  // Update old particles (legacy compat) ✨ 原地移除
+  for(var pi=particles.length-1;pi>=0;pi--){var pp=particles[pi];pp.x+=pp.vx;pp.y+=pp.vy;pp.life--;if(pp.life<=0)particles.splice(pi,1);}
 
   // Player death
   if(player.hp<=0){battleOver=true;battleWon=false;renderBattleResult();return;}
@@ -4918,17 +4918,16 @@ function battleLoop(){
 
     // HP bar
     battleCtx.fillStyle='#333';battleCtx.fillRect(e.x-15,e.y-22,30,4);
-    const hpGrad=ctx=>{const g=ctx.createLinearGradient(e.x-15,0,e.x+15,0);g.addColorStop(0,'#e94560');g.addColorStop(1,'#f0c040');return g;};
     battleCtx.fillStyle='#f44';battleCtx.fillRect(e.x-15,e.y-22,30*(e.hp/e.maxHp),4);
     // Worth
     battleCtx.fillStyle='#f0c040';battleCtx.font='bold 8px sans-serif';
     battleCtx.fillText('+'+e.worth,e.x,e.y-26);
   });
 
-  // Player bullets
-  bullets.filter(b=>b.from==='player').forEach(b=>{
-    battleCtx.fillStyle='#58a6ff';battleCtx.beginPath();battleCtx.arc(b.x,b.y,3,0,Math.PI*2);battleCtx.fill();
-  });
+  // Player bullets ✨ 直接遍历
+  for(var rbi=0;rbi<bullets.length;rbi++){var rb=bullets[rbi];if(rb.from!=='player')continue;
+    battleCtx.fillStyle='#58a6ff';battleCtx.beginPath();battleCtx.arc(rb.x,rb.y,3,0,Math.PI*2);battleCtx.fill();
+  }
 
   // ✨ 浮动文字（伤害/分数）
   battleFloatTexts.forEach(ft=>ft.draw(battleCtx));
