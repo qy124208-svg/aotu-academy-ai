@@ -2404,6 +2404,21 @@ function rTitle(app){
         return'<span style="background:var(--card);border:1px solid #444;padding:4px 10px;border-radius:6px;font-size:0.7em">🏆 '+a.split('_').pop()+'</span>';
       }).join('')+'</div>'
     )+'</div>'+
+    '<div class="panel fadein"><h2>🖼️ 角色立绘</h2>'+
+    '<p style="color:var(--dim);font-size:0.75em;margin-bottom:10px">导入自定义头像替换 emoji。不导入则延用默认。</p>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:3px">'+
+    Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).map(function(id){
+      var ch=CH[id],has=!!_charImgCache[id];
+      return '<div style="background:var(--card);border:1px '+(has?'solid var(--gold)':'dashed #444')+';border-radius:10px;padding:3px;text-align:center;cursor:pointer;min-height:74px" onclick="window._uploadCharImg(\''+id+'\')" onmouseenter="this.style.borderColor=\'var(--gold)\'" onmouseleave="this.style.borderColor=\''+(has?'var(--gold)':'#444')+'\'">'+
+        (has
+          ?'<img src="'+_charImgCache[id]+'" style="width:36px;height:36px;object-fit:cover;border-radius:50%;margin:1px 0"><div style="font-size:0.5em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.45em;color:#888;margin-top:1px;cursor:pointer" onclick="event.stopPropagation();removeCharImage(\''+id+'\');render(\'title\');">🗑</div>'
+          :'<div style="font-size:1.3em;margin:3px 0">'+ch.e+'</div><div style="font-size:0.5em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.45em;color:var(--gold);margin-top:1px">📷</div>'
+        )+
+      '</div>';
+    }).join('')+
+    '</div>'+
+    '<button style="display:block;margin:6px auto 0;padding:2px 8px;border-radius:5px;cursor:pointer;background:var(--card);color:var(--dim);border:1px solid #444;font-family:inherit;font-size:0.55em" onclick="window._clearAllCharImages()">🗑 清除全部立绘</button>'+
+    '</div>'+
     '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.9.1 · Vec2星座星空 + 心魔幻境零GC修复</span></div>'+
     '</div>';
 
@@ -2748,25 +2763,6 @@ function rCreate(app){
     p4.appendChild(card);
   });app.appendChild(p4);
 
-  // ✨ 角色立绘导入
-  var p5=_el('div','','<h2>🖼️ 角色立绘（可选）</h2>');p5.className='panel fadein';
-  p5.appendChild(_el('p','color:var(--dim);font-size:0.75em;margin-bottom:10px','导入自定义头像——游戏中的角色 emoji 将被替换。不导入则延用默认 emoji。'));
-  var ig=_el('div','display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:5px');
-  Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).forEach(function(id){
-    var ch=CH[id],hasImg=!!_charImgCache[id];
-    var slot=_el('div','background:var(--card);border:1px '+(hasImg?'solid var(--gold)':'dashed #444')+';border-radius:10px;padding:5px;text-align:center;cursor:pointer;transition:all 0.2s;min-height:88px');
-    slot.innerHTML=hasImg
-      ?'<img src="'+_charImgCache[id]+'" style="width:44px;height:44px;object-fit:cover;border-radius:50%;margin:2px 0"><div style="font-size:0.6em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.5em;color:#888;margin-top:1px" onclick="event.stopPropagation();removeCharImage(\''+id+'\');render(\'create\');">🗑 移除</div>'
-      :'<div style="font-size:1.6em;margin:6px 0">'+ch.e+'</div><div style="font-size:0.6em;color:var(--dim)">'+ch.n+'</div><div style="font-size:0.5em;color:var(--gold);margin-top:1px">📷 导入</div>';
-    slot.onclick=function(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>200*1024){if(typeof Toast!=='undefined')Toast.show('⚠️ 需小于200KB','error',2000);return;}var r=new FileReader();r.onload=function(ev){saveCharImage(id,ev.target.result);render('create');};r.readAsDataURL(f);};inp.click();};
-    slot.onmouseenter=function(){slot.style.borderColor='var(--gold)';};slot.onmouseleave=function(){slot.style.borderColor=hasImg?'var(--gold)':'#444';};
-    ig.appendChild(slot);
-  });
-  p5.appendChild(ig);
-  var clrAll=_el('button','display:block;margin:8px auto 0;padding:3px 10px;border-radius:6px;cursor:pointer;background:var(--card);color:var(--dim);border:1px solid #444;font-family:inherit;font-size:0.65em','🗑 清除全部立绘');
-  clrAll.onclick=function(){Object.keys(CH).forEach(function(k){removeCharImage(k);});render('create');};
-  p5.appendChild(clrAll);app.appendChild(p5);
-
   var sa=_el('div','text-align:center;margin:24px 0');
   var sb=_el('button','font-size:1.3em;padding:18px 60px;background:var(--accent);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 0 25px rgba(233,69,96,0.4);font-family:inherit;font-weight:bold;transition:all 0.2s','🎮 开始一百天倒计时');
   sb.onmouseenter=function(){sb.style.transform='scale(1.05)';sb.style.boxShadow='0 0 40px rgba(233,69,96,0.6)';};
@@ -2798,6 +2794,8 @@ var _charImgCache={};
 function saveCharImage(id,b64){try{localStorage.setItem('aotu4_img_'+id,b64);_charImgCache[id]=b64;}catch(e){if(typeof Toast!=='undefined')Toast.show('⚠️ 图片太大，请压缩到200KB以内','error',2000);}}
 function removeCharImage(id){localStorage.removeItem('aotu4_img_'+id);delete _charImgCache[id];}
 function charIcon(id,size){size=size||24;var img=_charImgCache[id];if(img)return'<img src="'+img+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">';var c=CH[id];return c?c.e:'?';}
+window._uploadCharImg=function(id){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>200*1024){if(typeof Toast!=='undefined')Toast.show('⚠️ 需小于200KB','error',2000);return;}var r=new FileReader();r.onload=function(ev){saveCharImage(id,ev.target.result);render('title');};r.readAsDataURL(f);};inp.click();};
+window._clearAllCharImages=function(){Object.keys(CH).forEach(function(k){removeCharImage(k);});render('title');};
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  溃离魔女 · 角色击杀文本（18人，性格化）                       ║
