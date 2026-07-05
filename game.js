@@ -5403,6 +5403,8 @@ function startAutoChess(){
   window._acPool=ranked.slice(0,8);window._acPicked=[];window._acEnemy=enemyIds;
   window._acArtifact=null;window._acBoosted=null;
   window._acSlots=[null,null,null,null,null,null,null,null];window._acSelected=null;
+  window._acEnemySlots=[null,null,null,null,null,null,null,null];window._acEnemySelected=null;
+  window._acPhase='pick';
   acPrepRender(app);
 }
 
@@ -5424,47 +5426,57 @@ function acPrepRender(app){
     h+='<div style="font-size:0.5em;color:'+(sel?'#0d1117':'#555')+'">❤️'+(G.aff[id]||0)+'</div></div>';
   });h+='</div>';
   // ✨ 放置阵型 (5人选完后显示)
-  if(picked.length===5){
-    h+='<div style="background:var(--card);border:2px solid var(--gold);border-radius:12px;padding:10px;margin:8px 0">';
-    h+='<div style="text-align:center;color:var(--gold);font-size:0.75em;margin-bottom:6px">📐 阵型布置 <span style="color:var(--dim)">(点击下方棋子→点击格位)</span></div>';
+  var phase=window._acPhase||'pick';
+  if(picked.length===5&&(phase==='place_player'||phase==='place_enemy')){
+    var isEnemyPhase=phase==='place_enemy';
+    var curSlots=isEnemyPhase?(window._acEnemySlots||[]):slots;
+    var curSelected=isEnemyPhase?window._acEnemySelected:selected;
+    var curPool=isEnemyPhase?window._acEnemy:picked;
+    var sideLabel=isEnemyPhase?'🔴 敌方阵型':'📐 我方阵型';
+    h+='<div style="background:var(--card);border:2px solid '+(isEnemyPhase?'var(--accent)':'var(--gold)')+';border-radius:12px;padding:10px;margin:8px 0">';
+    h+='<div style="text-align:center;color:'+(isEnemyPhase?'var(--accent)':'var(--gold)')+';font-size:0.75em;margin-bottom:6px">'+sideLabel+' <span style="color:var(--dim)">(点击棋子→点击格位)</span></div>';
     h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);gap:4px;max-width:340px;margin:0 auto">';
     for(var si=0;si<8;si++){
-      var sid=slots[si];var row=Math.floor(si/2);var sCh=sid?CH[sid]:null;
-      var sArch=sid?(AC_ARCHETYPES[sid]||{}):{};
-      var rowLabel=row<2?'🔴前排 +ATK':'🔵后排 +SPD';
-      h+='<div onclick="window._acPlaceSlot('+si+')" style="background:'+(sid?'var(--card)':'#0d1117')+';border:2px '+(sid?'solid '+(sid===selected?'var(--gold)':'var(--blue)')+'':'dashed #333')+';border-radius:8px;padding:6px;text-align:center;cursor:pointer;min-height:48px;transition:all 0.15s;'+(sid===selected?'box-shadow:0 0 12px var(--gold)':'')+'">';
+      var sid=curSlots[si];var row=Math.floor(si/2);var sCh=sid?CH[sid]:null;
+      var rowLabel=isEnemyPhase?(row<2?'🔴前排':'🔵后排'):(row<2?'🔴前排 +ATK':'🔵后排 +SPD');
+      h+='<div onclick="window.'+(isEnemyPhase?'_acEnemyPlaceSlot':'_acPlaceSlot')+'('+si+')" style="background:'+(sid?'var(--card)':'#0d1117')+';border:2px '+(sid?'solid '+(sid===curSelected?'var(--gold)':'var(--blue)')+'':'dashed #333')+';border-radius:8px;padding:6px;text-align:center;cursor:pointer;min-height:48px;transition:all 0.15s;'+(sid===curSelected?'box-shadow:0 0 12px var(--gold)':'')+'">';
       if(sid){h+='<div style="font-size:1.2em">'+sCh.e+'</div><div style="font-size:0.5em;color:var(--dim)">'+sCh.n+'</div>';}
       else{h+='<div style="font-size:0.5em;color:#444;margin-top:12px">'+rowLabel+'</div>';}
       h+='</div>';
     }
     h+='</div>';
-    // 未放置棋子
-    var unplaced=picked.filter(function(id){return slots.indexOf(id)<0;});
+    var curPlaced=curSlots.filter(function(s){return s!==null;}).length;
+    var unplaced=curPool.filter(function(id){return curSlots.indexOf(id)<0;});
     if(unplaced.length>0){
       h+='<div style="display:flex;gap:4px;justify-content:center;margin-top:8px;flex-wrap:wrap">';
       h+='<span style="font-size:0.55em;color:var(--dim);align-self:center">未放置:</span>';
       unplaced.forEach(function(id){
-        var uCh=CH[id];var isSel=selected===id;
-        h+='<div onclick="window._acPlaceSelect(\''+id+'\')" style="background:'+(isSel?'var(--gold)':'var(--card)')+';border:2px '+(isSel?'solid var(--gold)':'solid #555')+';border-radius:8px;padding:4px 8px;text-align:center;cursor:pointer;font-size:1em;'+(isSel?'transform:scale(1.1);box-shadow:0 0 8px var(--gold)':'')+'">'+uCh.e+'</div>';
+        var uCh=CH[id];var isSel=curSelected===id;
+        h+='<div onclick="window.'+(isEnemyPhase?'_acEnemyPlaceSelect':'_acPlaceSelect')+'(\''+id+'\')" style="background:'+(isSel?'var(--gold)':'var(--card)')+';border:2px '+(isSel?'solid var(--gold)':'solid #555')+';border-radius:8px;padding:4px 8px;text-align:center;cursor:pointer;font-size:1em;'+(isSel?'transform:scale(1.1);box-shadow:0 0 8px var(--gold)':'')+'">'+uCh.e+'</div>';
       });
       h+='</div>';
     }
+    // 阶段切换按钮
+    if(curPlaced===5&&!isEnemyPhase){h+='<div style="text-align:center;margin-top:8px"><button class="btn btn-p" onclick="window._acPhase=\'place_enemy\';acPrepRender(document.getElementById(\'app\'));">✅ 我方完成 → 部署敌方 ▸</button></div>';}
     h+='</div>';
   }
+  // 全放完才能开战
+  var enemyPlaced=(window._acEnemySlots||[]).filter(function(s){return s!==null;}).length;
+  var allPlaced=placed===5&&enemyPlaced===5;
   h+='<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0">';
   h+='<button class="btn btn-s" onclick="window._acPickArtifact()" style="background:#1a1a2e;border:1px solid var(--gold)">🎴 战术道具 ('+(window._acArtifact?window._acArtifact.n:'30-50因果')+')</button>';
   h+='<button class="btn btn-s" onclick="window._acReroll()" style="background:#1a1a2e;border:1px solid #58a6ff">🔄 重选棋子 (-10)</button>';
   h+='<button class="btn btn-s" onclick="window._acBoost()" style="background:#1a1a2e;border:1px solid #bc8cff">💪 强化棋子 (-20)</button>';
-  h+='<button class="btn btn-p pulse" onclick="window._acStart()" style="font-size:1.1em;'+(picked.length===5&&placed===5?'':'opacity:0.5')+'">⚔️ 开战 ('+placed+'/5)</button>';
+  h+='<button class="btn btn-p pulse" onclick="window._acStart()" style="font-size:1.1em;'+(allPlaced?'':'opacity:0.5')+'">⚔️ 开战 ('+placed+'+'+enemyPlaced+'/10)</button>';
   h+='</div></div>';
   if(window._acLastMsg)h+='<div style="text-align:center;color:var(--dim);font-size:0.7em;margin:4px 0">'+window._acLastMsg+'</div>';
   app.innerHTML=h;
 }
-window._acToggle=function(id){var p=window._acPicked||[];var i=p.indexOf(id);if(i>=0){p.splice(i,1);window._acSlots=window._acSlots.map(function(s){return s===id?null:s;});window._acSelected=null;}else if(p.length<5)p.push(id);window._acPicked=p;acPrepRender(document.getElementById('app'));};
-// 放置：选择棋子
+window._acToggle=function(id){var p=window._acPicked||[];var i=p.indexOf(id);if(i>=0){p.splice(i,1);window._acSlots=window._acSlots.map(function(s){return s===id?null:s;});window._acSelected=null;window._acPhase='pick';}else if(p.length<5){p.push(id);if(p.length===5)window._acPhase='place_player';}window._acPicked=p;acPrepRender(document.getElementById('app'));};
 window._acPlaceSelect=function(id){window._acSelected=window._acSelected===id?null:id;acPrepRender(document.getElementById('app'));};
-// 放置：点击格位
 window._acPlaceSlot=function(si){var slots=window._acSlots||[];var sel=window._acSelected;if(slots[si]){slots[si]=null;}else if(sel){var oldIdx=slots.indexOf(sel);if(oldIdx>=0)slots[oldIdx]=null;slots[si]=sel;window._acSelected=null;}window._acSlots=slots;acPrepRender(document.getElementById('app'));};
+window._acEnemyPlaceSelect=function(id){window._acEnemySelected=window._acEnemySelected===id?null:id;acPrepRender(document.getElementById('app'));};
+window._acEnemyPlaceSlot=function(si){var slots=window._acEnemySlots||[];var sel=window._acEnemySelected;if(slots[si]){slots[si]=null;}else if(sel){var oldIdx=slots.indexOf(sel);if(oldIdx>=0)slots[oldIdx]=null;slots[si]=sel;window._acEnemySelected=null;}window._acEnemySlots=slots;acPrepRender(document.getElementById('app'));};
 window._acPickArtifact=function(){
   var karma=loadKarma();if(window._acArtifact){window._acLastMsg='已有道具: '+window._acArtifact.n;acPrepRender(document.getElementById('app'));return;}
   var pool=AC_ARTIFACTS.filter(function(a){return karma>=a.cost;});if(pool.length===0){window._acLastMsg='因果值不足';acPrepRender(document.getElementById('app'));return;}
@@ -5478,10 +5490,10 @@ window._acDoArtifact=function(id){var a=AC_ARTIFACTS.find(function(x){return x.i
 window._acReroll=function(){var k=loadKarma();if(k<10){window._acLastMsg='因果值不足 (需10)';acPrepRender(document.getElementById('app'));return;}spendKarma(10);var ranked=Object.keys(CH).filter(function(x){return CH[x]&&CH[x].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var pool=window._acPool;var i=Math.floor(Math.random()*pool.length);var top=ranked.slice(0,12);var newId=top[Math.floor(Math.random()*top.length)];while(pool.indexOf(newId)>=0)newId=top[Math.floor(Math.random()*top.length)];pool[i]=newId;window._acLastMsg='重选了 '+CH[newId].n;acPrepRender(document.getElementById('app'));};
 window._acBoost=function(){var k=loadKarma();if(k<20){window._acLastMsg='因果值不足 (需20)';acPrepRender(document.getElementById('app'));return;}if(window._acBoosted){window._acLastMsg='已强化过: '+CH[window._acBoosted].n;acPrepRender(document.getElementById('app'));return;}var p=window._acPicked||[];if(p.length===0)return;spendKarma(20);window._acBoosted=p[0];window._acLastMsg='已强化: '+CH[p[0]].n+' +30%';acPrepRender(document.getElementById('app'));};
 window._acStart=function(){
-  var picked=window._acPicked||[],slots=window._acSlots||[];if(picked.length!==5)return;
-  var placed=slots.filter(function(s){return s!==null;}).length;if(placed!==5)return;
+  var picked=window._acPicked||[],slots=window._acSlots||[],enemySlots=window._acEnemySlots||[];if(picked.length!==5)return;
+  var placed=slots.filter(function(s){return s!==null;}).length;var eplaced=enemySlots.filter(function(s){return s!==null;}).length;
+  if(placed!==5||eplaced!==5)return;
   var dpr=window.devicePixelRatio||1,app=document.getElementById('app');
-  var enemyIds=window._acEnemy,dayScale=1+G.day/200;
 
   acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false,_revive:false,_healBurst:false,_healUsed:false};
   acFloatTexts=[];acProjectiles=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
@@ -5489,13 +5501,13 @@ window._acStart=function(){
   var playerPieces=[],enemyPieces=[];
   // ✨ v6.12 使用放置阵型
   for(var si=0;si<8;si++){var sid=slots[si];if(!sid)continue;var ch=CH[sid],aff=G.aff[sid]||0;var col=si%2,row=Math.floor(si/2);var cx=AC_OFFX+col*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+row*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'player',cx,cy,row);if(window._acBoosted===sid){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;p._boosted=true;}playerPieces.push(p);}
-  var egridPos=[[2,0],[3,0],[2,1],[3,1],[2,2],[3,2],[2,3],[3,3]];
   // 敌人能力 = 玩家前5平均好感 vs 天数 取高
   var ranked2=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});
   var top5Avg=ranked2.slice(0,5).reduce(function(s,id){return s+(G.aff[id]||0);},0)/5;
   var enemyAff=Math.floor(Math.max(G.day,top5Avg));
-  var bossIdx=Math.floor(Math.random()*enemyIds.length);
-  enemyIds.forEach(function(id,i){var ch=CH[id];var cx=AC_OFFX+egridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+egridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,enemyAff,'enemy',cx,cy,i%2);if(i===bossIdx){p.hp=Math.floor(p.hp*2);p.maxHp=Math.floor(p.maxHp*2);p.atk=Math.floor(p.atk*2);p.spd*=1.5;p._isBoss=true;p.name='👑'+p.name;}enemyPieces.push(p);});
+  var bossIdx=Math.floor(Math.random()*enemySlots.filter(function(s){return s!==null;}).length);
+  var eCount=0;
+  for(var esi=0;esi<8;esi++){var esid=enemySlots[esi];if(!esid)continue;var ch=CH[esid];var ecol=2+esi%2,erow=Math.floor(esi/2);var cx=AC_OFFX+ecol*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+erow*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,enemyAff,'enemy',cx,cy,erow);if(eCount===bossIdx){p.hp=Math.floor(p.hp*2);p.maxHp=Math.floor(p.maxHp*2);p.atk=Math.floor(p.atk*2);p.spd*=1.5;p._isBoss=true;p.name='👑'+p.name;}enemyPieces.push(p);eCount++;}
   // ✨ 格位Buff: 前排+ATK 25%, 后排+SPD 25%
   playerPieces.forEach(function(p){if(p._gridRow<2){p.atk=Math.floor(p.atk*1.25);p._gridBuff='🔴ATK+25%';}else{p.spd*=1.25;p._gridBuff='🔵SPD+25%';}});
   acApplyCPBond(playerPieces);acApplyCPBond(enemyPieces);
@@ -5527,10 +5539,20 @@ function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acStat
 function acFindTarget(piece,enemies){
   // 被嘲讽 → 强制攻击嘲讽者
   if(piece._tauntBy){var tb=enemies.find(function(e){return e.id===piece._tauntBy&&e.alive;});if(tb)return tb;}
+  var alive=enemies.filter(function(e){return e.alive;});
+  if(alive.length===0)return null;
+  // 远程随机选目标(可打后排), 近战打最近
+  if(piece.range>1||piece.role==='ranged'||piece.role==='support'){
+    return alive[Math.floor(Math.random()*alive.length)];
+  }
   var best=null,bd=Infinity;
-  for(var i=0;i<enemies.length;i++){var e=enemies[i];if(!e.alive)continue;var d=acDist(piece,e);if(d<bd){bd=d;best=e;}}
+  for(var i=0;i<alive.length;i++){var d=acDist(piece,alive[i]);if(d<bd){bd=d;best=alive[i];}}
   return best;
 }
+
+// ✨ v6.13 技能特效 — 冲击波+爆炸+震屏 三件套
+function acUltFX(p,color,ringColor,count){acParticles.ring(p.x,p.y,35,16,ringColor||color,{speed:5,life:20,size:3});acParticles.explode(p.x,p.y,count||25,color,{speed:8,life:18,size:6});acShake.trigger(Math.min(6,count/4),0.9);}
+function acSkillFX(p,target,color,count){acParticles.burst(target.x,target.y,Math.atan2(target.y-p.y,target.x-p.x),count||8,color,{speed:4,life:12,spread:30,size:3});acParticles.explode(target.x,target.y,count||10,color,{speed:5,life:12,size:4});acShake.trigger(Math.min(4,count/3),0.85);}
 
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
@@ -5663,7 +5685,7 @@ function acBattleLoop(){
       if(isAnmic&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kit=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'💢终结技!','#ff4400'));
-        acParticles.explode(p.x,p.y,25,'#ff4400',{speed:8,life:20,size:6});acShake.trigger(6,0.95);
+        acParticles.ring(p.x,p.y,30,20,'#ff6644',{speed:5,life:22,size:3});acParticles.explode(p.x,p.y,30,'#ff4400',{speed:8,life:22,size:6});acShake.trigger(6,0.95);
         var allEnemies=enemies2.filter(function(e){return e.alive;});
         var hitCount=0;
         allEnemies.forEach(function(e){
@@ -5682,7 +5704,7 @@ function acBattleLoop(){
       else if(isKam&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;p._ultCount++;var kit3=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🗡️飞劈!','#ff0'));
-        acParticles.explode(p.x,p.y,20,'#fff',{speed:7,life:15,size:5});acShake.trigger(5,0.9);
+        acUltFX(p,'#fff','#ccccff',22);
         // 驱散1个强化
         var disp=acDispel(target2);if(disp)acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'驱散'+disp,'#0ff'));
         var ultDmg=kit3.ultDmg;
@@ -5699,7 +5721,7 @@ function acBattleLoop(){
       else if(isGerui&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kit5=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚔️烈斩·终!','#0f0'));
-        acParticles.explode(p.x,p.y,25,'#00ff00',{speed:8,life:18,size:6});acShake.trigger(5,0.9);
+        acUltFX(p,'#00ff00','#88ff88',28);
         var colTgts=acColumnTargets(target2,enemies2);
         colTgts.forEach(function(e){
           acApplyDamage(e,Math.floor(p.atk*kit5.ultDmg),p);
@@ -5713,7 +5735,7 @@ function acBattleLoop(){
       else if(isAimi&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kit8=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👿恶魔之爪!','#ff4400'));
-        acParticles.explode(p.x,p.y,25,'#ff6666',{speed:8,life:18,size:6});acShake.trigger(6,0.9);
+        acUltFX(p,'#ff6666','#ffaaaa',30);
         // 多段打击(模拟3段)
         for(var hi=0;hi<3;hi++){acApplyDamage(target2,Math.floor(p.atk*kit8.ultDmg/3),p);}
         // 嘲讽全体
@@ -5730,7 +5752,7 @@ function acBattleLoop(){
       else if(isAibi&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitA=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🏹箭雨!','#ff8800'));
-        acParticles.explode(p.x,p.y,20,'#ffaa00',{speed:6,life:15,size:5});acShake.trigger(4,0.85);
+        acUltFX(p,'#ffaa00','#ffdd88',20);
         var liveEnemies=enemies2.filter(function(e){return e.alive;});
         for(var ai=0;ai<kitA.ultArrows;ai++){
           if(liveEnemies.length===0)break;
@@ -5742,7 +5764,7 @@ function acBattleLoop(){
       else if(isJin&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitC=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⭐矢量冲击!','#ffd700'));
-        acParticles.explode(p.x,p.y,22,'#ffd700',{speed:7,life:18,size:5});acShake.trigger(5,0.9);
+        acUltFX(p,'#ffd700','#ffff88',24);
         var jUltDmg=kitC.ultDmg;
         if(target2.hp<target2.maxHp*kitC.ultLowHPThresh)jUltDmg+=kitC.ultLowHPBonus;
         acApplyDamage(target2,Math.floor(p.atk*jUltDmg),p);
@@ -5752,7 +5774,7 @@ function acBattleLoop(){
       else if(isAnlijie&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitE=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'❄️冰霜结界!','#88ccff'));
-        acParticles.explode(p.x,p.y,25,'#aaddff',{speed:6,life:18,size:5});acShake.trigger(4,0.85);
+        acUltFX(p,'#aaddff','#ddeeff',22);
         var allE=enemies2.filter(function(e){return e.alive;});
         var coldCount=0;
         allE.forEach(function(e){
@@ -5768,7 +5790,7 @@ function acBattleLoop(){
       else if(isKaili&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitG=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🌙星月刃!','#ff88cc'));
-        acParticles.explode(p.x,p.y,22,'#ff88cc',{speed:7,life:16,size:5});acShake.trigger(4,0.88);
+        acUltFX(p,'#ff88cc','#ffccee',22);
         var colK=acColumnTargets(target2,enemies2);
         colK.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitG.ultDmg),p);p._critRate+=kitG.ultCritPerHit;});
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'💥暴击UP','#ff0'));
@@ -5784,12 +5806,12 @@ function acBattleLoop(){
           bigS._dmgReduc=kitZ.summonDR;bigS._summonDRTimer=kitZ.summonDRDur;
           var bt=acFindTarget(bigS,enemies2);if(bt)acApplyDamage(bt,bigS.atk,bigS);
           acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👹大斯巴达!','#ff6600'));
-          acParticles.explode(p.x,p.y,20,'#ff6600',{speed:6,life:18,size:5});
+          acUltFX(p,'#ff6600','#ffaa66',22);
           acShake.trigger(5,0.9);
         }else{
           // 召唤3小斯巴达
           acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👾召唤斯巴达!','#ff8800'));
-          acParticles.explode(p.x,p.y,18,'#ff8800',{speed:5,life:15,size:4});
+          acUltFX(p,'#ff8800','#ffcc88',18);
           for(var zi=0;zi<kitZ.ultSmallCount;zi++){
             var smallS=acSpawnSummon(p,kitZ.ultSmallHP,kitZ.ultSmallAtk,kitZ.ultSmallDef,p.side,'小斯巴达'+zi,'👾');
             smallS._dmgReduc=kitZ.summonDR;smallS._summonDRTimer=kitZ.summonDRDur;
@@ -5803,7 +5825,7 @@ function acBattleLoop(){
         // ATK+20% 持续2回合
         p.atk=Math.floor(p.atk*(1+kitL.ultAtkBuff));p._atkBuffTimer=kitL.ultBuffDur;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚡雷神之锤!','#ffdd00'));
-        acParticles.explode(p.x,p.y,25,'#ffdd00',{speed:8,life:18,size:6});acShake.trigger(6,0.95);
+        acUltFX(p,'#ffdd00','#ffee88',28);
         // 中心十字目标: 自身 + 上下左右
         var crossTgts=[target2];
         var crossOff=[[-1,0],[1,0],[0,-1],[0,1]];
@@ -5823,7 +5845,7 @@ function acBattleLoop(){
       else if(isPaluosi&&p._rage>=p._rageMax){
         p._rage=0;var kitP=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👥暗影分身!','#9966ff'));
-        acParticles.explode(p.x,p.y,22,'#9966ff',{speed:7,life:18,size:5});acShake.trigger(4,0.88);
+        acUltFX(p,'#9966ff','#ccbbff',24);
         var pTeam=p.side==='player'?acState.player:acState.enemy;
         var sideCols=p.side==='player'?[0,1]:[2,3];
         var emptyCells=[];
@@ -5835,7 +5857,7 @@ function acBattleLoop(){
       else if(isPeili&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitR=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🐺重力球!','#ff6600'));
-        acParticles.explode(p.x,p.y,25,'#ff6600',{speed:7,life:18,size:6});acShake.trigger(5,0.9);
+        acUltFX(p,'#ff6600','#ff9966',26);
         var allE2=enemies2.filter(function(e){return e.alive;});
         allE2.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitR.ultDmg),p);e._atkDebuff=Math.max(e._atkDebuff||0,kitR.gravityATKDebuff);e._atkDebuffTimer=kitR.gravityDur;e._gravityDebuff=kitR.gravityDmgDebuff;e._gravityTimer=kitR.gravityDur;e._dmgRate=Math.max(0.5,e._dmgRate-kitR.gravityDmgDebuff);acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'🌑重力!','#ff6600'));});
       }
@@ -5843,7 +5865,7 @@ function acBattleLoop(){
       else if(isJD&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitT=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🔥大罗神通棍!','#ff4444'));
-        acParticles.explode(p.x,p.y,25,'#ff4444',{speed:8,life:18,size:6});acShake.trigger(6,0.95);
+        acUltFX(p,'#ff4444','#ff8888',30);
         var allE3=enemies2.filter(function(e){return e.alive;});var stunCount=0;
         allE3.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitT.ultDmg),p);if(Math.random()<kitT.ultStunProb&&stunCount<kitT.ultStunMax){e._stunTimer=kitT.ultStunDur;stunCount++;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
       }
@@ -5851,7 +5873,7 @@ function acBattleLoop(){
       else if(isYinjue&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitV=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🔗锁链束缚!','#8888aa'));
-        acParticles.explode(p.x,p.y,22,'#8888aa',{speed:6,life:16,size:5});acShake.trigger(4,0.88);
+        acUltFX(p,'#8888aa','#ccccdd',20);
         var allE4=enemies2.filter(function(e){return e.alive;});
         allE4.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitV.ultDmg),p);if(Math.random()<kitV.ultStunProb){e._stunTimer=kitV.ultStunDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
         // 友方全体护盾
@@ -5863,7 +5885,7 @@ function acBattleLoop(){
       else if(isZuma&&p._rage>=p._rageMax){
         p._rage=0;var kitX=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'💨风之治愈!','#66ccaa'));
-        acParticles.explode(p.x,p.y,25,'#66ccaa',{speed:6,life:18,size:5});acShake.trigger(3,0.8);
+        acUltFX(p,'#66ccaa','#aaeecc',20);
         var fTeam3=p.side==='player'?acState.player:acState.enemy;
         fTeam3.forEach(function(f){if(f.alive){var heal=Math.floor(p.atk*kitX.ultHeal);var isStriker=f.role==='melee'||f.range===1;if(isStriker)heal=Math.floor(heal*(1+kitX.classHealBonus));f.hp=Math.min(f.maxHp,f.hp+heal);f._dmgReduc=(f._dmgReduc||0)+kitX.ultDR;f._zumaDRTimer=kitX.ultDRDur;acFloatTexts.push(FloatingText.spawn(acCtx,f.x,f.y-25,'💚+'+heal+(isStriker?'⚡':'')+' 🛡️','#66ccaa'));}});
       }
@@ -5871,7 +5893,7 @@ function acBattleLoop(){
       else if(isGuihu&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitZ2=p._kit;
         acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🦊技能复制!','#cc88ff'));
-        acParticles.explode(p.x,p.y,22,'#cc88ff',{speed:6,life:16,size:5});acShake.trigger(4,0.88);
+        acUltFX(p,'#cc88ff','#eeccee',22);
         var allE5=enemies2.filter(function(e){return e.alive;});
         allE5.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitZ2.ultDmg),p);});
         // 随机降1敌怒
