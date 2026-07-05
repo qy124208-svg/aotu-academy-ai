@@ -5158,11 +5158,12 @@ function renderBattleResult(){
 }
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  周末自走棋 · 战术推演 v6.11 — 战前商店+CP协力+技能+弹道     ║
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  周末自走棋 · 战术推演 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气+安迷修 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 let acAnim=null,acCtx=null,acCanvas=null,acState=null,acLastTime=0,acParticles=null,acFloatTexts=[],acShake=null,acProjectiles=[];
-const AC_COLS=4,AC_ROWS=4,AC_CELL_W=160,AC_CELL_H=100,AC_OFFX=80,AC_OFFY=60;
+const AC_COLS=4,AC_ROWS=4,AC_CELL_W=160,AC_CELL_H=100,AC_OFFX=80,AC_OFFY=60,AC_MOVE_SPD=120;
 const AC_ARTIFACTS=[
   {id:1,n:'元力觉醒',cost:40,d:'全队攻击+20%',eff:function(t){t.forEach(function(p){p.atk=Math.floor(p.atk*1.2);});}},
   {id:2,n:'裁判球护盾',cost:30,d:'全队HP+25%',eff:function(t){t.forEach(function(p){p.hp=Math.floor(p.hp*1.25);p.maxHp=Math.floor(p.maxHp*1.25);});}},
@@ -5174,7 +5175,7 @@ const AC_ARTIFACTS=[
   {id:8,n:'孤军奋战',cost:45,d:'上阵≤5人时全队+30%',eff:function(t){if(t.length<=5)t.forEach(function(p){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;});}},
   {id:9,n:'主角光环',cost:30,d:'10%概率额外1棋子',eff:function(t){acState._lucky=true;}},
   {id:10,n:'元力爆发',cost:35,d:'技能冷却-30%',eff:function(t){t.forEach(function(p){p._skillCdMul=0.7;});}},
-  {id:11,n:'反击装甲',cost:35,d:'受击反弹50%伤害',eff:function(t){t.forEach(function(p){p._reflect=0.5;});}},
+  {id:11,n:'反击装甲',cost:35,d:'受击反弹50%伤害',eff:function(t){t.forEach(function(p){p._reflect=0.5;p._reflectBase=0.5;});}},
   {id:12,n:'不灭守护',cost:55,d:'首个阵亡棋子复活30%HP',eff:function(t){acState._revive=true;}},
   {id:13,n:'风神庇护',cost:45,d:'受技能伤害后3秒无敌',eff:function(t){t.forEach(function(p){p._windGod=true;});}},
   {id:14,n:'矢量增幅',cost:35,d:'远程攻击命中2个目标',eff:function(t){t.forEach(function(p){if(p.range>1)p._multiShot=2;});}},
@@ -5185,13 +5186,95 @@ const AC_ARTIFACTS=[
   {id:19,n:'排名护符',cost:35,d:'全队15%闪避概率',eff:function(t){t.forEach(function(p){p._dodge=0.15;});}},
 ];
 
-function acMakePiece(ch,aff,side,homeX,homeY){
-  var hp=15+Math.floor(aff/8),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.03,spd=2+aff*0.04;
+// ✨ v6.12 角色定位 — 近战⚔️ / 远程🏹 / 辅助✨
+const AC_ARCHETYPES={
+  jin:{range:1,role:'melee'},gerui:{range:1,role:'melee'},leishi:{range:2,role:'melee'},
+  anmixiu:{range:1,role:'melee'},kamier:{range:1,role:'melee'},aimi:{range:1,role:'melee'},
+  jiadeluosi:{range:1,role:'melee'},leide:{range:1,role:'melee'},peili:{range:1,role:'melee'},
+  zitanghuan:{range:1,role:'melee'},
+  kaili:{range:2,role:'ranged'},aibi:{range:2,role:'ranged'},shenjinyao:{range:2,role:'ranged'},
+  paluosi:{range:2,role:'ranged'},yinjue:{range:2,role:'ranged'},guihu:{range:2,role:'ranged'},
+  anlijie:{range:2,role:'support'},zuma:{range:2,role:'support'},
+  daniel:{range:2,role:'support'},leizhi:{range:2,role:'support'},
+};
+
+// ✨ v6.13 英雄专属技能组 (安迷修)
+const AC_HERO_KITS={
+  anmixiu:{specialCD:8,specialDmg:1.0,splashDmg:0.5,ultDmg:2.1,
+    burnStacks:2,burnHP:0.10,burnATKCap:1.20,burnDur:6,
+    shieldOnHit:0.20,shieldDur:6,emergShield:0.40,
+    baseBlock:0.25,baseDR:0.20,debuffAmt:0.15,debuffDur:6,tauntDur:3,
+    shieldPerHit:0.20,shieldMax:0.80,rageOnHit:50},
+  kamier:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialCritBuff:0.30,critBuffDur:6,
+    ultDmg:4.8,stunDur:3,ultDebuff:0.20,debuffDur:3,ultPierce:0.5,ultDmgBonus:0.10,
+    trueDmgRatio:0.50,critDmg:1.5},
+  gerui:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialStun:1.0,
+    ultDmg:2.8,ultStun:0.70,ultAtkBuff:0.20,
+    comboProb1:0.30,comboProb2:0.15,comboDmg1:1.5,comboDmg2:1.0,
+    comboStunProb:0.35,stunDur:3,atkBuff:0.20},
+  aimi:{specialCD:7,specialDmg:1.5,specialProb:0.30,specialHeal:0.10,
+    ultDmg:1.9,ultTauntDur:3,ultShield:0.30,ultReflect:0.25,reflectDur:6,
+    passiveDR:0.20,hpThreshold:0.5},
+  aibi:{specialCD:7,specialDmg:1.05,specialProb:0.30,specialLastBonus:0.30,
+    ultArrows:12,ultDmgPer:0.32,
+    killAtkBuff:0.05,killPierceBuff:0.05,maxKillStacks:3},
+  jin:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialShield:0.30,
+    ultDmg:4.2,ultKillRage:300,ultLowHPBonus:0.20,ultLowHPThresh:0.50,
+    highHPDmgBuff:0.20,lowHPDRBuff:0.20,hpThreshold:0.60},
+  anlijie:{specialCD:7,specialDmg:1.5,specialProb:0.30,specialFreeze:0.50,freezeDur:3,
+    ultDmg:1.95,ultColdProb:0.25,ultColdMax:2,ultColdAtkDebuff:0.10,coldDur:3,
+    passiveShieldRatio:0.80,passiveShieldDur:3,passiveTargets:2},
+  kaili:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialCritBuff:0.50,critBuffDur:6,
+    ultDmg:2.8,ultCritPerHit:0.17,
+    dmgRatePerHit:0.09,baseCritDmgBonus:0.25,normalHits:3},
+  guihu:{specialCD:7,specialRageSteal:100,specialProb:0.30,
+    ultDmg:2.20,ultRageDrain:100,ultStrongDrain:100,rageRateBuff:0.25},
+  zuma:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialHeal:1.20,
+    ultHeal:2.10,ultDR:0.15,ultDRDur:6,classHealBonus:0.30,dmgAura:0.15,jdBonus:0.05},
+  yinjue:{specialCD:7,specialDmg:1.1,specialProb:0.30,specialHeal:0.20,specialDR:0.15,specialDRDur:3,
+    ultDmg:2.1,ultStunProb:0.20,ultStunDur:3,ultShield:0.20,
+    reflectAura:0.50,hpPerMelee:0.05,maxHPStacks:5},
+  jiadeluosi:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialCritBuff:0.50,critBuffDur:6,
+    ultDmg:2.3,ultStunProb:0.30,ultStunMax:3,ultStunDur:3,
+    meleeDmgPerStack:0.03,meleeSplashPerStack:0.03,maxStacks:5,selfDouble:true},
+  peili:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialSteal:1,
+    ultDmg:2.3,gravityATKDebuff:0.15,gravityDmgDebuff:0.15,gravityDur:6},
+  paluosi:{specialCD:7,specialDmg:2.4,specialProb:0.30,specialRage:100,
+    cloneATK:1.20,cloneDEF:0,cloneHP:0.50,
+    deathDmgRatio:1.0,deathMeleeMulti:2.0,deathDebuff:0.10,deathDebuffDur:6,deathDebuffMax:3,
+    atkPerCloneDeath:0.10,atkMaxFromDeaths:0.30},
+  leishi:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialDispel:2,
+    ultDmg:2.6,ultAtkBuff:0.20,ultBuffDur:6,ultRageSteal:60,ultOverflowBonus:0.10,ultMaxBonus:0.30,
+    defPierce:0.25,allyRageBuff:0.20,enemyRageDebuff:0.20},
+  zitanghuan:{specialCD:7,specialDmg:1.0,specialProb:0.30,specialShield:1.40,shieldDur:6,
+    ultSmallCount:3,ultSmallAtk:0.60,ultSmallDef:0.60,ultSmallHP:0.30,
+    ultBigAtk:1.20,ultBigDef:1.20,ultBigHP:0.80,
+    summonDR:0.20,summonDRDur:9,allyDmgBuff:0.15,selfExtraDmg:0.15},
+};
+
+function acMakePiece(ch,aff,side,homeX,homeY,gridRow){
+  var hp=15+Math.floor(aff/5),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.05,spd=2+aff*0.05;
+  var arch=AC_ARCHETYPES[ch.id]||{range:1,role:'melee'};
   var sk=BATTLE_CHAR_SKILLS[ch.id];var scd=(sk?3+Math.random()*5:99);
+  var kit=AC_HERO_KITS[ch.id]||{};
+  // Anmicio: 特殊技CD固定8s, 普通技能CD设为大值(由特殊技替代)
+  if(kit.specialCD)scd=kit.specialCD;
   return{id:ch.id,name:ch.n,emoji:ch.e,clr:ch.clr,hp:hp,maxHp:hp,atk:atk,spd:spd,
     x:homeX,y:homeY,homeX:homeX,homeY:homeY,side:side,alive:true,actTime:Math.random()*30,
-    _target:null,_moving:false,_mvTx:0,_mvTy:0,_mvTimer:0,_flash:0,_cpBond:false,
-    _skillCd:scd,_skillCdMax:scd,_regen:0,_lifesteal:0,_dmgReduc:0,_skillCdMul:1,_boosted:false,range:sk&&sk.n?2:1};
+    _target:null,_flash:0,_cpBond:false,
+    _skillCd:scd,_skillCdMax:scd,_regen:0,_lifesteal:0,_dmgReduc:0,_skillCdMul:1,_boosted:false,
+    range:arch.range,role:arch.role,_gridRow:gridRow!=null?gridRow:-1,_gridBuff:null,
+    // v6.13 新系统
+    _shield:0,_shieldTimer:0,_block:0,_dmgRate:1.0,
+    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:100,
+    _emergShieldUsed:false,_kit:kit,
+    _critRate:0,_critDmg:kit.critDmg||0,_critTimer:0,_stunTimer:0,_trueDmg:kit.trueDmgRatio||0,_ultCount:0,
+    _reflectBase:0,_reflectTimer:0,_emiPassiveOn:false,
+    _defPierce:0,_killCount:0,_jinHighHP:true,
+    _atkDebuff:0,_atkDebuffTimer:0,
+    _summoner:null,_isSummon:false,_summonDRTimer:0,_zthAuraOn:false,
+    _rageRate:1.0,_atkBuffTimer:0,_cloneDeathCount:0,_deathTriggered:false,
+    _gravityDebuff:0,_gravityTimer:0,_meleeSplash:0,_baseMaxHp:0,_drBuffTimer:0,_zumaDRTimer:0,_isBoss:false};
 }
 
 function acApplyCPBond(team){
@@ -5202,6 +5285,115 @@ function acApplyCPBond(team){
 
 function acDist(a,b){var dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
 
+// ✨ v6.13 通用伤害处理 — 护盾/格挡/免伤/灼烧穿透/真实伤害/暴击
+function acApplyDamage(target,rawDmg,attacker,isBurn,isTrue){
+  if(!target.alive)return 0;
+  var dmg=rawDmg;
+  // 暴击判定
+  var isCrit=false;
+  if(!isBurn&&attacker&&attacker._critRate>0&&Math.random()<attacker._critRate){
+    dmg=Math.floor(dmg*(attacker._critDmg||1.5));isCrit=true;
+  }
+  // 真实伤害: 穿透护盾/格挡/免伤/闪避
+  if(!isTrue){
+    if(!isBurn){
+      // 格挡判定
+      if(target._block>0&&Math.random()<target._block){dmg=Math.floor(dmg*0.5);acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-30,'🛡️格挡!','#ff0'));}
+      // 免伤 (含防御穿透)
+      var dr=target._dmgReduc||0;
+      if(target._kit&&target._kit.baseDR&&target._shield>0)dr=target._kit.baseDR*2;
+      if(attacker&&attacker._defPierce>0)dr=Math.max(0,dr-attacker._defPierce);
+      if(dr>0)dmg=Math.floor(dmg*(1-Math.min(dr,0.8)));
+      // 护盾吸收
+      if(target._shield>0){
+        var abs=Math.min(target._shield,dmg);target._shield-=abs;dmg-=abs;
+        if(target._shield<=0){target._shield=0;target._shieldTimer=0;}
+      }
+    }
+    // 闪避
+    if(Math.random()<((target._dodge||0)+(target._windTimer>0?1:0))){acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-20,'💨闪避!','#58a6ff'));return 0;}
+    // 无敌
+    if(target._windTimer>0){acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-20,'🛡️无敌!','#58a6ff'));return 0;}
+  }
+  // 伤害率加成 + ATK降低(寒冷)
+  if(!isBurn&&attacker){if(attacker._dmgRate!==1.0)dmg=Math.floor(dmg*attacker._dmgRate);if(attacker._atkDebuff>0)dmg=Math.floor(dmg*(1-attacker._atkDebuff));}
+  // 凯莉被动: 每次命中敌人 → 伤害率+9%
+  if(!isBurn&&!isTrue&&attacker&&attacker._kit&&attacker._kit.dmgRatePerHit&&target.alive){attacker._dmgRate+=attacker._kit.dmgRatePerHit;}
+  // 扣血
+  target.hp-=dmg;target._flash=6;
+  var clr=isTrue?'#fff':isBurn?'#ff6600':'#f44';
+  var label=(isTrue?'⚡真伤':isCrit?'💥暴击!':isBurn?'🔥':'')+'-'+Math.floor(dmg);
+  acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-10,label,clr));
+  if(!isBurn)acParticles.burst(target.x,target.y,Math.atan2(target.y-(attacker?attacker.y:target.y),target.x-(attacker?attacker.x:target.x)),3,isTrue?'#fff':attacker?attacker.clr:'#ff0',{speed:isTrue?3:2,life:isTrue?4:6,spread:isTrue?10:20,size:isTrue?2:1.5});
+  // 反击 (真实伤害不触发)
+  if(!isBurn&&!isTrue&&attacker&&target._reflect>0){var rdmg=Math.floor(dmg*target._reflect);attacker.hp-=rdmg;acFloatTexts.push(FloatingText.spawn(acCtx,attacker.x,attacker.y-15,'🔁反弹!-'+rdmg,'#f0c040'));if(attacker.hp<=0){attacker.alive=false;acParticles.explode(attacker.x,attacker.y,15,attacker.clr||'#f44',{speed:3,life:20,size:3});}}
+  // 受击怒气
+  if(!isBurn&&target._kit&&target._kit.rageOnHit)target._rage=Math.min(target._rageMax,target._rage+target._kit.rageOnHit);
+  // 安迷修被动：命中后加盾
+  if(!isBurn&&attacker&&attacker._kit&&attacker._kit.shieldOnHit&&attacker.alive){
+    attacker._shield=Math.max(attacker._shield||0,Math.floor(attacker.maxHp*attacker._kit.shieldOnHit));
+    attacker._shieldTimer=attacker._kit.shieldDur;
+  }
+  // 击杀
+  if(target.hp<=0){
+    if(acState._revive&&target.side==='player'){target.hp=Math.floor(target.maxHp*0.3);target.alive=true;acState._revive=false;acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-25,'💚复活!','#3fb950'));}
+    else{target.alive=false;acParticles.explode(target.x,target.y,12,target.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);
+      // 艾比被动: 击杀 → ATK+5% + 穿透+5% (最高3层)
+      if(!isBurn&&attacker&&attacker._kit&&attacker._kit.killAtkBuff&&attacker._killCount<attacker._kit.maxKillStacks){attacker._killCount++;attacker.atk=Math.floor(attacker.atk*(1+attacker._kit.killAtkBuff));attacker._defPierce+=attacker._kit.killPierceBuff;acFloatTexts.push(FloatingText.spawn(acCtx,attacker.x,attacker.y-25,'🏹击杀!ATK+5%','#f0c040'));}
+    }
+    if(!isBurn&&attacker&&attacker._lifesteal>0)attacker.hp=Math.min(attacker.maxHp,attacker.hp+attacker.maxHp*attacker._lifesteal);
+  }
+  return dmg;
+}
+
+// ✨ v6.13 吸取强化 — 偷取正面buff
+function acStealBuff(target,stealer){
+  if(target._shield>0){stealer._shield=Math.max(stealer._shield||0,target._shield);stealer._shieldTimer=target._shieldTimer;target._shield=0;target._shieldTimer=0;return'🛡️护盾';}
+  if(target._regen>0){stealer._regen=target._regen;target._regen=0;return'💚回复';}
+  if(target._dodge>0){stealer._dodge=target._dodge;target._dodge=0;return'💨闪避';}
+  if(target._critRate>0){var s=target._critRate;stealer._critRate+=s;target._critRate=0;return'💥暴击+'+Math.floor(s*100)+'%';}
+  return null;
+}
+
+// ✨ v6.13 驱散 — 优先无敌→护盾
+function acDispel(target){
+  if(target._windTimer>0){target._windTimer=0;return'🛡️无敌';}
+  if(target._shield>0){target._shield=0;target._shieldTimer=0;return'🛡️护盾';}
+  if(target._regen>0){target._regen=0;return'💚回复';}
+  if(target._dodge>0){target._dodge=0;return'💨闪避';}
+  return null;
+}
+
+// ✨ v6.13 列攻击 — 获取同一列所有敌人
+function acColumnTargets(target,enemies){
+  var col=Math.round((target.homeX-AC_OFFX)/AC_CELL_W);
+  return enemies.filter(function(e){return e.alive&&Math.round((e.homeX-AC_OFFX)/AC_CELL_W)===col;});
+}
+
+// ✨ v6.13 召唤 — 创建小/大斯巴达
+function acSpawnSummon(summoner,hpR,atkR,defR,side,label,emoji){
+  var sId=summoner.id+'_sum'+Date.now()+Math.random();
+  var sx=summoner.x+(Math.random()-0.5)*50,sy=summoner.y+(Math.random()-0.5)*40;
+  var piece={id:sId,name:label,emoji:emoji||'👾',clr:'#ff8800',
+    hp:Math.floor(summoner.maxHp*hpR),maxHp:Math.floor(summoner.maxHp*hpR),
+    atk:Math.floor(summoner.atk*atkR),spd:summoner.spd,
+    x:sx,y:sy,homeX:summoner.homeX,homeY:summoner.homeY,
+    side:side,alive:true,actTime:Math.random()*20,
+    _target:null,_flash:0,_cpBond:false,
+    _skillCd:99,_skillCdMax:99,_regen:0,_lifesteal:0,_dmgReduc:defR,_skillCdMul:1,_boosted:false,
+    range:1,role:'melee',_gridRow:summoner._gridRow,_gridBuff:null,
+    _shield:0,_shieldTimer:0,_block:0,_dmgRate:1.0,
+    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:100,
+    _emergShieldUsed:false,_kit:{},
+    _critRate:0,_critDmg:0,_critTimer:0,_stunTimer:0,_trueDmg:0,_ultCount:0,
+    _reflectBase:0,_reflectTimer:0,_emiPassiveOn:false,
+    _defPierce:0,_killCount:0,_jinHighHP:false,
+    _atkDebuff:0,_atkDebuffTimer:0,
+    _summoner:summoner.id,_isSummon:true,_summonDRTimer:0,_zthAuraOn:false};
+  var team=side==='player'?acState.player:acState.enemy;team.push(piece);
+  return piece;
+}
+
 // ─── 战前准备阶段 ───
 function startAutoChess(){
   var app=document.getElementById('app');if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}
@@ -5210,31 +5402,69 @@ function startAutoChess(){
   var enemyPool=ranked.slice(-6);shuffle(enemyPool);var enemyIds=enemyPool.slice(0,5);
   window._acPool=ranked.slice(0,8);window._acPicked=[];window._acEnemy=enemyIds;
   window._acArtifact=null;window._acBoosted=null;
+  window._acSlots=[null,null,null,null,null,null,null,null];window._acSelected=null;
   acPrepRender(app);
 }
 
 function acPrepRender(app){
   var karma=loadKarma();var pool=window._acPool,picked=window._acPicked||[];
+  var slots=window._acSlots||[null,null,null,null,null,null,null,null];
+  var selected=window._acSelected;var placed=slots.filter(function(s){return s!==null;}).length;
   var h='<div style="max-width:820px;margin:0 auto;padding:8px">';
   h+='<h2 style="text-align:center;color:var(--gold);margin:8px 0">🎲 战术推演 · 阵容准备</h2>';
-  h+='<p style="text-align:center;color:var(--dim);font-size:0.8em">点选5名角色上阵 · 因果值: '+karma+'</p>';
+  h+='<p style="text-align:center;color:var(--dim);font-size:0.8em">① 点选5名角色 → ② 拖放阵型 → ③ 开战 · 因果值: '+karma+'</p>';
+  // 候选池
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0">';
   pool.forEach(function(id,i){
-    var ch=CH[id],sel=picked.indexOf(id)>=0;
-    h+='<div onclick="window._acToggle(\''+id+'\')" style="background:'+(sel?'var(--gold)':'var(--card)')+';border:2px '+(sel?'solid var(--gold)':'solid #444')+';border-radius:10px;padding:8px;text-align:center;cursor:pointer;transition:all 0.2s;'+(sel?'transform:scale(1.05);':'')+'">';
-    h+='<div style="font-size:1.5em">'+ch.e+'</div><div style="font-size:0.7em;color:'+(sel?'#0d1117':'var(--dim)')+'">'+ch.n+'</div>';
-    h+='<div style="font-size:0.55em;color:'+(sel?'#0d1117':'#555')+'">❤️'+(G.aff[id]||0)+'</div></div>';
+    var ch=CH[id],sel=picked.indexOf(id)>=0;var arch=AC_ARCHETYPES[id]||{};
+    var tag=arch.role==='melee'?'⚔️':arch.role==='ranged'?'🏹':'✨';
+    h+='<div onclick="window._acToggle(\''+id+'\')" style="background:'+(sel?'var(--gold)':'var(--card)')+';border:2px '+(sel?'solid var(--gold)':'solid #444')+';border-radius:10px;padding:6px;text-align:center;cursor:pointer;transition:all 0.2s;'+(sel?'transform:scale(1.05);':'')+'">';
+    h+='<div style="font-size:1.3em">'+ch.e+' <span style="font-size:0.5em;color:var(--dim)">'+tag+'</span></div>';
+    h+='<div style="font-size:0.65em;color:'+(sel?'#0d1117':'var(--dim)')+'">'+ch.n+'</div>';
+    h+='<div style="font-size:0.5em;color:'+(sel?'#0d1117':'#555')+'">❤️'+(G.aff[id]||0)+'</div></div>';
   });h+='</div>';
+  // ✨ 放置阵型 (5人选完后显示)
+  if(picked.length===5){
+    h+='<div style="background:var(--card);border:2px solid var(--gold);border-radius:12px;padding:10px;margin:8px 0">';
+    h+='<div style="text-align:center;color:var(--gold);font-size:0.75em;margin-bottom:6px">📐 阵型布置 <span style="color:var(--dim)">(点击下方棋子→点击格位)</span></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);gap:4px;max-width:340px;margin:0 auto">';
+    for(var si=0;si<8;si++){
+      var sid=slots[si];var row=Math.floor(si/2);var sCh=sid?CH[sid]:null;
+      var sArch=sid?(AC_ARCHETYPES[sid]||{}):{};
+      var rowLabel=row<2?'🔴前排 +ATK':'🔵后排 +SPD';
+      h+='<div onclick="window._acPlaceSlot('+si+')" style="background:'+(sid?'var(--card)':'#0d1117')+';border:2px '+(sid?'solid '+(sid===selected?'var(--gold)':'var(--blue)')+'':'dashed #333')+';border-radius:8px;padding:6px;text-align:center;cursor:pointer;min-height:48px;transition:all 0.15s;'+(sid===selected?'box-shadow:0 0 12px var(--gold)':'')+'">';
+      if(sid){h+='<div style="font-size:1.2em">'+sCh.e+'</div><div style="font-size:0.5em;color:var(--dim)">'+sCh.n+'</div>';}
+      else{h+='<div style="font-size:0.5em;color:#444;margin-top:12px">'+rowLabel+'</div>';}
+      h+='</div>';
+    }
+    h+='</div>';
+    // 未放置棋子
+    var unplaced=picked.filter(function(id){return slots.indexOf(id)<0;});
+    if(unplaced.length>0){
+      h+='<div style="display:flex;gap:4px;justify-content:center;margin-top:8px;flex-wrap:wrap">';
+      h+='<span style="font-size:0.55em;color:var(--dim);align-self:center">未放置:</span>';
+      unplaced.forEach(function(id){
+        var uCh=CH[id];var isSel=selected===id;
+        h+='<div onclick="window._acPlaceSelect(\''+id+'\')" style="background:'+(isSel?'var(--gold)':'var(--card)')+';border:2px '+(isSel?'solid var(--gold)':'solid #555')+';border-radius:8px;padding:4px 8px;text-align:center;cursor:pointer;font-size:1em;'+(isSel?'transform:scale(1.1);box-shadow:0 0 8px var(--gold)':'')+'">'+uCh.e+'</div>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  }
   h+='<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0">';
   h+='<button class="btn btn-s" onclick="window._acPickArtifact()" style="background:#1a1a2e;border:1px solid var(--gold)">🎴 战术道具 ('+(window._acArtifact?window._acArtifact.n:'30-50因果')+')</button>';
   h+='<button class="btn btn-s" onclick="window._acReroll()" style="background:#1a1a2e;border:1px solid #58a6ff">🔄 重选棋子 (-10)</button>';
   h+='<button class="btn btn-s" onclick="window._acBoost()" style="background:#1a1a2e;border:1px solid #bc8cff">💪 强化棋子 (-20)</button>';
-  h+='<button class="btn btn-p pulse" onclick="window._acStart()" style="font-size:1.1em;'+(picked.length===5?'':'opacity:0.5')+'">⚔️ 开战 ('+picked.length+'/5)</button>';
+  h+='<button class="btn btn-p pulse" onclick="window._acStart()" style="font-size:1.1em;'+(picked.length===5&&placed===5?'':'opacity:0.5')+'">⚔️ 开战 ('+placed+'/5)</button>';
   h+='</div></div>';
   if(window._acLastMsg)h+='<div style="text-align:center;color:var(--dim);font-size:0.7em;margin:4px 0">'+window._acLastMsg+'</div>';
   app.innerHTML=h;
 }
-window._acToggle=function(id){var p=window._acPicked||[];var i=p.indexOf(id);if(i>=0)p.splice(i,1);else if(p.length<5)p.push(id);window._acPicked=p;acPrepRender(document.getElementById('app'));};
+window._acToggle=function(id){var p=window._acPicked||[];var i=p.indexOf(id);if(i>=0){p.splice(i,1);window._acSlots=window._acSlots.map(function(s){return s===id?null:s;});window._acSelected=null;}else if(p.length<5)p.push(id);window._acPicked=p;acPrepRender(document.getElementById('app'));};
+// 放置：选择棋子
+window._acPlaceSelect=function(id){window._acSelected=window._acSelected===id?null:id;acPrepRender(document.getElementById('app'));};
+// 放置：点击格位
+window._acPlaceSlot=function(si){var slots=window._acSlots||[];var sel=window._acSelected;if(slots[si]){slots[si]=null;}else if(sel){var oldIdx=slots.indexOf(sel);if(oldIdx>=0)slots[oldIdx]=null;slots[si]=sel;window._acSelected=null;}window._acSlots=slots;acPrepRender(document.getElementById('app'));};
 window._acPickArtifact=function(){
   var karma=loadKarma();if(window._acArtifact){window._acLastMsg='已有道具: '+window._acArtifact.n;acPrepRender(document.getElementById('app'));return;}
   var pool=AC_ARTIFACTS.filter(function(a){return karma>=a.cost;});if(pool.length===0){window._acLastMsg='因果值不足';acPrepRender(document.getElementById('app'));return;}
@@ -5248,7 +5478,8 @@ window._acDoArtifact=function(id){var a=AC_ARTIFACTS.find(function(x){return x.i
 window._acReroll=function(){var k=loadKarma();if(k<10){window._acLastMsg='因果值不足 (需10)';acPrepRender(document.getElementById('app'));return;}spendKarma(10);var ranked=Object.keys(CH).filter(function(x){return CH[x]&&CH[x].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var pool=window._acPool;var i=Math.floor(Math.random()*pool.length);var top=ranked.slice(0,12);var newId=top[Math.floor(Math.random()*top.length)];while(pool.indexOf(newId)>=0)newId=top[Math.floor(Math.random()*top.length)];pool[i]=newId;window._acLastMsg='重选了 '+CH[newId].n;acPrepRender(document.getElementById('app'));};
 window._acBoost=function(){var k=loadKarma();if(k<20){window._acLastMsg='因果值不足 (需20)';acPrepRender(document.getElementById('app'));return;}if(window._acBoosted){window._acLastMsg='已强化过: '+CH[window._acBoosted].n;acPrepRender(document.getElementById('app'));return;}var p=window._acPicked||[];if(p.length===0)return;spendKarma(20);window._acBoosted=p[0];window._acLastMsg='已强化: '+CH[p[0]].n+' +30%';acPrepRender(document.getElementById('app'));};
 window._acStart=function(){
-  var picked=window._acPicked||[];if(picked.length!==5)return;
+  var picked=window._acPicked||[],slots=window._acSlots||[];if(picked.length!==5)return;
+  var placed=slots.filter(function(s){return s!==null;}).length;if(placed!==5)return;
   var dpr=window.devicePixelRatio||1,app=document.getElementById('app');
   var enemyIds=window._acEnemy,dayScale=1+G.day/200;
 
@@ -5256,15 +5487,29 @@ window._acStart=function(){
   acFloatTexts=[];acProjectiles=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
 
   var playerPieces=[],enemyPieces=[];
-  var gridPos=[[0,0],[1,0],[0,1],[1,1],[0,2],[1,2],[0,3],[1,3]];
+  // ✨ v6.12 使用放置阵型
+  for(var si=0;si<8;si++){var sid=slots[si];if(!sid)continue;var ch=CH[sid],aff=G.aff[sid]||0;var col=si%2,row=Math.floor(si/2);var cx=AC_OFFX+col*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+row*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'player',cx,cy,row);if(window._acBoosted===sid){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;p._boosted=true;}playerPieces.push(p);}
   var egridPos=[[2,0],[3,0],[2,1],[3,1],[2,2],[3,2],[2,3],[3,3]];
-  picked.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+gridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+gridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'player',cx,cy);if(window._acBoosted===id){p.hp=Math.floor(p.hp*1.3);p.maxHp=Math.floor(p.maxHp*1.3);p.atk=Math.floor(p.atk*1.3);p.spd*=1.3;p._boosted=true;}playerPieces.push(p);});
-  enemyIds.forEach(function(id,i){var ch=CH[id],aff=G.aff[id]||0;var cx=AC_OFFX+egridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+egridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,aff,'enemy',cx,cy);p.hp=Math.floor(p.hp*dayScale);p.maxHp=Math.floor(p.maxHp*dayScale);p.atk=Math.floor(p.atk*dayScale);enemyPieces.push(p);});
+  // 敌人能力 = 玩家前5平均好感 vs 天数 取高
+  var ranked2=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});
+  var top5Avg=ranked2.slice(0,5).reduce(function(s,id){return s+(G.aff[id]||0);},0)/5;
+  var enemyAff=Math.floor(Math.max(G.day,top5Avg));
+  var bossIdx=Math.floor(Math.random()*enemyIds.length);
+  enemyIds.forEach(function(id,i){var ch=CH[id];var cx=AC_OFFX+egridPos[i][0]*AC_CELL_W+AC_CELL_W/2,cy=AC_OFFY+egridPos[i][1]*AC_CELL_H+AC_CELL_H/2;var p=acMakePiece(ch,enemyAff,'enemy',cx,cy,i%2);if(i===bossIdx){p.hp=Math.floor(p.hp*2);p.maxHp=Math.floor(p.maxHp*2);p.atk=Math.floor(p.atk*2);p.spd*=1.5;p._isBoss=true;p.name='👑'+p.name;}enemyPieces.push(p);});
+  // ✨ 格位Buff: 前排+ATK 25%, 后排+SPD 25%
+  playerPieces.forEach(function(p){if(p._gridRow<2){p.atk=Math.floor(p.atk*1.25);p._gridBuff='🔴ATK+25%';}else{p.spd*=1.25;p._gridBuff='🔵SPD+25%';}});
   acApplyCPBond(playerPieces);acApplyCPBond(enemyPieces);
+  // ✨ v6.13 英雄被动初始化
+  [playerPieces,enemyPieces].forEach(function(team){team.forEach(function(p){if(p._kit&&p._kit.baseBlock){p._block=p._kit.baseBlock;p._dmgReduc=p._kit.baseDR;}if(p._kit&&p._kit.atkBuff){p.atk=Math.floor(p.atk*(1+p._kit.atkBuff));}if(p._kit&&p._kit.baseCritDmgBonus){p._critDmg=(p._critDmg||1.5)+p._kit.baseCritDmgBonus;}if(p._kit&&p._kit.defPierce){p._defPierce=p._kit.defPierce;}if(p._kit&&p._kit.rageRateBuff){p._rageRate=(p._rageRate||1.0)+p._kit.rageRateBuff;}});});
+  // ✨ 佩利登场: 吸敌方最高怒气 → 平分友方
+  allTeamPieces.forEach(function(p){if(p._kit&&p._kit.gravityATKDebuff){var eTeam=p.side==='player'?enemyPieces:playerPieces;var fTeam=p.side==='player'?playerPieces:enemyPieces;var best=null;eTeam.forEach(function(e){if(e.alive&&(!best||e._rage>best._rage))best=e;});if(best&&best._rage>0){var st=best._rage;best._rage=0;var af=fTeam.filter(function(f){return f.alive;});if(af.length>0){var ea=Math.floor(st/af.length);af.forEach(function(f){f._rage=Math.min(f._rageMax,f._rage+ea);});acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🐺吸怒→友+'+ea,'#ff6600'));}}}});
+  // ✨ 雷狮登场光环: 友方怒气+20% / 敌方怒气-20%
+  var allTeamPieces=playerPieces.concat(enemyPieces);
+  allTeamPieces.forEach(function(p){if(p._kit&&p._kit.allyRageBuff){var friendTeam=p.side==='player'?playerPieces:enemyPieces;var enemyTeam=p.side==='player'?enemyPieces:playerPieces;friendTeam.forEach(function(f){f._rageRate=1.0+p._kit.allyRageBuff;});enemyTeam.forEach(function(e){e._rageRate=Math.max(0.5,1.0-p._kit.enemyRageDebuff);});}});
   // 道具生效
   if(window._acArtifact)window._acArtifact.eff(playerPieces);
   if(acState._opener&&enemyPieces.length>0){var ri=Math.floor(Math.random()*enemyPieces.length);enemyPieces[ri].hp=0;enemyPieces[ri].alive=false;}
-  if(acState._lucky&&Math.random()<0.1){var ep=ranked.slice(0,12);var ex=ep[Math.floor(Math.random()*ep.length)];var ecx=AC_OFFX+gridPos[0][0]*AC_CELL_W+AC_CELL_W/2,ecy=AC_OFFY+gridPos[0][1]*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(CH[ex],G.aff[ex]||0,'player',ecx,ecy));}
+  if(acState._lucky&&Math.random()<0.1){var ranked=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var ep=ranked.slice(0,12);var ex=ep[Math.floor(Math.random()*ep.length)];var ecx=AC_OFFX+0*AC_CELL_W+AC_CELL_W/2,ecy=AC_OFFY+0*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(CH[ex],G.aff[ex]||0,'player',ecx,ecy,0));}
   acState.player=playerPieces;acState.enemy=enemyPieces;
 
   app.innerHTML='<canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px;background:#0a0a12;display:block;margin:10px auto;cursor:default"></canvas>';
@@ -5280,90 +5525,577 @@ window._acStart=function(){
 function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acState.speedMul===1?2:1;}}
 
 function acFindTarget(piece,enemies){
+  // 被嘲讽 → 强制攻击嘲讽者
+  if(piece._tauntBy){var tb=enemies.find(function(e){return e.id===piece._tauntBy&&e.alive;});if(tb)return tb;}
   var best=null,bd=Infinity;
   for(var i=0;i<enemies.length;i++){var e=enemies[i];if(!e.alive)continue;var d=acDist(piece,e);if(d<bd){bd=d;best=e;}}
   return best;
 }
 
+// ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
   if(acState.over){acRender();return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
   acParticles.update(dt*1000);acShake.update();
   for(var fi=acFloatTexts.length-1;fi>=0;fi--){acFloatTexts[fi].update();if(!acFloatTexts[fi].alive)acFloatTexts.splice(fi,1);}
-  // 弹道更新
-  for(var pr=acProjectiles.length-1;pr>=0;pr--){var pro=acProjectiles[pr];pro.x+=pro.vx*dt*300;pro.y+=pro.vy*dt*300;pro.life-=dt;if(pro.life<=0||pro.x<0||pro.x>800||pro.y<0||pro.y>500){acProjectiles.splice(pr,1);continue;}
+
+  // ✨ 弹道更新 — 锁定目标碰撞
+  for(var pr=acProjectiles.length-1;pr>=0;pr--){
+    var pro=acProjectiles[pr];pro.x+=pro.vx*dt*300;pro.y+=pro.vy*dt*300;pro.life-=dt;
+    if(pro.life<=0||pro.x<0||pro.x>800||pro.y<0||pro.y>500){acProjectiles.splice(pr,1);continue;}
     var sideCheck=pro.from==='player'?acState.enemy:acState.player;
-    for(var si=0;si<sideCheck.length;si++){var sp=sideCheck[si];if(!sp.alive)continue;if(acDist(pro,sp)<18){sp.hp-=pro.dmg;sp._flash=6;acFloatTexts.push(FloatingText.spawn(acCtx,sp.x,sp.y-10,'-'+pro.dmg,'#f44'));acParticles.burst(sp.x,sp.y,Math.atan2(pro.vy,pro.vx),3,pro.clr,{speed:2,life:6,spread:20,size:1.5});acProjectiles.splice(pr,1);if(sp.hp<=0){sp.alive=false;acParticles.explode(sp.x,sp.y,12,sp.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}break;}}}
+    var hit=null;
+    for(var si=0;si<sideCheck.length;si++){var sp=sideCheck[si];if(!sp.alive)continue;if(sp.id!==pro.targetId)continue;if(acDist(pro,sp)<18){hit=sp;break;}}
+    if(hit){acApplyDamage(hit,pro.dmg,{x:pro.x,y:pro.y,clr:pro.clr});acProjectiles.splice(pr,1);}
+  }
 
   // CP协力检测 (每8秒)
   acState._cpBondTimer-=dt;
   if(acState._cpBondTimer<=0){acState._cpBondTimer=8;
     [acState.player,acState.enemy].forEach(function(team){
       var alive=team.filter(function(p){return p.alive&&p._cpBond;});
-      Object.keys(CP).forEach(function(k){var p=k.split('_');
-        var a=alive.find(function(x){return x.id===p[0];}),b=alive.find(function(x){return x.id===p[1];});
+      Object.keys(CP).forEach(function(k){var pk=k.split('_');
+        var a=alive.find(function(x){return x.id===pk[0];}),b=alive.find(function(x){return x.id===pk[1];});
         if(a&&b&&acDist(a,b)<100){var tgt=acFindTarget(a,a.side==='player'?acState.enemy:acState.player);
-          if(tgt){tgt.hp-=a.atk*2;a._mvTx=tgt.homeX;a._mvTy=tgt.homeY;a._mvTimer=0.25;a._moving=true;
-            acFloatTexts.push(FloatingText.spawn(acCtx,tgt.x,tgt.y-15,'💥羁绊!','#bc8cff'));
-            acParticles.explode((a.x+b.x)/2,(a.y+b.y)/2,20,'#bc8cff',{speed:5,life:15,size:5});acShake.trigger(4,0.9);
-            if(tgt.hp<=0){tgt.alive=false;acParticles.explode(tgt.x,tgt.y,15,tgt.clr||'#f44',{speed:3,life:20,size:3});}}
-        }});
+          if(tgt){acApplyDamage(tgt,a.atk*2,a);acFloatTexts.push(FloatingText.spawn(acCtx,(a.x+b.x)/2,(a.y+b.y)/2-5,'💥羁绊!','#bc8cff'));
+            acParticles.explode((a.x+b.x)/2,(a.y+b.y)/2,20,'#bc8cff',{speed:5,life:15,size:5});acShake.trigger(4,0.9);}}
+      });
     });
   }
 
-  // 更新棋子 + 回春/嗜血
+  // ✨ 嘉德罗斯近战光环
+  [acState.player,acState.enemy].forEach(function(team){var jd=team.find(function(p){return p._kit&&p._kit.meleeDmgPerStack&&p.alive;});if(jd){var mc=team.filter(function(p){return p.alive&&(p.role==='melee'||p.range===1);}).length;var st=Math.min(jd._kit.maxStacks,mc);var mul=st*jd._kit.meleeDmgPerStack;var spl=st*jd._kit.meleeSplashPerStack;team.forEach(function(p){if(p.alive&&(p.role==='melee'||p.range===1)){p._dmgRate=1.0+mul*(p===jd&&jd._kit.selfDouble?2:1);p._meleeSplash=spl*(p===jd&&jd._kit.selfDouble?2:1);}});}});
+  // ✨ 祖玛伤害光环 — 友方+15%伤害率, 嘉德罗斯额外+5%
+  [acState.player,acState.enemy].forEach(function(team){var zm=team.find(function(p){return p._kit&&p._kit.ultHeal&&p.alive;});if(zm){team.forEach(function(p){if(p.alive){p._dmgRate=Math.max(p._dmgRate||1.0,1.0+zm._kit.dmgAura+(p._kit&&p._kit.meleeDmgPerStack?zm._kit.jdBonus:0));}});}});
+  // ✨ 银爵光环 — 友方+50%反伤 + 每近战→全体HP+5%(最多25%)
+  [acState.player,acState.enemy].forEach(function(team){var yj=team.find(function(p){return p._kit&&p._kit.reflectAura&&p.alive;});if(yj){var mc2=team.filter(function(p){return p.alive&&(p.role==='melee'||p.range===1);}).length;var hpMul=1.0+Math.min(yj._kit.maxHPStacks,mc2)*yj._kit.hpPerMelee;team.forEach(function(p){if(p.alive){p._reflect=Math.max(p._reflect||0,yj._kit.reflectAura);p._reflectBase=Math.max(p._reflectBase||0,yj._kit.reflectAura);if(!p._baseMaxHp)p._baseMaxHp=p.maxHp;var newMax=Math.floor(p._baseMaxHp*hpMul);if(newMax!==p.maxHp){var hpPct=p.hp/p.maxHp;p.maxHp=newMax;p.hp=Math.floor(newMax*hpPct);}}});}});
+
+  // ✨ 棋子更新 — v6.13 全系统
   var allPieces=acState.player.concat(acState.enemy);
   allPieces.forEach(function(p){
     if(!p.alive)return;
     if(p._flash>0)p._flash--;
+    // 护盾衰减
+    if(p._shield>0){p._shieldTimer-=dt;if(p._shieldTimer<=0){p._shield=0;p._shieldTimer=0;}}
+    // 眩晕衰减
+    if(p._stunTimer>0){p._stunTimer-=dt;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-20,'💫','#ff0'));}
+    // 反伤buff衰减
+    if(p._reflectTimer>0){p._reflectTimer-=dt;if(p._reflectTimer<=0){p._reflect=p._reflectBase;p._reflectTimer=0;}}
+    // ATK降低衰减
+    if(p._atkDebuffTimer>0){p._atkDebuffTimer-=dt;if(p._atkDebuffTimer<=0){p._atkDebuff=0;}}
+    // ATK buff衰减(雷狮)
+    if(p._atkBuffTimer>0){p._atkBuffTimer-=dt;if(p._atkBuffTimer<=0&&p._kit&&p._kit.ultAtkBuff){p.atk=Math.floor(p.atk/(1+p._kit.ultAtkBuff));}}
+    // DR buff衰减(银爵/祖玛)
+    if(p._drBuffTimer>0){p._drBuffTimer-=dt;if(p._drBuffTimer<=0&&p._kit&&p._kit.reflectAura){p._dmgReduc=Math.max(0,(p._dmgReduc||0)-p._kit.specialDR);}}
+    if(p._zumaDRTimer>0){p._zumaDRTimer-=dt;if(p._zumaDRTimer<=0){var zm2=acState.player.concat(acState.enemy).find(function(x){return x._kit&&x._kit.ultHeal&&x.alive;});if(zm2)p._dmgReduc=Math.max(0,(p._dmgReduc||0)-zm2._kit.ultDR);}}
+    // 重力衰减
+    if(p._gravityTimer>0){p._gravityTimer-=dt;if(p._gravityTimer<=0){p._dmgRate+=p._gravityDebuff;p._gravityDebuff=0;}}
+    // 埃米被动: HP<50% → +20%免伤 (状态切换时触发)
+    if(p._kit&&p._kit.passiveDR&&p.hp>0){if(p.hp<p.maxHp*p._kit.hpThreshold&&!p._emiPassiveOn){p._dmgReduc=(p._dmgReduc||0)+p._kit.passiveDR;p._emiPassiveOn=true;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🛡️免伤UP','#3fb950'));}else if(p.hp>=p.maxHp*p._kit.hpThreshold&&p._emiPassiveOn){p._dmgReduc=Math.max(0,(p._dmgReduc||0)-p._kit.passiveDR);p._emiPassiveOn=false;}}
+    // 金被动: HP>60% → 伤害率+20%, HP<60% → 免伤率+20% (状态切换)
+    if(p._kit&&p._kit.highHPDmgBuff&&p.hp>0){if(p.hp>p.maxHp*p._kit.hpThreshold&&!p._jinHighHP){p._dmgRate=1.0+p._kit.highHPDmgBuff;p._dmgReduc=Math.max(0,(p._dmgReduc||0)-p._kit.lowHPDRBuff);p._jinHighHP=true;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'⚡伤害UP','#f0c040'));}else if(p.hp<=p.maxHp*p._kit.hpThreshold&&p._jinHighHP){p._dmgRate=1.0;p._dmgReduc=(p._dmgReduc||0)+p._kit.lowHPDRBuff;p._jinHighHP=false;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🛡️免伤UP','#3fb950'));}}
+    // 灼烧DoT
+    var totalBurn=0;
+    for(var bi=p._burns.length-1;bi>=0;bi--){var b=p._burns[bi];b.elapsed+=dt;if(b.elapsed>=b.dur){p._burns.splice(bi,1);continue;}totalBurn+=b.dps*dt;}
+    if(totalBurn>0){var bdmg=totalBurn;acApplyDamage(p,bdmg,null,true);if(p._burns.length>0)acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'🔥'+p._burns.length+'层','#ff6600'));}
+    // 嘲讽衰减
+    if(p._tauntTimer>0){p._tauntTimer-=dt;if(p._tauntTimer<=0)p._tauntBy=null;}
+    // 安迷修被动: 有盾时免伤/格挡翻倍
+    if(p._kit&&p._kit.baseBlock){if(p._shield>0){p._block=p._kit.baseBlock*2;p._dmgReduc=p._kit.baseDR*2;}else{p._block=p._kit.baseBlock;p._dmgReduc=p._kit.baseDR;}}
+    // 安迷修紧急护盾: HP<50%触发一次
+    if(p._kit&&p._kit.emergShield&&!p._emergShieldUsed&&p.hp>0&&p.hp<p.maxHp*0.5){p._shield=Math.max(p._shield||0,Math.floor(p.maxHp*p._kit.emergShield));p._shieldTimer=p._kit.shieldDur;p._emergShieldUsed=true;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🛡️紧急!','#3fb950'));}
+    // 怒气被动增长
+    if(p._kit&&p._kit.specialCD)p._rage=Math.min(p._rageMax,p._rage+5*dt*(p._rageRate||1.0));
     if(p._windTimer>0){p._windTimer-=dt;if(p._windTimer<=0)p._windTimer=0;}
     if(p._regen>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._regen*dt);
-    // 生命共鸣: HP<40%触发全员回血
     if(acState._healBurst&&!acState._healUsed&&p.hp>0&&p.hp/p.maxHp<(p._healTrigger||0.4)){
       var team=p.side==='player'?acState.player:acState.enemy;acState._healUsed=true;
       team.forEach(function(m){if(m.alive){m.hp=Math.min(m.maxHp,m.hp+500);acFloatTexts.push(FloatingText.spawn(acCtx,m.x,m.y-15,'💚+500','#3fb950'));}});
     }
-    // 大赛应援: 检测相邻友方光环
     var nearCheer=false;if(p._cheerAura){var sq=p.side==='player'?acState.player:acState.enemy;sq.forEach(function(m){if(m!==p&&m.alive&&m._cheerAura&&acDist(p,m)<80)nearCheer=true;});}
-    if(p._moving){p._mvTimer-=dt;if(p._mvTimer<=0){p.x=p._mvTx;p.y=p._mvTy;p._moving=false;}else{var t=1-p._mvTimer/0.3;p.x=p.homeX+(p._mvTx-p.homeX)*t;p.y=p.homeY+(p._mvTy-p.homeY)*t;return;}}
-    var hasWind=p._windTimer>0;
-    p.actTime+=dt*p.spd*(nearCheer?1.3:1);
-    if(p.actTime>=75/(p.spd+50)){
-      p.actTime=0;
-      // 技能检测
-      p._skillCd-=dt;
-      var enemies2=p.side==='player'?acState.enemy:acState.player;
-      var target2=acFindTarget(p,enemies2);
-      if(target2&&target2.alive&&p._skillCd<=0&&p._skillCdMax<99){
-        p._skillCd=p._skillCdMax*(p._skillCdMul||1);
-        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5)*(p._skillAmp||1));if(target2._windTimer>0){tdmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'🛡️无敌!','#58a6ff'));}else{if(Math.random()<((target2._dodge||0)+(target2._windTimer>0?1:0))){tdmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💨闪避!','#58a6ff'));}else target2.hp-=tdmg;}target2._flash=10;
-        if(target2._reflect>0){var rdmg=Math.floor(tdmg*target2._reflect);p.hp-=rdmg;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}
-        if(target2._windGod){target2._windTimer=3;target2._windGod=false;}
-        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-15,'⚡技能!-'+tdmg,'#f0c040'));
-        acParticles.explode(target2.x,target2.y,8,p.clr||'#ff0',{speed:4,life:12,size:4});
-        if(target2.hp<=0){if(acState._revive&&target2.side==='player'){target2.hp=Math.floor(target2.maxHp*0.3);target2.alive=true;acState._revive=false;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'💚复活!','#3fb950'));}else{target2.alive=false;acParticles.explode(target2.x,target2.y,15,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(3,0.85);}
-          if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
+    var enemies2=p.side==='player'?acState.enemy:acState.player;
+
+    // ✨ 移动AI
+    if(p.role==='melee'){
+      if(!p._target||!p._target.alive){p._target=acFindTarget(p,enemies2);}
+      if(p._target&&p._target.alive){
+        var md=acDist(p,p._target);
+        if(md>55){var ma2=Math.atan2(p._target.y-p.y,p._target.x-p.x);p.x+=Math.cos(ma2)*AC_MOVE_SPD*dt;p.y+=Math.sin(ma2)*AC_MOVE_SPD*dt;}
       }else{
-        // 普通攻击
-        if(target2&&target2.alive){
-          if(p.range>1){// 远程弹道
-            var a2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0'});
-          }else{// 近战
-            p._mvTx=target2.homeX;p._mvTy=target2.homeY;p._mvTimer=0.3;p._moving=true;
-            var dmg=p.atk;if(target2._dmgReduc>0)dmg=Math.floor(dmg*(1-target2._dmgReduc));dmg+=Math.floor(p.atk*(p._magicDmg||0));
-            if(Math.random()<((target2._dodge||0)+(target2._windTimer>0?1:0))){dmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💨闪避!','#58a6ff'));}else target2.hp-=dmg;target2._flash=6;
-            if(target2._reflect>0){var rdmg2=Math.floor(dmg*target2._reflect);p.hp-=rdmg2;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg2,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}
-            acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-10,'-'+dmg,'#f44'));
-            // 矢量增幅: 额外命中第2个目标
-            if(p._multiShot>=2){var extra=enemies2.filter(function(x){return x!==target2&&x.alive;});if(extra.length>0){var e2=extra[0];var edmg=Math.floor(dmg*0.7);if(!(Math.random()<(e2._dodge||0))){e2.hp-=edmg;e2._flash=4;acFloatTexts.push(FloatingText.spawn(acCtx,e2.x,e2.y-10,'🎯-'+edmg,'#58a6ff'));if(e2.hp<=0){e2.alive=false;acParticles.explode(e2.x,e2.y,10,e2.clr||'#f44',{speed:3,life:15,size:3});}}}}
-            acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});
-            if(target2.hp<=0){if(acState._revive&&target2.side==='player'){target2.hp=Math.floor(target2.maxHp*0.3);target2.alive=true;acState._revive=false;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'💚复活!','#3fb950'));}else{target2.alive=false;acParticles.explode(target2.x,target2.y,12,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}
-              if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}
+        var hd=acDist(p,{x:p.homeX,y:p.homeY});if(hd>5){var ha2=Math.atan2(p.homeY-p.y,p.homeX-p.x);p.x+=Math.cos(ha2)*AC_MOVE_SPD*dt;p.y+=Math.sin(ha2)*AC_MOVE_SPD*dt;}
+      }
+    }else if(p.role==='support'){
+      var allies=p.side==='player'?acState.player:acState.enemy;
+      var alA=allies.filter(function(a){return a.alive;});
+      if(alA.length>1){var scx=0,scy=0;alA.forEach(function(a){scx+=a.x;scy+=a.y;});scx/=alA.length;scy/=alA.length;
+        if(acDist(p,{x:scx,y:scy})>25){var sa2=Math.atan2(scy-p.y,scx-p.x);p.x+=Math.cos(sa2)*AC_MOVE_SPD*0.5*dt;p.y+=Math.sin(sa2)*AC_MOVE_SPD*0.5*dt;}
+      }
+      alA.forEach(function(a){if(a!==p&&acDist(p,a)<80){a.hp=Math.min(a.maxHp,a.hp+1*dt);}});
+    }
+
+    p.actTime+=dt*p.spd*(nearCheer?1.3:1);
+    // 暴击buff衰减
+    if(p._critTimer>0){p._critTimer-=dt;if(p._critTimer<=0){p._critRate=0;p._critTimer=0;}}
+    // ✨ 眩晕跳过攻击
+    if(p._stunTimer>0){p._stunTimer-=dt;return;}
+    if(p.actTime>=75/(p.spd+50)){
+      p.actTime=0;p._skillCd-=75/(p.spd+50);
+      var target2=acFindTarget(p,enemies2);
+      var isAnmic=p._kit&&p._kit.shieldOnHit;
+      var isKam=p._kit&&p._kit.trueDmgRatio;
+      var isGerui=p._kit&&p._kit.comboProb1;
+      var isAimi=p._kit&&p._kit.passiveDR;
+      var isAibi=p._kit&&p._kit.ultArrows;
+      var isJin=p._kit&&p._kit.highHPDmgBuff;
+      var isAnlijie=p._kit&&p._kit.specialFreeze;
+      var isKaili=p._kit&&p._kit.dmgRatePerHit;
+      var isZTH=p._kit&&p._kit.ultSmallCount;
+      var isLeishi=p._kit&&p._kit.ultRageSteal;
+      var isPaluosi=p._kit&&p._kit.cloneATK;
+      var isPeili=p._kit&&p._kit.gravityATKDebuff;
+      var isJD=p._kit&&p._kit.meleeDmgPerStack;
+      var isYinjue=p._kit&&p._kit.reflectAura;
+      var isZuma=p._kit&&p._kit.ultHeal;
+      var isGuihu=p._kit&&p._kit.specialRageSteal;
+
+      // ═══ 安迷修 终结技 ═══
+      if(isAnmic&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kit=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'💢终结技!','#ff4400'));
+        acParticles.explode(p.x,p.y,25,'#ff4400',{speed:8,life:20,size:6});acShake.trigger(6,0.95);
+        var allEnemies=enemies2.filter(function(e){return e.alive;});
+        var hitCount=0;
+        allEnemies.forEach(function(e){
+          acApplyDamage(e,Math.floor(p.atk*kit.ultDmg),p);
+          var burnDPS=Math.min(e.maxHp*kit.burnHP/kit.burnDur,p.atk*kit.burnATKCap/kit.burnDur);
+          e._burns.push({dps:burnDPS,dur:kit.burnDur,elapsed:0});e._burns.push({dps:burnDPS,dur:kit.burnDur,elapsed:0});
+          e._dmgReduc=Math.max(0,(e._dmgReduc||0)-kit.debuffAmt);e._dmgRate=Math.max(0.5,e._dmgRate-kit.debuffAmt);
+          e._tauntBy=p.id;e._tauntTimer=kit.tauntDur;hitCount++;
+          acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-15,'😤嘲讽!','#ff8800'));
+        });
+        var shVal=Math.floor(p.maxHp*Math.min(kit.shieldMax,hitCount*kit.shieldPerHit));
+        p._shield=Math.max(p._shield||0,shVal);p._shieldTimer=kit.shieldDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'🛡️+'+shVal,'#58a6ff'));
+      }
+      // ═══ 卡米尔 终结技 ═══
+      else if(isKam&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;p._ultCount++;var kit3=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🗡️飞劈!','#ff0'));
+        acParticles.explode(p.x,p.y,20,'#fff',{speed:7,life:15,size:5});acShake.trigger(5,0.9);
+        // 驱散1个强化
+        var disp=acDispel(target2);if(disp)acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'驱散'+disp,'#0ff'));
+        var ultDmg=kit3.ultDmg;
+        // 前2次终极技: 无视50%防御+免伤 + 伤害+10%
+        if(p._ultCount<=2){ultDmg+=kit3.ultDmgBonus;}
+        var finalDmg=Math.floor(p.atk*ultDmg);
+        if(p._ultCount<=2){acApplyDamage(target2,finalDmg,p,false,true);/*真实伤害*/}
+        else acApplyDamage(target2,finalDmg,p);
+        // 眩晕 + 降免伤
+        target2._stunTimer=kit3.stunDur;target2._dmgReduc=Math.max(0,(target2._dmgReduc||0)-kit3.ultDebuff);
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💫眩晕!','#ff0'));
+      }
+      // ═══ 格瑞 终结技 — 整列280% + 70%眩晕 + ATK+20% ═══
+      else if(isGerui&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kit5=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚔️烈斩·终!','#0f0'));
+        acParticles.explode(p.x,p.y,25,'#00ff00',{speed:8,life:18,size:6});acShake.trigger(5,0.9);
+        var colTgts=acColumnTargets(target2,enemies2);
+        colTgts.forEach(function(e){
+          acApplyDamage(e,Math.floor(p.atk*kit5.ultDmg),p);
+          if(Math.random()<kit5.ultStun){e._stunTimer=kit5.stunDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}
+        });
+        // 自身ATK+20%
+        p.atk=Math.floor(p.atk*(1+kit5.ultAtkBuff));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'⚔️ATK+20%','#0f0'));
+      }
+      // ═══ 埃米 终结技 — 190% + 嘲讽全体 + 30%HP护盾 + 25%反伤 ═══
+      else if(isAimi&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kit8=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👿恶魔之爪!','#ff4400'));
+        acParticles.explode(p.x,p.y,25,'#ff6666',{speed:8,life:18,size:6});acShake.trigger(6,0.9);
+        // 多段打击(模拟3段)
+        for(var hi=0;hi<3;hi++){acApplyDamage(target2,Math.floor(p.atk*kit8.ultDmg/3),p);}
+        // 嘲讽全体
+        var allEnemies=enemies2.filter(function(e){return e.alive;});
+        allEnemies.forEach(function(e){e._tauntBy=p.id;e._tauntTimer=kit8.ultTauntDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-15,'😤嘲讽!','#ff8800'));});
+        // 自身30%HP护盾
+        p._shield=Math.max(p._shield||0,Math.floor(p.maxHp*kit8.ultShield));p._shieldTimer=kit8.reflectDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'🛡️+'+Math.floor(p.maxHp*kit8.ultShield),'#58a6ff'));
+        // 25%反伤率
+        p._reflect=(p._reflect||0)+kit8.ultReflect;p._reflectTimer=kit8.reflectDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-40,'🔁反伤+25%','#f0c040'));
+      }
+      // ═══ 艾比 终结技 — 12箭随机单体 × 32% ATK ═══
+      else if(isAibi&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitA=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🏹箭雨!','#ff8800'));
+        acParticles.explode(p.x,p.y,20,'#ffaa00',{speed:6,life:15,size:5});acShake.trigger(4,0.85);
+        var liveEnemies=enemies2.filter(function(e){return e.alive;});
+        for(var ai=0;ai<kitA.ultArrows;ai++){
+          if(liveEnemies.length===0)break;
+          var randE=liveEnemies[Math.floor(Math.random()*liveEnemies.length)];
+          acApplyDamage(randE,Math.floor(p.atk*kitA.ultDmgPer),p);
+        }
+      }
+      // ═══ 金 终结技 — 420%单体 + 半血+20% + 击杀回300怒 ═══
+      else if(isJin&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitC=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⭐矢量冲击!','#ffd700'));
+        acParticles.explode(p.x,p.y,22,'#ffd700',{speed:7,life:18,size:5});acShake.trigger(5,0.9);
+        var jUltDmg=kitC.ultDmg;
+        if(target2.hp<target2.maxHp*kitC.ultLowHPThresh)jUltDmg+=kitC.ultLowHPBonus;
+        acApplyDamage(target2,Math.floor(p.atk*jUltDmg),p);
+        if(!target2.alive){p._rage=Math.min(p._rageMax,p._rage+kitC.ultKillRage/100);acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'💢+300怒!','#ffd700'));}
+      }
+      // ═══ 安莉洁 终结技 — 全体195% + 25%寒冷(降ATK10%) + 冰晶护盾 ═══
+      else if(isAnlijie&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitE=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'❄️冰霜结界!','#88ccff'));
+        acParticles.explode(p.x,p.y,25,'#aaddff',{speed:6,life:18,size:5});acShake.trigger(4,0.85);
+        var allE=enemies2.filter(function(e){return e.alive;});
+        var coldCount=0;
+        allE.forEach(function(e){
+          acApplyDamage(e,Math.floor(p.atk*kitE.ultDmg),p);
+          if(Math.random()<kitE.ultColdProb&&coldCount<kitE.ultColdMax){e._atkDebuff=kitE.ultColdAtkDebuff;e._atkDebuffTimer=kitE.coldDur;coldCount++;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'❄️寒冷!','#aaddff'));}
+        });
+        // 冰晶护盾: HP最低2名队友获ATK×80%护盾
+        var allies1=p.side==='player'?acState.player:acState.enemy;
+        var candidates=allies1.filter(function(a){return a!==p&&a.alive;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;});
+        candidates.slice(0,kitE.passiveTargets).forEach(function(a){a._shield=Math.max(a._shield||0,Math.floor(p.atk*kitE.passiveShieldRatio));a._shieldTimer=kitE.passiveShieldDur;acFloatTexts.push(FloatingText.spawn(acCtx,a.x,a.y-25,'❄️冰晶!','#aaddff'));});
+      }
+      // ═══ 凯莉 终结技 — 整列280% + 每命中+17%暴击率 ═══
+      else if(isKaili&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitG=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🌙星月刃!','#ff88cc'));
+        acParticles.explode(p.x,p.y,22,'#ff88cc',{speed:7,life:16,size:5});acShake.trigger(4,0.88);
+        var colK=acColumnTargets(target2,enemies2);
+        colK.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitG.ultDmg),p);p._critRate+=kitG.ultCritPerHit;});
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'💥暴击UP','#ff0'));
+      }
+      // ═══ 紫堂幻 终结技 — 召唤3小斯巴达 / 融合大斯巴达 ═══
+      else if(isZTH&&p._rage>=p._rageMax){
+        p._rage=0;var kitZ=p._kit;
+        var existSum=acState.player.concat(acState.enemy).filter(function(x){return x._isSummon&&x._summoner===p.id&&x.alive;});
+        if(existSum.length>0){
+          // 融合大斯巴达
+          existSum.forEach(function(s){s.alive=false;});
+          var bigS=acSpawnSummon(p,kitZ.ultBigHP,kitZ.ultBigAtk,kitZ.ultBigDef,p.side,'大斯巴达','👹');
+          bigS._dmgReduc=kitZ.summonDR;bigS._summonDRTimer=kitZ.summonDRDur;
+          var bt=acFindTarget(bigS,enemies2);if(bt)acApplyDamage(bt,bigS.atk,bigS);
+          acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👹大斯巴达!','#ff6600'));
+          acParticles.explode(p.x,p.y,20,'#ff6600',{speed:6,life:18,size:5});
+          acShake.trigger(5,0.9);
+        }else{
+          // 召唤3小斯巴达
+          acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👾召唤斯巴达!','#ff8800'));
+          acParticles.explode(p.x,p.y,18,'#ff8800',{speed:5,life:15,size:4});
+          for(var zi=0;zi<kitZ.ultSmallCount;zi++){
+            var smallS=acSpawnSummon(p,kitZ.ultSmallHP,kitZ.ultSmallAtk,kitZ.ultSmallDef,p.side,'小斯巴达'+zi,'👾');
+            smallS._dmgReduc=kitZ.summonDR;smallS._summonDRTimer=kitZ.summonDRDur;
+            var st=acFindTarget(smallS,enemies2);if(st)acApplyDamage(st,smallS.atk,smallS);
           }
         }
       }
+      // ═══ 雷狮 终结技 — 十字260% + 怒气吸取 + 溢出增伤 + ATK+20% ═══
+      else if(isLeishi&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitL=p._kit;
+        // ATK+20% 持续2回合
+        p.atk=Math.floor(p.atk*(1+kitL.ultAtkBuff));p._atkBuffTimer=kitL.ultBuffDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚡雷神之锤!','#ffdd00'));
+        acParticles.explode(p.x,p.y,25,'#ffdd00',{speed:8,life:18,size:6});acShake.trigger(6,0.95);
+        // 中心十字目标: 自身 + 上下左右
+        var crossTgts=[target2];
+        var crossOff=[[-1,0],[1,0],[0,-1],[0,1]];
+        crossOff.forEach(function(off){var cx=target2.x+off[0]*80,cy=target2.y+off[1]*60;
+          enemies2.forEach(function(e){if(e!==target2&&e.alive&&acDist({x:cx,y:cy},e)<70&&crossTgts.indexOf(e)<0)crossTgts.push(e);});});
+        // 攻击前吸取怒气
+        var totalStolen=0;
+        crossTgts.forEach(function(e){var stolen=Math.min(e._rage,kitL.ultRageSteal);e._rage-=stolen;totalStolen+=stolen;});
+        // 溢出增伤: 每200溢出+10%, 最多30%
+        var overflow=Math.max(0,totalStolen-100);
+        var dmgBonus=Math.min(kitL.ultMaxBonus,Math.floor(overflow/200)*kitL.ultOverflowBonus);
+        crossTgts.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*(kitL.ultDmg+dmgBonus)),p);});
+        if(totalStolen>0)acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'⚡吸怒+'+Math.floor(totalStolen)+' +'+Math.floor(dmgBonus*100)+'%','#ffdd00'));
+        p._atkBuffTimer=kitL.ultBuffDur;
+      }
+      // ═══ 帕洛斯 终结技 — 分身铺满全场 (120%ATK/0%防/50%HP) ═══
+      else if(isPaluosi&&p._rage>=p._rageMax){
+        p._rage=0;var kitP=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👥暗影分身!','#9966ff'));
+        acParticles.explode(p.x,p.y,22,'#9966ff',{speed:7,life:18,size:5});acShake.trigger(4,0.88);
+        var pTeam=p.side==='player'?acState.player:acState.enemy;
+        var sideCols=p.side==='player'?[0,1]:[2,3];
+        var emptyCells=[];
+        for(var rr=0;rr<4;rr++){for(var cc=0;cc<2;cc++){var cx=AC_OFFX+sideCols[cc]*AC_CELL_W+AC_CELL_W/2;var cy=AC_OFFY+rr*AC_CELL_H+AC_CELL_H/2;if(!pTeam.some(function(m){return m.alive&&acDist(m,{x:cx,y:cy})<30;}))emptyCells.push({x:cx,y:cy,row:rr});}}
+        emptyCells.forEach(function(cell){var cl=acSpawnSummon(p,kitP.cloneHP,kitP.cloneATK,kitP.cloneDEF,p.side,'分身','👥');cl.x=cell.x;cl.y=cell.y;cl.homeX=cell.x;cl.homeY=cell.y;cl._gridRow=cell.row;});
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'👥×'+emptyCells.length,'#9966ff'));
+      }
+      // ═══ 佩利 终结技 — 全体230% + 重力(ATK-15%/伤害率-15%) ═══
+      else if(isPeili&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitR=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🐺重力球!','#ff6600'));
+        acParticles.explode(p.x,p.y,25,'#ff6600',{speed:7,life:18,size:6});acShake.trigger(5,0.9);
+        var allE2=enemies2.filter(function(e){return e.alive;});
+        allE2.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitR.ultDmg),p);e._atkDebuff=Math.max(e._atkDebuff||0,kitR.gravityATKDebuff);e._atkDebuffTimer=kitR.gravityDur;e._gravityDebuff=kitR.gravityDmgDebuff;e._gravityTimer=kitR.gravityDur;e._dmgRate=Math.max(0.5,e._dmgRate-kitR.gravityDmgDebuff);acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'🌑重力!','#ff6600'));});
+      }
+      // ═══ 嘉德罗斯 终结技 — 全体230% + 30%眩晕最多3人 ═══
+      else if(isJD&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitT=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🔥大罗神通棍!','#ff4444'));
+        acParticles.explode(p.x,p.y,25,'#ff4444',{speed:8,life:18,size:6});acShake.trigger(6,0.95);
+        var allE3=enemies2.filter(function(e){return e.alive;});var stunCount=0;
+        allE3.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitT.ultDmg),p);if(Math.random()<kitT.ultStunProb&&stunCount<kitT.ultStunMax){e._stunTimer=kitT.ultStunDur;stunCount++;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
+      }
+      // ═══ 银爵 终结技 — 全体210% + 20%眩晕 + 友方护盾 ═══
+      else if(isYinjue&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitV=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🔗锁链束缚!','#8888aa'));
+        acParticles.explode(p.x,p.y,22,'#8888aa',{speed:6,life:16,size:5});acShake.trigger(4,0.88);
+        var allE4=enemies2.filter(function(e){return e.alive;});
+        allE4.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitV.ultDmg),p);if(Math.random()<kitV.ultStunProb){e._stunTimer=kitV.ultStunDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
+        // 友方全体护盾
+        var fTeam2=p.side==='player'?acState.player:acState.enemy;
+        var shV2=Math.floor(p.maxHp*kitV.ultShield);
+        fTeam2.forEach(function(f){if(f.alive){f._shield=Math.max(f._shield||0,shV2);f._shieldTimer=3;acFloatTexts.push(FloatingText.spawn(acCtx,f.x,f.y-25,'🛡️+'+shV2,'#58a6ff'));}});
+      }
+      // ═══ 祖玛 终结技 — 全体恢复ATK×210% + 免伤+15% + 强袭/影刃+30% ═══
+      else if(isZuma&&p._rage>=p._rageMax){
+        p._rage=0;var kitX=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'💨风之治愈!','#66ccaa'));
+        acParticles.explode(p.x,p.y,25,'#66ccaa',{speed:6,life:18,size:5});acShake.trigger(3,0.8);
+        var fTeam3=p.side==='player'?acState.player:acState.enemy;
+        fTeam3.forEach(function(f){if(f.alive){var heal=Math.floor(p.atk*kitX.ultHeal);var isStriker=f.role==='melee'||f.range===1;if(isStriker)heal=Math.floor(heal*(1+kitX.classHealBonus));f.hp=Math.min(f.maxHp,f.hp+heal);f._dmgReduc=(f._dmgReduc||0)+kitX.ultDR;f._zumaDRTimer=kitX.ultDRDur;acFloatTexts.push(FloatingText.spawn(acCtx,f.x,f.y-25,'💚+'+heal+(isStriker?'⚡':'')+' 🛡️','#66ccaa'));}});
+      }
+      // ═══ 鬼狐 终结技 — 全体220% + 随机降怒+最强降怒 ═══
+      else if(isGuihu&&p._rage>=p._rageMax&&target2&&target2.alive){
+        p._rage=0;var kitZ2=p._kit;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🦊技能复制!','#cc88ff'));
+        acParticles.explode(p.x,p.y,22,'#cc88ff',{speed:6,life:16,size:5});acShake.trigger(4,0.88);
+        var allE5=enemies2.filter(function(e){return e.alive;});
+        allE5.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitZ2.ultDmg),p);});
+        // 随机降1敌怒
+        if(allE5.length>0){var randE=allE5[Math.floor(Math.random()*allE5.length)];randE._rage=Math.max(0,randE._rage-kitZ2.ultRageDrain);acFloatTexts.push(FloatingText.spawn(acCtx,randE.x,randE.y-25,'💢-怒','#cc88ff'));}
+        // 最强敌降怒
+        var strong=allE5.sort(function(a,b){return b.atk-a.atk;})[0];if(strong){strong._rage=Math.max(0,strong._rage-kitZ2.ultStrongDrain);acFloatTexts.push(FloatingText.spawn(acCtx,strong.x,strong.y-30,'💢最强-怒','#cc88ff'));}
+      }
+      // ═══ 安迷修 特殊技 ═══
+      else if(isAnmic&&p._skillCd<=0&&target2&&target2.alive){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kit2=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kit2.specialDmg),p);
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'⚡烈斩!','#f0c040'));
+        var crossOff=[[-1,0],[1,0],[0,-1],[0,1]];
+        crossOff.forEach(function(off){var cx=target2.x+off[0]*60,cy=target2.y+off[1]*60;
+          enemies2.forEach(function(e){if(e!==target2&&e.alive&&acDist({x:cx,y:cy},e)<70){acApplyDamage(e,Math.floor(p.atk*kit2.splashDmg),p);}});
+        });
+        acParticles.explode(target2.x,target2.y,10,'#0ff',{speed:5,life:12,size:4});
+      }
+      // ═══ 卡米尔 特殊技 (30%概率) ═══
+      else if(isKam&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kit4=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kit4.specialDmg),p);
+        // 附加真实伤害
+        acApplyDamage(target2,Math.floor(p.atk*kit4.trueDmgRatio),p,false,true);
+        // 获得30%暴击率
+        p._critRate=kit4.specialCritBuff;p._critTimer=kit4.critBuffDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'💥暴击UP!','#ff0'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'🗡️飞劈!','#0ff'));
+        acParticles.explode(target2.x,target2.y,8,'#fff',{speed:4,life:10,size:3});
+      }
+      // ═══ 格瑞 特殊技 — 160% + 100%眩晕 (30%触发) ═══
+      else if(isGerui&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kit6=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kit6.specialDmg),p);
+        target2._stunTimer=kit6.stunDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💫眩晕!','#ff0'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-20,'⚔️烈斩!','#0f0'));
+        acParticles.explode(target2.x,target2.y,8,'#00ff00',{speed:4,life:10,size:3});
+      }
+      // ═══ 埃米 特殊技 — 150% + 恢复10%HP (30%触发) ═══
+      else if(isAimi&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kit9=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kit9.specialDmg),p);
+        p.hp=Math.min(p.maxHp,p.hp+Math.floor(p.maxHp*kit9.specialHeal));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-20,'💚+'+Math.floor(p.maxHp*kit9.specialHeal*100)+'%','#3fb950'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'👿恶魔爪!','#f66'));
+        acParticles.explode(target2.x,target2.y,8,'#ff6666',{speed:4,life:10,size:3});
+      }
+      // ═══ 艾比 特殊技 — 列贯穿105% + 最后+30% (30%触发) ═══
+      else if(isAibi&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitB=p._kit;
+        var colT=acColumnTargets(target2,enemies2);
+        var last=colT[colT.length-1];
+        colT.forEach(function(e,i){
+          var dmg=Math.floor(p.atk*kitB.specialDmg);
+          if(e===last&&colT.length>1)dmg=Math.floor(dmg*(1+kitB.specialLastBonus));
+          acApplyDamage(e,dmg,p);
+        });
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-20,'🏹贯穿箭!','#ff8800'));
+        acParticles.explode(target2.x,target2.y,8,'#ffaa00',{speed:4,life:10,size:3});
+      }
+      // ═══ 金 特殊技 — 160% + 30%HP护盾 (30%触发) ═══
+      else if(isJin&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitD=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitD.specialDmg),p);
+        p._shield=Math.max(p._shield||0,Math.floor(p.maxHp*kitD.specialShield));p._shieldTimer=6;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🛡️+'+Math.floor(kitD.specialShield*100)+'%','#58a6ff'));
+        acParticles.explode(target2.x,target2.y,8,'#ffd700',{speed:4,life:10,size:3});
+      }
+      // ═══ 安莉洁 特殊技 — 两拳150% + 50%冰冻 (30%触发) ═══
+      else if(isAnlijie&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitF=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitF.specialDmg*0.5),p);
+        acApplyDamage(target2,Math.floor(p.atk*kitF.specialDmg*0.5),p);
+        if(Math.random()<kitF.specialFreeze){target2._stunTimer=kitF.freezeDur;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'❄️冰冻!','#aaddff'));}
+        acParticles.explode(target2.x,target2.y,8,'#aaddff',{speed:4,life:10,size:3});
+      }
+      // ═══ 凯莉 特殊技 — 月刃160% + 暴击率+50% (30%触发) ═══
+      else if(isKaili&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitH=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitH.specialDmg),p);
+        p._critRate+=kitH.specialCritBuff;p._critTimer=kitH.critBuffDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'💥暴击+50%','#ff0'));
+        acParticles.explode(target2.x,target2.y,8,'#ff88cc',{speed:4,life:10,size:3});
+      }
+      // ═══ 紫堂幻 特殊技 — 联合斯巴达各100% + 140%ATK护盾 (30%触发) ═══
+      else if(isZTH&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitY=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitY.specialDmg),p);
+        var mySum=acState.player.concat(acState.enemy).filter(function(x){return x._isSummon&&x._summoner===p.id&&x.alive;});
+        mySum.forEach(function(s){acApplyDamage(target2,Math.floor(s.atk*kitY.specialDmg),s);});
+        var shV=Math.floor(p.atk*kitY.specialShield);
+        p._shield=Math.max(p._shield||0,shV);p._shieldTimer=kitY.shieldDur;
+        mySum.forEach(function(s){s._shield=Math.max(s._shield||0,shV);s._shieldTimer=kitY.shieldDur;});
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'👾联合攻击!','#ff8800'));
+        acParticles.explode(target2.x,target2.y,8,'#ff8800',{speed:4,life:10,size:3});
+      }
+      // ═══ 雷狮 特殊技 — 160% + 驱散2增益 (30%触发) ═══
+      else if(isLeishi&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitM=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitM.specialDmg),p);
+        for(var di=0;di<kitM.specialDispel;di++){var d=acDispel(target2);if(d)acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20-di*12,'驱散'+d,'#0ff'));}
+        acParticles.explode(target2.x,target2.y,8,'#ffdd00',{speed:4,life:10,size:3});
+      }
+      // ═══ 帕洛斯 特殊技 — 240% + 回100怒 (30%触发) ═══
+      else if(isPaluosi&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitQ=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitQ.specialDmg),p);
+        p._rage=Math.min(p._rageMax,p._rage+kitQ.specialRage);
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'💢+100怒','#ff0'));
+        acParticles.explode(target2.x,target2.y,8,'#9966ff',{speed:4,life:10,size:3});
+      }
+      // ═══ 佩利 特殊技 — 160% + 偷1强化(最强不生效) (30%触发) ═══
+      else if(isPeili&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitS=p._kit;
+        // 找敌方最强(最高ATK), 不是最强才偷
+        var strongest=enemies2.filter(function(e){return e.alive;}).sort(function(a,b){return b.atk-a.atk;})[0];
+        if(target2!==strongest){var sb=acStealBuff(target2,p);if(sb)acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🐺偷取'+sb,'#ff6600'));}
+        acApplyDamage(target2,Math.floor(p.atk*kitS.specialDmg),p);
+        acParticles.explode(target2.x,target2.y,8,'#ff6600',{speed:4,life:10,size:3});
+      }
+      // ═══ 嘉德罗斯 特殊技 — 160% + 暴击率+50% (30%触发) ═══
+      else if(isJD&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitU=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitU.specialDmg),p);
+        p._critRate+=kitU.specialCritBuff;p._critTimer=kitU.critBuffDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'💥暴击+50%','#ff0'));
+        acParticles.explode(target2.x,target2.y,8,'#ff4444',{speed:4,life:10,size:3});
+      }
+      // ═══ 银爵 特殊技 — 整列110% + 回血20% + 免伤+15% (30%触发) ═══
+      else if(isYinjue&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitW=p._kit;
+        var colY=acColumnTargets(target2,enemies2);
+        colY.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitW.specialDmg),p);});
+        p.hp=Math.min(p.maxHp,p.hp+Math.floor(p.maxHp*kitW.specialHeal));
+        p._dmgReduc=(p._dmgReduc||0)+kitW.specialDR;p._drBuffTimer=kitW.specialDRDur;
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'💚+20% 🛡️+15%','#8888aa'));
+        acParticles.explode(target2.x,target2.y,8,'#8888aa',{speed:4,life:10,size:3});
+      }
+      // ═══ 祖玛 特殊技 — 160% + 治疗HP最低2队友ATK×120% (30%触发) ═══
+      else if(isZuma&&p._skillCd<=0&&target2&&target2.alive&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);var kitY2=p._kit;
+        acApplyDamage(target2,Math.floor(p.atk*kitY2.specialDmg),p);
+        var fTeam4=p.side==='player'?acState.player:acState.enemy;
+        var needHeal=fTeam4.filter(function(f){return f.alive&&f.hp<f.maxHp;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;});
+        needHeal.slice(0,2).forEach(function(f){var hl=Math.floor(p.atk*kitY2.specialHeal);f.hp=Math.min(f.maxHp,f.hp+hl);acFloatTexts.push(FloatingText.spawn(acCtx,f.x,f.y-20,'💚+'+hl,'#66ccaa'));});
+        acParticles.explode(target2.x,target2.y,8,'#66ccaa',{speed:4,life:10,size:3});
+      }
+      // ═══ 鬼狐 特殊技 — 吸怒至满 (30%触发) ═══
+      else if(isGuihu&&p._skillCd<=0&&Math.random()<p._kit.specialProb){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);
+        p._rage=p._rageMax;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🦊吸怒MAX!','#cc88ff'));
+        acParticles.explode(p.x,p.y,8,'#cc88ff',{speed:4,life:10,size:3});
+      }
+      // ═══ 通用技能 ═══
+      else if(target2&&target2.alive&&p._skillCd<=0&&p._skillCdMax<99&&!isAnmic&&!isKam&&!isGerui&&!isAimi&&!isAibi&&!isJin&&!isAnlijie&&!isKaili&&!isZTH&&!isLeishi&&!isPaluosi&&!isPeili&&!isJD&&!isYinjue&&!isZuma&&!isGuihu){
+        p._skillCd=p._skillCdMax*(p._skillCdMul||1);
+        var tdmg=Math.floor(p.atk*(1+Math.random()*0.5)*(p._skillAmp||1));
+        if(target2._windGod){target2._windTimer=3;target2._windGod=false;}
+        acApplyDamage(target2,tdmg,p);
+        acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-15,'⚡技能!-'+tdmg,'#f0c040'));
+        acParticles.explode(target2.x,target2.y,8,p.clr||'#ff0',{speed:4,life:12,size:4});
+      }
+      // ═══ 普通攻击 ═══
+      else if(target2&&target2.alive){
+        // 雷狮双系统: 近身→近战劈砍, 远程→闪电弹
+        if(isLeishi){var ld=acDist(p,target2);if(ld<70){acApplyDamage(target2,p.atk,p);acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),4,'#ffdd00',{speed:3,life:8,spread:20,size:2});}else{var la2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(la2),vy:Math.sin(la2),life:1.5,dmg:p.atk,from:p.side,clr:'#ffdd00',targetId:target2.id});}}
+        else if(p.range>1){
+          var a2=Math.atan2(target2.y-p.y,target2.x-p.x);
+          var proj={x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id,_multiShot:p._multiShot||0};
+          if(p._multiShot>=2){var extra=enemies2.filter(function(x){return x!==target2&&x.alive;});if(extra.length>0)proj._extraId=extra[0].id;}
+          acProjectiles.push(proj);
+          if(isAnmic){var proj2={x:p.x,y:p.y,vx:Math.cos(a2+0.05),vy:Math.sin(a2+0.05),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id};acProjectiles.push(proj2);}
+          // 凯莉: 三镖齐发
+          if(isKaili){var kh=p._kit;for(var di=0;di<kh.normalHits;di++){var a3=a2+(di-1)*0.12;acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(a3),vy:Math.sin(a3),life:1.5,dmg:Math.floor(p.atk/kh.normalHits),from:p.side,clr:'#ff88cc',targetId:target2.id});}}
+          // 卡米尔远程弹道也附真伤 (通过弹丸标记 — 简化：弹丸命中时检查)
+        }else{
+          var md2=acDist(p,target2);
+          if(md2<70){
+            if(isAnmic){acApplyDamage(target2,p.atk,p);acApplyDamage(target2,p.atk,p);}
+            else if(isKam){
+              // 卡米尔: 100%ATK普攻 + 50%真实伤害
+              acApplyDamage(target2,p.atk,p);
+              acApplyDamage(target2,Math.floor(p.atk*p._kit.trueDmgRatio),p,false,true);
+            }
+            else if(isGerui){
+              // 格瑞: 100%ATK普攻 + 连击判定
+              acApplyDamage(target2,p.atk,p);
+              var kit7=p._kit;
+              // 一段连击 30%
+              if(Math.random()<kit7.comboProb1){
+                var col1=acColumnTargets(target2,enemies2);
+                col1.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kit7.comboDmg1),p);if(Math.random()<kit7.comboStunProb){e._stunTimer=kit7.stunDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
+                acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'⚔️连击1!','#0f0'));
+                acParticles.explode(target2.x,target2.y,6,'#0f0',{speed:3,life:8,size:2});
+              }
+              // 二段连击 15%
+              if(Math.random()<kit7.comboProb2){
+                var col2=acColumnTargets(target2,enemies2);
+                col2.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kit7.comboDmg2),p);if(Math.random()<kit7.comboStunProb){e._stunTimer=kit7.stunDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
+                acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚔️连击2!','#0f0'));
+                acParticles.explode(target2.x,target2.y,8,'#0f0',{speed:4,life:10,size:3});
+              }
+            }
+            else if(isAimi){
+              // 埃米: 恶魔之手 100%ATK
+              acApplyDamage(target2,p.atk,p);
+              acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),5,'#ff6666',{speed:3,life:10,spread:25,size:3});
+            }
+            else{var dmg=p.atk;if(target2._dmgReduc>0)dmg=Math.floor(dmg*(1-target2._dmgReduc));dmg+=Math.floor(p.atk*(p._magicDmg||0));if(Math.random()<((target2._dodge||0))){dmg=0;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-20,'💨闪避!','#58a6ff'));}else{target2.hp-=dmg;target2._flash=6;acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-10,'-'+dmg,'#f44'));acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),3,p.clr||'#ff0',{speed:2,life:8,spread:30,size:2});if(target2._reflect>0){var rdmg2=Math.floor(dmg*target2._reflect);p.hp-=rdmg2;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-15,'🔁反弹!-'+rdmg2,'#f0c040'));if(p.hp<=0){p.alive=false;acParticles.explode(p.x,p.y,15,p.clr||'#f44',{speed:3,life:20,size:3});}}if(target2.hp<=0){target2.alive=false;acParticles.explode(target2.x,target2.y,12,target2.clr||'#f44',{speed:3,life:20,size:3});acShake.trigger(2,0.8);}if(p._lifesteal>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._lifesteal);}}
+          }
+          // ✨ 近战溅射(嘉德罗斯光环)
+          if(p._meleeSplash>0&&target2&&target2.alive){enemies2.forEach(function(e){if(e!==target2&&e.alive&&acDist(target2,e)<80)acApplyDamage(e,Math.floor(p.atk*p._meleeSplash),p);});}
+        }
+      }
     }
+  });
+
+  // ✨ 召唤物清理 + 紫堂幻光环 + 帕洛斯分身死亡被动
+  allPieces.forEach(function(p){
+    // 帕洛斯分身死亡被动
+    if(p._isSummon&&p._summoner&&!p.alive&&!p._deathTriggered){p._deathTriggered=true;var owner=allPieces.find(function(x){return x.id===p._summoner&&x.alive&&x._kit&&x._kit.cloneATK;});if(owner){var kitO=owner._kit;var enemyTeam=owner.side==='player'?acState.enemy:acState.player;var lowestHP=enemyTeam.filter(function(e){return e.alive;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;});if(lowestHP.length>0){var lh=lowestHP[0];var ddmg=Math.floor(p.atk*kitO.deathDmgRatio);if(lh.role==='melee'||lh.range===1)ddmg=Math.floor(ddmg*kitO.deathMeleeMulti);acApplyDamage(lh,ddmg,owner);if(lh.alive){lh._dmgRate=Math.max(0.5,lh._dmgRate-kitO.deathDebuff);acFloatTexts.push(FloatingText.spawn(acCtx,lh.x,lh.y-20,'👻弱化!','#9966ff'));}}if(owner._cloneDeathCount<3){owner._cloneDeathCount++;owner.atk=Math.floor(owner.atk*(1+kitO.atkPerCloneDeath));acFloatTexts.push(FloatingText.spawn(acCtx,owner.x,owner.y-30,'👥ATK+10%','#9966ff'));}}}
+    if(p._isSummon&&p._summoner){if(p._summonDRTimer>0){p._summonDRTimer-=dt;if(p._summonDRTimer<=0){p._dmgReduc=Math.max(0,(p._dmgReduc||0)-0.20);}}var owner=allPieces.find(function(x){return x.id===p._summoner&&x.alive;});if(!owner)p.alive=false;}
+    if(p._kit&&p._kit.ultSmallCount&&p.alive){var hasAlive=allPieces.some(function(x){return x._isSummon&&x._summoner===p.id&&x.alive;});if(hasAlive&&!p._zthAuraOn){var tm=p.side==='player'?acState.player:acState.enemy;tm.forEach(function(a){if(a.alive)a._dmgRate+=p._kit.allyDmgBuff;});p._dmgRate+=p._kit.selfExtraDmg;p._zthAuraOn=true;}else if(!hasAlive&&p._zthAuraOn){var tm2=p.side==='player'?acState.player:acState.enemy;tm2.forEach(function(a){if(a.alive)a._dmgRate-=p._kit.allyDmgBuff;});p._dmgRate-=p._kit.selfExtraDmg;p._zthAuraOn=false;}}
   });
 
   var pAlive=acState.player.filter(function(p){return p.alive;}).length;
@@ -5376,9 +6108,13 @@ function acBattleLoop(){
 
 function acRender(){
   acCtx.clearRect(0,0,800,500);
+  // ✨ 网格 + 格位Buff标记
   for(var r=0;r<4;r++){for(var c=0;c<4;c++){
     var gx=AC_OFFX+c*AC_CELL_W,gy=AC_OFFY+r*AC_CELL_H;
+    if(c<2){acCtx.fillStyle=r<2?'rgba(233,69,96,0.06)':'rgba(88,166,255,0.06)';acCtx.fillRect(gx,gy,AC_CELL_W,AC_CELL_H);}
     acCtx.strokeStyle=c<2?'rgba(88,166,255,0.2)':'rgba(233,69,96,0.2)';acCtx.lineWidth=1;acCtx.strokeRect(gx,gy,AC_CELL_W,AC_CELL_H);
+    // 格位Buff标签
+    if(c<2){acCtx.fillStyle='rgba(255,255,255,0.12)';acCtx.font='8px sans-serif';acCtx.textAlign='center';acCtx.fillText(r<2?'🔴ATK':'🔵SPD',gx+AC_CELL_W/2,gy+AC_CELL_H-4);}
   }}
   acCtx.strokeStyle='rgba(255,255,255,0.15)';acCtx.lineWidth=2;
   acCtx.beginPath();acCtx.moveTo(AC_OFFX+2*AC_CELL_W,AC_OFFY);acCtx.lineTo(AC_OFFX+2*AC_CELL_W,AC_OFFY+4*AC_CELL_H);acCtx.stroke();
@@ -5393,21 +6129,32 @@ function acRender(){
   acFloatTexts.forEach(function(ft){ft.draw(acCtx);});
   [acState.player,acState.enemy].forEach(function(team){team.forEach(function(p){
     if(!p.alive)return;if(p._flash%2===0){
-      acCtx.fillStyle=p.clr||'#58a6ff';acCtx.beginPath();acCtx.arc(p.x,p.y,20+(p._cpBond?4:0)+(p._boosted?2:0),0,Math.PI*2);acCtx.fill();
-      if(p._cpBond){acCtx.strokeStyle='#bc8cff';acCtx.lineWidth=2;acCtx.beginPath();acCtx.arc(p.x,p.y,24,0,Math.PI*2);acCtx.stroke();}
-      if(p._boosted){acCtx.strokeStyle='#f0c040';acCtx.lineWidth=1.5;acCtx.beginPath();acCtx.arc(p.x,p.y,26,0,Math.PI*2);acCtx.stroke();}
-      acCtx.fillStyle='#fff';acCtx.font='bold 14px sans-serif';acCtx.textAlign='center';acCtx.fillText(p.emoji,p.x,p.y+5);
+      // ✨ 角色圆圈 — 颜色按定位
+      var roleClr=p.role==='melee'?'#e94560':p.role==='ranged'?'#58a6ff':'#3fb950';
+      acCtx.fillStyle=p.clr||roleClr;acCtx.beginPath();acCtx.arc(p.x,p.y,20+(p._cpBond?4:0)+(p._boosted?2:0)+(p._isBoss?8:0),0,Math.PI*2);acCtx.fill();
+      // 定位边框
+      acCtx.strokeStyle=roleClr;acCtx.lineWidth=1.5;acCtx.beginPath();acCtx.arc(p.x,p.y,22,0,Math.PI*2);acCtx.stroke();
+      if(p._cpBond){acCtx.strokeStyle='#bc8cff';acCtx.lineWidth=2;acCtx.beginPath();acCtx.arc(p.x,p.y,25,0,Math.PI*2);acCtx.stroke();}
+      if(p._boosted){acCtx.strokeStyle='#f0c040';acCtx.lineWidth=1.5;acCtx.beginPath();acCtx.arc(p.x,p.y,27,0,Math.PI*2);acCtx.stroke();}
+      acCtx.fillStyle='#fff';acCtx.font='bold 14px sans-serif';acCtx.textAlign='center';acCtx.fillText(p.emoji+(p._tauntBy?'😤':'')+(p._stunTimer>0?'💫':''),p.x,p.y+5);
       var bw=36,bh=4,bx=p.x-bw/2,by=p.y-28;
+      // 护盾条 (蓝色)
+      if(p._shield>0){var shW=bw*Math.min(1,p._shield/(p.maxHp*0.8));acCtx.fillStyle='#58a6ff';acCtx.fillRect(bx,by-6,shW,bh-1);}
+      // HP条
       acCtx.fillStyle='#333';acCtx.fillRect(bx,by,bw,bh);
       acCtx.fillStyle=p.hp/p.maxHp>0.5?'#3fb950':p.hp/p.maxHp>0.25?'#f0c040':'#e94560';
       acCtx.fillRect(bx,by,bw*(p.hp/p.maxHp),bh);
+      // 怒气条 (安迷修)
+      if(p._kit&&p._kit.specialCD){var rw=bw*(p._rage/p._rageMax);acCtx.fillStyle='#ff4400';acCtx.fillRect(bx,by+bh+2,rw,2);if(p._rage>=p._rageMax){acCtx.fillStyle='#ff0';acCtx.font='bold 8px sans-serif';acCtx.fillText('💢MAX',p.x,by+bh+8);}}
       acCtx.fillStyle='rgba(255,255,255,0.6)';acCtx.font='9px sans-serif';acCtx.fillText(p.name.slice(0,2),p.x,by-4);
+      if(p._gridBuff){acCtx.fillStyle='#ff0';acCtx.font='6px sans-serif';acCtx.fillText(p._gridBuff,p.x,by-16);}
       if(p._regen>0){acCtx.fillStyle='#3fb950';acCtx.font='7px sans-serif';acCtx.fillText('+'+Math.floor(p.maxHp*p._regen)+'/s',p.x,by-12);}
     }
   });});
+  // 顶栏HUD
   acCtx.fillStyle='rgba(0,0,0,0.7)';acCtx.fillRect(0,0,800,40);
-  acCtx.fillStyle='#fff';acCtx.font='bold 16px sans-serif';acCtx.textAlign='left';acCtx.fillText('🎲 战术推演',15,28);
-  acCtx.fillStyle='#f0c040';acCtx.fillText('⏱ '+Math.floor(acState.battleTime)+'s',300,28);
+  acCtx.fillStyle='#fff';acCtx.font='bold 16px sans-serif';acCtx.textAlign='left';acCtx.fillText('🎲 战术推演 v6.12',15,28);
+  acCtx.fillStyle='#f0c040';acCtx.fillText('⏱ '+Math.floor(acState.battleTime)+'s',340,28);
   var pa=acState.player.filter(function(p){return p.alive;}).length,ea=acState.enemy.filter(function(p){return p.alive;}).length;
   acCtx.fillStyle='#58a6ff';acCtx.fillText('💙 '+pa+' vs '+ea+' ❤️',500,28);
   acCtx.fillStyle=acState.speedMul>1?'#3fb950':'#888';acCtx.fillText(acState.speedMul+'x',730,28);
