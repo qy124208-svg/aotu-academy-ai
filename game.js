@@ -5684,7 +5684,7 @@ function acBattleLoop(){
       // ═══ 安迷修 终结技 ═══
       if(isAnmic&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kit=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'💢终结技!','#ff4400'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🔥双剑·冷焰!",'#ff4400'));
         acParticles.ring(p.x,p.y,30,20,'#ff6644',{speed:5,life:22,size:3});acParticles.explode(p.x,p.y,30,'#ff4400',{speed:8,life:22,size:6});acShake.trigger(6,0.95);
         var allEnemies=enemies2.filter(function(e){return e.alive;});
         var hitCount=0;
@@ -5703,7 +5703,7 @@ function acBattleLoop(){
       // ═══ 卡米尔 终结技 ═══
       else if(isKam&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;p._ultCount++;var kit3=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🗡️飞劈!','#ff0'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🗡️无重力·飞劈!",'#ffffff'));
         acUltFX(p,'#fff','#ccccff',22);
         // 驱散1个强化
         var disp=acDispel(target2);if(disp)acFloatTexts.push(FloatingText.spawn(acCtx,target2.x,target2.y-25,'驱散'+disp,'#0ff'));
@@ -5720,7 +5720,7 @@ function acBattleLoop(){
       // ═══ 格瑞 终结技 — 整列280% + 70%眩晕 + ATK+20% ═══
       else if(isGerui&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kit5=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚔️烈斩·终!','#0f0'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"⚔️烈斩·终!",'#00ff00'));
         acUltFX(p,'#00ff00','#88ff88',28);
         var colTgts=acColumnTargets(target2,enemies2);
         colTgts.forEach(function(e){
@@ -5734,7 +5734,7 @@ function acBattleLoop(){
       // ═══ 埃米 终结技 — 190% + 嘲讽全体 + 30%HP护盾 + 25%反伤 ═══
       else if(isAimi&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kit8=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👿恶魔之爪!','#ff4400'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"👿恶魔之爪·狂乱!",'#ff6666'));
         acUltFX(p,'#ff6666','#ffaaaa',30);
         // 多段打击(模拟3段)
         for(var hi=0;hi<3;hi++){acApplyDamage(target2,Math.floor(p.atk*kit8.ultDmg/3),p);}
@@ -5751,7 +5751,7 @@ function acBattleLoop(){
       // ═══ 艾比 终结技 — 12箭随机单体 × 32% ATK ═══
       else if(isAibi&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitA=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🏹箭雨!','#ff8800'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🏹天使之弓·箭雨!",'#ffaa00'));
         acUltFX(p,'#ffaa00','#ffdd88',20);
         var liveEnemies=enemies2.filter(function(e){return e.alive;});
         for(var ai=0;ai<kitA.ultArrows;ai++){
@@ -5763,7 +5763,7 @@ function acBattleLoop(){
       // ═══ 金 终结技 — 420%单体 + 半血+20% + 击杀回300怒 ═══
       else if(isJin&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitC=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⭐矢量冲击!','#ffd700'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"⭐矢量箭头·冲击!",'#ffd700'));
         acUltFX(p,'#ffd700','#ffff88',24);
         var jUltDmg=kitC.ultDmg;
         if(target2.hp<target2.maxHp*kitC.ultLowHPThresh)jUltDmg+=kitC.ultLowHPBonus;
@@ -5773,7 +5773,7 @@ function acBattleLoop(){
       // ═══ 安莉洁 终结技 — 全体195% + 25%寒冷(降ATK10%) + 冰晶护盾 ═══
       else if(isAnlijie&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitE=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'❄️冰霜结界!','#88ccff'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"❄️冰霜结界·永冻!",'#aaddff'));
         acUltFX(p,'#aaddff','#ddeeff',22);
         var allE=enemies2.filter(function(e){return e.alive;});
         var coldCount=0;
@@ -5789,7 +5789,7 @@ function acBattleLoop(){
       // ═══ 凯莉 终结技 — 整列280% + 每命中+17%暴击率 ═══
       else if(isKaili&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitG=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🌙星月刃!','#ff88cc'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🌙星月刃·斩!",'#ff88cc'));
         acUltFX(p,'#ff88cc','#ffccee',22);
         var colK=acColumnTargets(target2,enemies2);
         colK.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitG.ultDmg),p);p._critRate+=kitG.ultCritPerHit;});
@@ -5805,12 +5805,12 @@ function acBattleLoop(){
           var bigS=acSpawnSummon(p,kitZ.ultBigHP,kitZ.ultBigAtk,kitZ.ultBigDef,p.side,'大斯巴达','👹');
           bigS._dmgReduc=kitZ.summonDR;bigS._summonDRTimer=kitZ.summonDRDur;
           var bt=acFindTarget(bigS,enemies2);if(bt)acApplyDamage(bt,bigS.atk,bigS);
-          acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👹大斯巴达!','#ff6600'));
+          acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"👹召唤·大斯巴达!",'#ff6600'));
           acUltFX(p,'#ff6600','#ffaa66',22);
           acShake.trigger(5,0.9);
         }else{
           // 召唤3小斯巴达
-          acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👾召唤斯巴达!','#ff8800'));
+          acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"👾召唤·小斯巴达!",'#ff8800'));
           acUltFX(p,'#ff8800','#ffcc88',18);
           for(var zi=0;zi<kitZ.ultSmallCount;zi++){
             var smallS=acSpawnSummon(p,kitZ.ultSmallHP,kitZ.ultSmallAtk,kitZ.ultSmallDef,p.side,'小斯巴达'+zi,'👾');
@@ -5824,7 +5824,7 @@ function acBattleLoop(){
         p._rage=0;var kitL=p._kit;
         // ATK+20% 持续2回合
         p.atk=Math.floor(p.atk*(1+kitL.ultAtkBuff));p._atkBuffTimer=kitL.ultBuffDur;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'⚡雷神之锤!','#ffdd00'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"⚡雷神之锤·放电!",'#ffdd00'));
         acUltFX(p,'#ffdd00','#ffee88',28);
         // 中心十字目标: 自身 + 上下左右
         var crossTgts=[target2];
@@ -5844,7 +5844,7 @@ function acBattleLoop(){
       // ═══ 帕洛斯 终结技 — 分身铺满全场 (120%ATK/0%防/50%HP) ═══
       else if(isPaluosi&&p._rage>=p._rageMax){
         p._rage=0;var kitP=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'👥暗影分身!','#9966ff'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"👥暗影使者·分身!",'#9966ff'));
         acUltFX(p,'#9966ff','#ccbbff',24);
         var pTeam=p.side==='player'?acState.player:acState.enemy;
         var sideCols=p.side==='player'?[0,1]:[2,3];
@@ -5856,7 +5856,7 @@ function acBattleLoop(){
       // ═══ 佩利 终结技 — 全体230% + 重力(ATK-15%/伤害率-15%) ═══
       else if(isPeili&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitR=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🐺重力球!','#ff6600'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🐺重力球·压制!",'#ff6600'));
         acUltFX(p,'#ff6600','#ff9966',26);
         var allE2=enemies2.filter(function(e){return e.alive;});
         allE2.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitR.ultDmg),p);e._atkDebuff=Math.max(e._atkDebuff||0,kitR.gravityATKDebuff);e._atkDebuffTimer=kitR.gravityDur;e._gravityDebuff=kitR.gravityDmgDebuff;e._gravityTimer=kitR.gravityDur;e._dmgRate=Math.max(0.5,e._dmgRate-kitR.gravityDmgDebuff);acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'🌑重力!','#ff6600'));});
@@ -5864,7 +5864,7 @@ function acBattleLoop(){
       // ═══ 嘉德罗斯 终结技 — 全体230% + 30%眩晕最多3人 ═══
       else if(isJD&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitT=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🔥大罗神通棍!','#ff4444'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🔥大罗神通棍·碎!",'#ff4444'));
         acUltFX(p,'#ff4444','#ff8888',30);
         var allE3=enemies2.filter(function(e){return e.alive;});var stunCount=0;
         allE3.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitT.ultDmg),p);if(Math.random()<kitT.ultStunProb&&stunCount<kitT.ultStunMax){e._stunTimer=kitT.ultStunDur;stunCount++;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
@@ -5872,7 +5872,7 @@ function acBattleLoop(){
       // ═══ 银爵 终结技 — 全体210% + 20%眩晕 + 友方护盾 ═══
       else if(isYinjue&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitV=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🔗锁链束缚!','#8888aa'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🔗锁链束缚·定身!",'#8888aa'));
         acUltFX(p,'#8888aa','#ccccdd',20);
         var allE4=enemies2.filter(function(e){return e.alive;});
         allE4.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitV.ultDmg),p);if(Math.random()<kitV.ultStunProb){e._stunTimer=kitV.ultStunDur;acFloatTexts.push(FloatingText.spawn(acCtx,e.x,e.y-20,'💫眩晕!','#ff0'));}});
@@ -5884,7 +5884,7 @@ function acBattleLoop(){
       // ═══ 祖玛 终结技 — 全体恢复ATK×210% + 免伤+15% + 强袭/影刃+30% ═══
       else if(isZuma&&p._rage>=p._rageMax){
         p._rage=0;var kitX=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'💨风之治愈!','#66ccaa'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"💨风之巨剑·治愈!",'#66ccaa'));
         acUltFX(p,'#66ccaa','#aaeecc',20);
         var fTeam3=p.side==='player'?acState.player:acState.enemy;
         fTeam3.forEach(function(f){if(f.alive){var heal=Math.floor(p.atk*kitX.ultHeal);var isStriker=f.role==='melee'||f.range===1;if(isStriker)heal=Math.floor(heal*(1+kitX.classHealBonus));f.hp=Math.min(f.maxHp,f.hp+heal);f._dmgReduc=(f._dmgReduc||0)+kitX.ultDR;f._zumaDRTimer=kitX.ultDRDur;acFloatTexts.push(FloatingText.spawn(acCtx,f.x,f.y-25,'💚+'+heal+(isStriker?'⚡':'')+' 🛡️','#66ccaa'));}});
@@ -5892,7 +5892,7 @@ function acBattleLoop(){
       // ═══ 鬼狐 终结技 — 全体220% + 随机降怒+最强降怒 ═══
       else if(isGuihu&&p._rage>=p._rageMax&&target2&&target2.alive){
         p._rage=0;var kitZ2=p._kit;
-        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,'🦊技能复制!','#cc88ff'));
+        acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-30,"🦊技能复制·镜像!",'#cc88ff'));
         acUltFX(p,'#cc88ff','#eeccee',22);
         var allE5=enemies2.filter(function(e){return e.alive;});
         allE5.forEach(function(e){acApplyDamage(e,Math.floor(p.atk*kitZ2.ultDmg),p);});
