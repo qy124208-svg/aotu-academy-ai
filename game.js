@@ -5208,56 +5208,56 @@ const AC_HERO_KITS={
     baseBlock:0.25,baseDR:0.20,debuffAmt:0.15,debuffDur:6,tauntDur:3,
     shieldPerHit:0.20,shieldMax:0.80,rageOnHit:50},
   // 卡米尔 — 刺客
-  kamier:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialCritBuff:0.30,critBuffDur:6,
+  kamier:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialCritBuff:0.30,critBuffDur:6,
     ultDmg:4.8,stunDur:3,ultDebuff:0.20,debuffDur:3,ultPierce:0.5,ultDmgBonus:0.10,
     trueDmgRatio:0.50,critDmg:1.5},
   // 格瑞 — 战士
-  gerui:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialStun:1.0,
+  gerui:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialStun:1.0,
     ultDmg:2.8,ultStun:0.70,ultAtkBuff:0.20,
     comboProb1:0.30,comboProb2:0.15,comboDmg1:1.5,comboDmg2:1.0,
     comboStunProb:0.35,stunDur:3,atkBuff:0.20},
   // 埃米 — 半坦
-  aimi:{specialCD:7,specialDmg:1.5,specialProb:0.30,specialHeal:0.10,
+  aimi:{specialCD:7,specialDmg:1.5,specialProb:0.50,specialHeal:0.10,
     ultDmg:1.9,ultTauntDur:3,ultShield:0.30,ultReflect:0.25,reflectDur:6,
     passiveDR:0.20,hpThreshold:0.5},
   // 艾比 — 成长射
-  aibi:{specialCD:7,specialDmg:1.05,specialProb:0.30,specialLastBonus:0.30,
+  aibi:{specialCD:7,specialDmg:1.05,specialProb:0.50,specialLastBonus:0.30,
     ultArrows:12,ultDmgPer:0.32,
     killAtkBuff:0.05,killPierceBuff:0.05,maxKillStacks:3},
   // 金 — 收割射
-  jin:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialShield:0.30,
+  jin:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialShield:0.30,
     ultDmg:4.2,ultKillRage:300,ultLowHPBonus:0.20,ultLowHPThresh:0.50,
     highHPDmgBuff:0.20,lowHPDRBuff:0.20,hpThreshold:0.60},
   // 安莉洁 — 辅助
-  anlijie:{specialCD:7,specialDmg:1.5,specialProb:0.30,specialFreeze:0.50,freezeDur:3,
+  anlijie:{specialCD:7,specialDmg:1.5,specialProb:0.50,specialFreeze:0.50,freezeDur:3,
     ultDmg:1.95,ultColdProb:0.25,ultColdMax:2,ultColdAtkDebuff:0.10,coldDur:3,
     passiveShieldRatio:0.80,passiveShieldDur:3,passiveTargets:2},
   // 凯莉 — 暴击射
-  kaili:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialCritBuff:0.50,critBuffDur:6,
+  kaili:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialCritBuff:0.50,critBuffDur:6,
     ultDmg:2.8,ultCritPerHit:0.17,
     dmgRatePerHit:0.09,baseCritDmgBonus:0.25,normalHits:3},
   // 鬼狐 — 怒气
-  guihu:{specialCD:7,specialRageSteal:300,specialProb:0.30,
+  guihu:{specialCD:7,specialRageSteal:300,specialProb:0.50,
     ultDmg:2.20,ultRageDrain:300,ultStrongDrain:200,rageRateBuff:0.25},
   // 祖玛 — 治疗
-  zuma:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialHeal:1.20,
+  zuma:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialHeal:1.20,
     ultHeal:2.10,ultDR:0.15,ultDRDur:6,classHealBonus:0.30,dmgAura:0.15,jdBonus:0.05},
-  yinjue:{specialCD:7,specialDmg:1.1,specialProb:0.30,specialHeal:0.20,specialDR:0.15,specialDRDur:3,
+  yinjue:{specialCD:7,specialDmg:1.1,specialProb:0.50,specialHeal:0.20,specialDR:0.15,specialDRDur:3,
     ultDmg:2.1,ultStunProb:0.20,ultStunDur:3,ultShield:0.20,
     reflectAura:0.50,hpPerMelee:0.05,maxHPStacks:5},
-  jiadeluosi:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialCritBuff:0.50,critBuffDur:6,
+  jiadeluosi:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialCritBuff:0.50,critBuffDur:6,
     ultDmg:2.3,ultStunProb:0.30,ultStunMax:3,ultStunDur:3,
     meleeDmgPerStack:0.03,meleeSplashPerStack:0.03,maxStacks:5,selfDouble:true},
-  peili:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialSteal:1,
+  peili:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialSteal:1,
     ultDmg:2.3,gravityATKDebuff:0.15,gravityDmgDebuff:0.15,gravityDur:6},
-  paluosi:{specialCD:7,specialDmg:2.4,specialProb:0.30,specialRage:100,
+  paluosi:{specialCD:7,specialDmg:2.4,specialProb:0.50,specialRage:100,
     cloneATK:1.20,cloneDEF:0,cloneHP:0.50,
     deathDmgRatio:1.0,deathMeleeMulti:2.0,deathDebuff:0.10,deathDebuffDur:6,deathDebuffMax:3,
     atkPerCloneDeath:0.10,atkMaxFromDeaths:0.30},
-  leishi:{specialCD:7,specialDmg:1.6,specialProb:0.30,specialDispel:2,
+  leishi:{specialCD:7,specialDmg:1.6,specialProb:0.50,specialDispel:2,
     ultDmg:2.6,ultAtkBuff:0.20,ultBuffDur:6,ultRageSteal:60,ultOverflowBonus:0.10,ultMaxBonus:0.30,
     defPierce:0.25,allyRageBuff:0.20,enemyRageDebuff:0.20},
-  zitanghuan:{specialCD:7,specialDmg:1.0,specialProb:0.30,specialShield:1.40,shieldDur:6,
+  zitanghuan:{specialCD:7,specialDmg:1.0,specialProb:0.50,specialShield:1.40,shieldDur:6,
     ultSmallCount:3,ultSmallAtk:0.60,ultSmallDef:0.60,ultSmallHP:0.30,
     ultBigAtk:1.20,ultBigDef:1.20,ultBigHP:0.80,
     summonDR:0.20,summonDRDur:9,allyDmgBuff:0.15,selfExtraDmg:0.15},
@@ -7049,7 +7049,7 @@ function acBattleLoop(){
       // ═══ 普通攻击 ═══
       else if(target2&&target2.alive){
         // 雷狮双系统: 近身→近战劈砍, 远程→闪电弹
-        if(isLeishi){var ld=acDist(p,target2);if(ld<70){acApplyDamage(target2,p.atk,p);acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),4,'#ffdd00',{speed:3,life:8,spread:20,size:2});}else{var la2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(la2),vy:Math.sin(la2),life:1.5,dmg:p.atk,from:p.side,clr:'#ffdd00',targetId:target2.id,_attacker:p});}}
+        if(isLeishi){var ld=acDist(p,target2);if(ld<70){acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,"⚡雷斩","#cc88ff"));acApplyDamage(target2,p.atk,p);acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),4,'#ffdd00',{speed:3,life:8,spread:20,size:2});}else{var la2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(la2),vy:Math.sin(la2),life:1.5,dmg:p.atk,from:p.side,clr:'#ffdd00',targetId:target2.id,_attacker:p});}}
         else if(p.range>1){
           var a2=Math.atan2(target2.y-p.y,target2.x-p.x);
           var proj={x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id,_multiShot:p._multiShot||0,_attacker:p};
@@ -7062,7 +7062,7 @@ function acBattleLoop(){
         }else{
           var md2=acDist(p,target2);
           if(md2<70){
-            if(isAnmic){acApplyDamage(target2,p.atk,p);acApplyDamage(target2,p.atk,p);}
+            if(isAnmic){acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,"⚔️双斩","#ffaa00"));acApplyDamage(target2,p.atk,p);acApplyDamage(target2,p.atk,p);}
             else if(isKam){
               // 卡米尔: 100%ATK普攻 + 50%真实伤害
               acApplyDamage(target2,p.atk,p);
