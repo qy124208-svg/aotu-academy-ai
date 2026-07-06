@@ -6218,7 +6218,7 @@ function acPrepRender(app){
       h+='</div>';
     }
     // 我方放完→直接自动部署敌人并开战
-    if(curPlaced===5&&!isEnemyPhase){h+='<div style="text-align:center;margin-top:8px"><button class="btn btn-p pulse" onclick="window._acEnemyAutoDeploy();setTimeout(function(){window._acStart();},200);">⚔️ 我方完成 → 自动开战 ▸</button></div>';}
+    if(curPlaced===5&&!isEnemyPhase){h+='<div style="text-align:center;margin-top:8px"><button class="btn btn-p pulse" onclick="window._acEnemyAutoDeploy();">⚔️ 我方完成 → 自动开战 ▸</button></div>';}
     h+='</div>';
   }
   // 全放完才能开战
@@ -6282,8 +6282,9 @@ window._acEnemyAutoDeploy=function(){
     slots[si]=id;
   });
   window._acEnemySlots=slots;
-  window._acLastMsg='✅ 敌方已自动部署最佳阵型';
-  acPrepRender(document.getElementById('app'));
+  window._acLastMsg='✅ 敌方已自动部署';
+  // 直接启动战斗
+  setTimeout(function(){window._acStart();},100);
 };
 window._acPickArtifact=function(){
   var karma=loadKarma();if(window._acArtifact){window._acLastMsg='已有道具: '+window._acArtifact.n;acPrepRender(document.getElementById('app'));return;}
