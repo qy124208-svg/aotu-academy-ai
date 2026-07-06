@@ -5545,9 +5545,11 @@ function _dreamSubscribe(){
       })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'dm_messages'},function(payload){
         if(window._dreamUser&&payload.new.receiver_id===window._dreamUser.id){
-          // 有新私信！如果在聊天窗口就刷新
           if(window._dreamState._chatWith===payload.new.sender_id)window._dreamChat(payload.new.sender_id);
         }
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications'},function(payload){
+        if(window._dreamUser&&payload.new.user_id===window._dreamUser.id)_dreamUpdateNotifBadge();
       })
       .subscribe();
   }catch(e){_dreamChannel=null;}
@@ -5584,6 +5586,9 @@ function _dreamRender(app){
     h+='<span style="color:'+id.color+'">✨ '+id.name+'</span> ';
     h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
     h+='<button class="btn btn-xs" onclick="window._dreamInbox()" style="font-size:0.65em;color:var(--blue)">💬 私信</button> ';
+    h+='<button class="btn btn-xs" onclick="window._dreamNotifications()" id="notifBell" style="font-size:0.65em;color:var(--purple)">🔔</button> ';
+    _dreamUpdateNotifBadge();
+    h+=' ';
     h+='<button class="btn btn-xs" onclick="window._dreamLogout()" style="font-size:0.65em;color:#e94560">退出</button>';
   }else{
     h+='👤 未登录 ';
@@ -5680,7 +5685,12 @@ window._dreamLike=async function(dreamId){
   try{
     var exist=await supabase.from('dream_likes').select('id').eq('dream_id',dreamId).eq('user_fingerprint',fp).maybeSingle();
     if(exist.data){await supabase.from('dream_likes').delete().eq('id',exist.data.id);}
-    else{await supabase.from('dream_likes').insert({dream_id:dreamId,user_fingerprint:fp});}
+    else{
+      await supabase.from('dream_likes').insert({dream_id:dreamId,user_fingerprint:fp});
+      // 通知帖主
+      var dr=await supabase.from('dreams').select('user_id').eq('id',dreamId).single();
+      if(dr.data&&dr.data.user_id&&window._dreamUser)await _dreamNotify(dr.data.user_id,'like',(window._dreamUser.email||'用户').split('@')[0]+' 赞了你',null);
+    }
     _dreamLoadPosts(document.getElementById('app'));
   }catch(e){}
 };
@@ -5730,6 +5740,9 @@ window._dreamPostComment=async function(dreamId){
     var row={dream_id:dreamId,author_name:name,content:content,author_emoji:id.emoji,author_color:id.color};
     if(id.user_id)row.user_id=id.user_id;
     await supabase.from('dream_comments').insert(row);
+    // 通知帖主
+    var dr=await supabase.from('dreams').select('user_id').eq('id',dreamId).single();
+    if(dr.data&&dr.data.user_id&&window._dreamUser&&dr.data.user_id!==window._dreamUser.id)_dreamNotify(dr.data.user_id,'comment',(window._dreamUser.email||'用户').split('@')[0]+' 评论了你的帖子',"window._dreamView("+dreamId+")");
     window._dreamView(dreamId);
   }catch(e){alert('评论失败');}
 };
@@ -5878,7 +5891,8 @@ window._dreamSendDM=async function(partnerId){
   var content=document.getElementById('dmInput').value.trim();
   if(!content)return;
   try{
-    await supabase.from('dm_messages').insert({sender_id:window._dreamUser.id,receiver_id:partnerId,content:content});
+    var ins=await supabase.from('dm_messages').insert({sender_id:window._dreamUser.id,receiver_id:partnerId,content:content}).select().single();
+    if(window._dreamUser)_dreamNotify(partnerId,'dm',(window._dreamUser.email||'用户').split('@')[0]+' 给你发了私信',"window._dreamChat('"+window._dreamUser.id+"')");
     document.getElementById('dmInput').value='';
     window._dreamChat(partnerId);
   }catch(e){alert('发送失败');}
@@ -5889,6 +5903,39 @@ window._dreamStartChat=function(userId){
   if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
   if(userId===window._dreamUser.id){alert('不能给自己发私信');return;}
   window._dreamChat(userId);
+};
+
+// 🔔 通知系统
+async function _dreamNotify(userId,type,message,link){
+  if(!supabase||!userId)return;
+  try{await supabase.from('notifications').insert({user_id:userId,type:type,message:message,link:link});}catch(e){}
+}
+async function _dreamUpdateNotifBadge(){
+  if(!window._dreamUser||!supabase)return;
+  try{var r=await supabase.from('notifications').select('*',{count:'exact'}).eq('user_id',window._dreamUser.id).eq('is_read',false);var c=r.count||0;var el=document.getElementById('notifBell');if(el)el.textContent='🔔'+(c>0?c:'');}catch(e){}
+}
+window._dreamNotifications=async function(){
+  if(!window._dreamUser||!supabase)return;
+  var app=document.getElementById('app');
+  try{
+    var r=await supabase.from('notifications').select('*').eq('user_id',window._dreamUser.id).order('created_at',{ascending:false}).limit(30);
+    var unreadIds=[];
+    if(r.data)r.data.forEach(function(n){if(!n.is_read)unreadIds.push(n.id);});
+    if(unreadIds.length>0)await supabase.from('notifications').update({is_read:true}).in('id',unreadIds);
+    var h='<div style="max-width:600px;margin:0 auto;padding:10px">';
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button>';
+    h+='<h3 style="color:var(--purple);margin:10px 0">🔔 通知</h3>';
+    if(!r.data||r.data.length===0)h+='<p style="color:var(--dim);text-align:center;padding:30px">暂无通知</p>';
+    else r.data.forEach(function(n){
+      h+='<div class="panel" style="padding:10px;margin:4px 0;'+(n.is_read?'':'border-left:3px solid var(--purple)')+'"';
+      if(n.link)h+=' onclick="'+n.link+'" style="cursor:pointer"';
+      h+='><span style="font-size:0.8em">'+(n.type==='like'?'❤️':n.type==='comment'?'💬':n.type==='dm'?'📩':'🔔')+' '+n.message+'</span>';
+      h+='<span style="font-size:0.6em;color:var(--dim);float:right">'+_timeAgo(n.created_at)+'</span></div>';
+    });
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回</button></div>';
+    app.innerHTML=h;
+    _dreamUpdateNotifBadge();
+  }catch(e){}
 };
 
 // 工具
