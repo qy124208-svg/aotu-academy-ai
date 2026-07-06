@@ -83,9 +83,7 @@ body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:var(--bg)
 <script>
 var SUPABASE_URL = 'https://ircabforurlovrpbvbas.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_qdMz_emErZvhUvLAT1hv-w_R2JL6jIY';
-var supabase = null;
-try{ supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
-catch(e){ console.log('论坛暂不可用'); }
+var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <!-- 引擎模块 (Babylon.js GUI 架构移植 + game-master Java 引擎移植) -->
 <script src="engine/timer.js?v=20260703"></script>
