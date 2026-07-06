@@ -5264,7 +5264,7 @@ const AC_HERO_KITS={
 };
 
 function acMakePiece(ch,aff,side,homeX,homeY,gridRow){
-  var hp=25+Math.floor(aff/3),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.05,spd=2+aff*0.05;
+  var hp=50+aff,atk=3+Math.floor((G.attr.STR||5)/5)+aff*0.02,spd=2+aff*0.05;
   var arch=AC_ARCHETYPES[ch.id]||{range:1,role:'melee'};
   var sk=BATTLE_CHAR_SKILLS[ch.id];var scd=(sk?3+Math.random()*5:99);
   var kit=AC_HERO_KITS[ch.id]||{};
@@ -6527,7 +6527,7 @@ Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
-  if(acState.over||acState._frameCount>8000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
+  if(acState.over||acState._frameCount>20000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
@@ -7111,7 +7111,7 @@ function acBattleLoop(){
 
   var pAlive=acState.player.filter(function(p){return p.alive;}).length;
   var eAlive=acState.enemy.filter(function(p){return p.alive;}).length;
-  if(pAlive===0||eAlive===0||acState.battleTime>120){acState.over=true;acState.winner=pAlive>0?'player':(eAlive>0?'enemy':'draw');}
+  if(pAlive===0||eAlive===0||acState.battleTime>300){acState.over=true;acState.winner=pAlive>0?'player':(eAlive>0?'enemy':'draw');}
   acRender();
   if(!acState.over)acAnim=requestAnimationFrame(acBattleLoop);
   else{acParticles.clear();var ub2=document.getElementById('ultBg');if(ub2)ub2.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);}
