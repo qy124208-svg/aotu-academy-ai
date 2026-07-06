@@ -3778,6 +3778,7 @@ function renderEvening(app){
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-p" onclick="window._restSleep()" style="border-color:var(--green)">🛌 好好休息（体力 +20~30）</button>
       <button class="btn btn-s" onclick="window._diary()" style="border-color:var(--purple);color:var(--purple)">📓 写日记（精神 +2~4 · 体力 -8~12）</button>
+      <button class="btn btn-s" onclick="window._openGoodDream()" style="border-color:var(--gold);color:var(--gold)">🌙 好梦论坛</button>
     </div></div>`);
 }
 
@@ -5421,6 +5422,151 @@ window._acImportIcon=function(chId){
   inp.click();
 };
 window._acClearIcon=function(chId){delete window._acCustomIcons[chId];acPrepRender(document.getElementById('app'));};
+
+// ─── 战前准备阶段 ───
+// ═══════════════════════════════════════
+// 🌙 好梦论坛系统 (Supabase驱动)
+// ═══════════════════════════════════════
+window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
+window._dreamFp=localStorage._dreamFp||(function(){var fp='fp_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage._dreamFp=fp;return fp;})();
+
+// 🌙 打开好梦论坛
+window._openGoodDream=function(){
+  var app=document.getElementById('app');
+  window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
+  _dreamLoadPosts(app);
+};
+
+// 加载留言列表
+async function _dreamLoadPosts(app){
+  if(!supabase){app.innerHTML='<div style="text-align:center;padding:40px"><h3>🌙 好梦论坛</h3><p style="color:var(--dim)">论坛功能需要配置 Supabase</p><p style="color:var(--dim);font-size:0.8em">请先在 supabase.com 创建免费项目<br>然后将 URL 和 Key 填入 index.html</p><button class="btn btn-s" onclick="window._goBack()">返回</button></div>';return;}
+  app.innerHTML='<div style="text-align:center;padding:20px"><h3>🌙 正在加载好梦...</h3></div>';
+  var state=window._dreamState;
+  try{
+    var r=await supabase.from('dreams').select('*',{count:'exact'}).eq('is_deleted',false).order('created_at',{ascending:false}).range(state.page*state.pageSize,(state.page+1)*state.pageSize-1);
+    if(r.error)throw r.error;
+    state.posts=r.data||[];state.total=r.count||0;
+    _dreamRender(app);
+  }catch(e){app.innerHTML='<div style="text-align:center;padding:40px"><h3>🌙 好梦论坛</h3><p style="color:#e94560">加载失败: '+e.message+'</p><button class="btn btn-s" onclick="window._openGoodDream()">重试</button><button class="btn btn-s" onclick="window._goBack()">返回</button></div>';}
+}
+
+// 渲染论坛主页
+function _dreamRender(app){
+  var state=window._dreamState;
+  if(state.viewing){_dreamRenderComments(app);return;}
+  var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
+  h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
+  h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页</p>';
+  // 发布框
+  h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...（不超过500字）" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
+  h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center">';
+  h+='<input id="dreamName" placeholder="昵称" maxlength="10" style="width:100px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em" value="'+_getSavedName()+'">';
+  h+='<button class="btn btn-p" onclick="window._dreamPost()" style="font-size:0.8em;padding:6px 14px">✨ 发布</button>';
+  h+='<span style="font-size:0.7em;color:var(--dim);margin-left:auto">💡 友善交流，共享好梦</span></div></div>';
+  // 留言列表
+  if(!state.posts||state.posts.length===0){h+='<div style="text-align:center;color:var(--dim);padding:30px">💤 还没有人留言…来做第一个说梦话的人吧！</div>';}
+  else{
+    state.posts.forEach(function(p){
+      var ago=_timeAgo(p.created_at);
+      h+='<div class="panel" style="margin:8px 0;padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+      h+='<span style="font-size:0.85em"><b style="color:'+(p.author_color||'#888')+'">'+(p.author_emoji||'😶')+' '+(p.author_name||'匿名')+'</b></span>';
+      h+='<span style="font-size:0.65em;color:var(--dim)">'+ago+'</span></div>';
+      h+='<div style="font-size:0.9em;line-height:1.5;margin:6px 0;color:var(--text)">'+_escapeHtml(p.content)+'</div>';
+      h+='<div style="display:flex;gap:12px;font-size:0.75em;color:var(--dim);margin-top:6px">';
+      h+='<span onclick="window._dreamLike('+p.id+')" style="cursor:pointer;user-select:none">❤️ '+p.likes_count+'</span>';
+      h+='<span onclick="window._dreamView('+p.id+')" style="cursor:pointer;user-select:none">💬 '+p.comments_count+'</span></div></div>';
+    });
+  }
+  // 翻页
+  h+='<div style="display:flex;gap:8px;justify-content:center;margin:12px 0">';
+  if(state.page>0)h+='<button class="btn btn-s" onclick="window._dreamPage('+(state.page-1)+')">◀ 上一页</button>';
+  if((state.page+1)*state.pageSize<state.total)h+='<button class="btn btn-s" onclick="window._dreamPage('+(state.page+1)+')">下一页 ▶</button>';
+  h+='</div>';
+  h+='<div style="text-align:center;margin:16px"><button class="btn btn-s" onclick="window._goBack()">返回游戏</button></div></div>';
+  app.innerHTML=h;
+}
+
+// 发布留言
+window._dreamPost=async function(){
+  if(!supabase)return;
+  var content=document.getElementById('dreamInput').value.trim();
+  if(!content){alert('请写下你的梦话~');return;}
+  var name=document.getElementById('dreamName').value.trim()||'匿名学生';
+  localStorage._dreamName=name;
+  var state=window._dreamState;
+  try{
+    var r=await supabase.from('dreams').insert({author_name:name,content:content,author_emoji:_randomEmoji(),author_color:_randomColor()}).select().single();
+    if(r.error)throw r.error;
+    state.page=0;_dreamLoadPosts(document.getElementById('app'));
+  }catch(e){alert('发布失败: '+e.message);}
+};
+
+// 点赞/取消
+window._dreamLike=async function(dreamId){
+  if(!supabase)return;
+  var fp=window._dreamFp;
+  try{
+    var exist=await supabase.from('dream_likes').select('id').eq('dream_id',dreamId).eq('user_fingerprint',fp).maybeSingle();
+    if(exist.data){await supabase.from('dream_likes').delete().eq('id',exist.data.id);}
+    else{await supabase.from('dream_likes').insert({dream_id:dreamId,user_fingerprint:fp});}
+    _dreamLoadPosts(document.getElementById('app'));
+  }catch(e){}
+};
+
+// 查看评论
+window._dreamView=async function(dreamId){
+  var state=window._dreamState;
+  if(!supabase)return;
+  try{
+    var dr=await supabase.from('dreams').select('*').eq('id',dreamId).single();
+    if(dr.error)throw dr.error;
+    state.viewing=dr.data;
+    var cr=await supabase.from('dream_comments').select('*').eq('dream_id',dreamId).eq('is_deleted',false).order('created_at',{ascending:true});
+    state.comments=cr.data||[];
+    state.commentPage=0;
+    _dreamRender(document.getElementById('app'));
+  }catch(e){alert('加载评论失败');}
+};
+
+// 渲染评论页
+function _dreamRenderComments(app){
+  var state=window._dreamState,p=state.viewing;
+  var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
+  h+='<button class="btn btn-s" onclick="window._dreamState.viewing=null;window._dreamState.comments=[];_dreamLoadPosts(document.getElementById(\'app\'))" style="margin-bottom:8px">← 返回列表</button>';
+  h+='<div class="panel" style="padding:12px"><div style="font-size:0.85em"><b style="color:'+(p.author_color||'#888')+'">'+(p.author_emoji||'')+' '+(p.author_name||'匿名')+'</b> <span style="color:var(--dim);font-size:0.65em">'+_timeAgo(p.created_at)+'</span></div>';
+  h+='<div style="font-size:0.9em;line-height:1.5;margin:8px 0">'+_escapeHtml(p.content)+'</div></div>';
+  h+='<div style="font-size:0.8em;color:var(--gold);margin:8px 0">💬 评论 ('+state.comments.length+')</div>';
+  // 评论列表
+  if(state.comments.length===0)h+='<div style="color:var(--dim);text-align:center;padding:15px">还没有评论</div>';
+  else{state.comments.forEach(function(c){h+='<div style="background:var(--card);border-radius:8px;padding:8px 10px;margin:4px 0"><span style="font-size:0.75em;color:'+(c.author_color||'#888')+'">'+(c.author_emoji||'')+' '+(c.author_name||'匿名')+'</span> <span style="font-size:0.6em;color:var(--dim)">'+_timeAgo(c.created_at)+'</span><div style="font-size:0.8em;margin-top:3px">'+_escapeHtml(c.content)+'</div></div>';});}
+  // 发布评论
+  h+='<div style="display:flex;gap:6px;margin-top:10px"><input id="commentInput" placeholder="写下评论..." maxlength="300" style="flex:1;padding:6px 10px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em"><input id="commentName" placeholder="昵称" maxlength="10" style="width:80px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.75em" value="'+_getSavedName()+'"><button class="btn btn-p" onclick="window._dreamPostComment('+p.id+')" style="font-size:0.75em;padding:5px 10px">发送</button></div>';
+  h+='</div>';
+  app.innerHTML=h;
+}
+
+// 发布评论
+window._dreamPostComment=async function(dreamId){
+  if(!supabase)return;
+  var content=document.getElementById('commentInput').value.trim();
+  if(!content)return;
+  var name=document.getElementById('commentName').value.trim()||'匿名学生';
+  localStorage._dreamName=name;
+  try{
+    await supabase.from('dream_comments').insert({dream_id:dreamId,author_name:name,content:content,author_emoji:'💬',author_color:'#8b949e'});
+    window._dreamView(dreamId);
+  }catch(e){alert('评论失败');}
+};
+
+// 翻页
+window._dreamPage=function(p){window._dreamState.page=p;_dreamLoadPosts(document.getElementById('app'));};
+
+// 工具
+function _getSavedName(){return localStorage._dreamName||'';}
+function _timeAgo(d){var ms=Date.now()-new Date(d).getTime(),s=Math.floor(ms/1000);if(s<60)return '刚刚';if(s<3600)return Math.floor(s/60)+'分钟前';if(s<86400)return Math.floor(s/3600)+'小时前';return Math.floor(s/86400)+'天前';}
+function _escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _randomEmoji(){var e=['😴','💤','🌙','✨','💭','🧸','🛏️','🌠','🕯️','☁️','🎑','💫'];return e[Math.floor(Math.random()*e.length)];}
+function _randomColor(){var c=['#f0c040','#58a6ff','#3fb950','#e94560','#bc8cff','#ff8800','#88ccff','#ff88cc'];return c[Math.floor(Math.random()*c.length)];}
 
 // ─── 战前准备阶段 ───
 function startAutoChess(){

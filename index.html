@@ -78,6 +78,17 @@ body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:var(--bg)
 </head>
 <body>
 <div id="app"></div>
+<!-- Supabase SDK — 好梦论坛 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ═══ Supabase 配置 — 替换为你的项目信息 ═══
+// 在 https://supabase.com → 你的项目 → Settings → API 中获取
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_KEY = 'eyJhbGci...YOUR_ANON_KEY...';
+let supabase = null;
+try{ supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+catch(e){ console.log('Supabase 未配置，论坛功能不可用'); }
+</script>
 <!-- 引擎模块 (Babylon.js GUI 架构移植 + game-master Java 引擎移植) -->
 <script src="engine/timer.js?v=20260703"></script>
 <script src="engine/vec2d.js?v=20260703"></script>
