@@ -6316,7 +6316,7 @@ window._acStart=function(){
   acCanvas.style.width=Math.min(window.innerWidth-16,800)+'px';
   acCanvas.style.height=Math.floor(Math.min(window.innerWidth-16,800)*500/800)+'px';
   acCtx.setTransform(dpr,0,0,dpr,0,0);
-  document.addEventListener('keydown',acKeyDown);acLastTime=performance.now();
+  document.removeEventListener('keydown',acKeyDown);document.addEventListener('keydown',acKeyDown);acLastTime=performance.now();
   acAnim=requestAnimationFrame(acBattleLoop);
 };
 
@@ -6527,7 +6527,7 @@ Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
-  if(acState.over||acState._frameCount>8000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acRender();if(!acState._ended){acState._ended=true;setTimeout(acEnd,100);}return;}
+  if(acState.over||acState._frameCount>2000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
@@ -6547,7 +6547,7 @@ function acBattleLoop(){
     var sideCheck=pro.from==='player'?acState.enemy:acState.player;
     var hit=null;
     for(var si=0;si<sideCheck.length;si++){var sp=sideCheck[si];if(!sp.alive)continue;if(sp.id!==pro.targetId)continue;if(acDist(pro,sp)<18){hit=sp;break;}}
-    if(hit){acApplyDamage(hit,pro.dmg,{x:pro.x,y:pro.y,clr:pro.clr});acProjectiles.splice(pr,1);}
+    if(hit){acApplyDamage(hit,pro.dmg,pro._attacker||{x:pro.x,y:pro.y,clr:pro.clr});acProjectiles.splice(pr,1);}
   }
 
   // CP协力检测 (每8秒)
@@ -6578,8 +6578,8 @@ function acBattleLoop(){
     if(p._flash>0)p._flash--;
     // 护盾衰减
     if(p._shield>0){p._shieldTimer-=dt;if(p._shieldTimer<=0){p._shield=0;p._shieldTimer=0;}}
-    // 眩晕衰减
-    if(p._stunTimer>0){p._stunTimer-=dt;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-20,'💫','#ff0'));}
+    // 眩晕飘字(实际衰减在动作拦截处)
+    if(p._stunTimer>0){acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-20,'💫','#ff0'));}
     // 反伤buff衰减
     if(p._reflectTimer>0){p._reflectTimer-=dt;if(p._reflectTimer<=0){p._reflect=p._reflectBase;p._reflectTimer=0;}}
     // ATK降低衰减
@@ -6598,7 +6598,7 @@ function acBattleLoop(){
     // 灼烧DoT
     var totalBurn=0;
     for(var bi=p._burns.length-1;bi>=0;bi--){var b=p._burns[bi];b.elapsed+=dt;if(b.elapsed>=b.dur){p._burns.splice(bi,1);continue;}totalBurn+=b.dps*dt;}
-    if(totalBurn>0){var bdmg=totalBurn;acApplyDamage(p,bdmg,null,true);if(p._burns.length>0)acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'🔥'+p._burns.length+'层','#ff6600'));}
+    if(totalBurn>0){var bdmg=totalBurn;acApplyDamage(p,bdmg,null,true);if(!p.alive)return;if(p._burns.length>0)acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-35,'🔥'+p._burns.length+'层','#ff6600'));}
     // 嘲讽衰减
     if(p._tauntTimer>0){p._tauntTimer-=dt;if(p._tauntTimer<=0)p._tauntBy=null;}
     // 安迷修被动: 有盾时免伤/格挡翻倍
@@ -7041,15 +7041,15 @@ function acBattleLoop(){
       // ═══ 普通攻击 ═══
       else if(target2&&target2.alive){
         // 雷狮双系统: 近身→近战劈砍, 远程→闪电弹
-        if(isLeishi){var ld=acDist(p,target2);if(ld<70){acApplyDamage(target2,p.atk,p);acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),4,'#ffdd00',{speed:3,life:8,spread:20,size:2});}else{var la2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(la2),vy:Math.sin(la2),life:1.5,dmg:p.atk,from:p.side,clr:'#ffdd00',targetId:target2.id});}}
+        if(isLeishi){var ld=acDist(p,target2);if(ld<70){acApplyDamage(target2,p.atk,p);acParticles.burst(target2.x,target2.y,Math.atan2(target2.y-p.y,target2.x-p.x),4,'#ffdd00',{speed:3,life:8,spread:20,size:2});}else{var la2=Math.atan2(target2.y-p.y,target2.x-p.x);acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(la2),vy:Math.sin(la2),life:1.5,dmg:p.atk,from:p.side,clr:'#ffdd00',targetId:target2.id,_attacker:p});}}
         else if(p.range>1){
           var a2=Math.atan2(target2.y-p.y,target2.x-p.x);
-          var proj={x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id,_multiShot:p._multiShot||0};
+          var proj={x:p.x,y:p.y,vx:Math.cos(a2),vy:Math.sin(a2),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id,_multiShot:p._multiShot||0,_attacker:p};
           if(p._multiShot>=2){var extra=enemies2.filter(function(x){return x!==target2&&x.alive;});if(extra.length>0)proj._extraId=extra[0].id;}
           acProjectiles.push(proj);
-          if(isAnmic){var proj2={x:p.x,y:p.y,vx:Math.cos(a2+0.05),vy:Math.sin(a2+0.05),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id};acProjectiles.push(proj2);}
+          if(isAnmic){var proj2={x:p.x,y:p.y,vx:Math.cos(a2+0.05),vy:Math.sin(a2+0.05),life:1.5,dmg:p.atk,from:p.side,clr:p.clr||'#ff0',targetId:target2.id,_attacker:p};acProjectiles.push(proj2);}
           // 凯莉: 三镖齐发
-          if(isKaili){var kh=p._kit;for(var di=0;di<kh.normalHits;di++){var a3=a2+(di-1)*0.12;acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(a3),vy:Math.sin(a3),life:1.5,dmg:Math.floor(p.atk/kh.normalHits),from:p.side,clr:'#ff88cc',targetId:target2.id});}}
+          if(isKaili){var kh=p._kit;for(var di=0;di<kh.normalHits;di++){var a3=a2+(di-1)*0.12;acProjectiles.push({x:p.x,y:p.y,vx:Math.cos(a3),vy:Math.sin(a3),life:1.5,dmg:Math.floor(p.atk/kh.normalHits),from:p.side,clr:'#ff88cc',targetId:target2.id,_attacker:p});}}
           // 卡米尔远程弹道也附真伤 (通过弹丸标记 — 简化：弹丸命中时检查)
         }else{
           var md2=acDist(p,target2);
