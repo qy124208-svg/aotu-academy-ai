@@ -5277,7 +5277,7 @@ function acMakePiece(ch,aff,side,homeX,homeY,gridRow){
     range:arch.range,role:arch.role,_gridRow:gridRow!=null?gridRow:-1,_gridBuff:null,
     // v6.13 新系统
     _shield:0,_shieldTimer:0,_block:0,_dmgRate:1.0,
-    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:100,
+    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:150,
     _emergShieldUsed:false,_kit:kit,
     _critRate:0,_critDmg:kit.critDmg||0,_critTimer:0,_stunTimer:0,_trueDmg:kit.trueDmgRatio||0,_ultCount:0,
     _reflectBase:0,_reflectTimer:0,_emiPassiveOn:false,
@@ -5396,7 +5396,7 @@ function acSpawnSummon(summoner,hpR,atkR,defR,side,label,emoji){
     _skillCd:99,_skillCdMax:99,_regen:0,_lifesteal:0,_dmgReduc:defR,_skillCdMul:1,_boosted:false,
     range:1,role:'melee',_gridRow:summoner._gridRow,_gridBuff:null,
     _shield:0,_shieldTimer:0,_block:0,_dmgRate:1.0,
-    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:100,
+    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:150,
     _emergShieldUsed:false,_kit:{},
     _critRate:0,_critDmg:0,_critTimer:0,_stunTimer:0,_trueDmg:0,_ultCount:0,
     _reflectBase:0,_reflectTimer:0,_emiPassiveOn:false,

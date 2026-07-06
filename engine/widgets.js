@@ -711,18 +711,21 @@ class FloatingText {
    */
   static spawn(ctx, x, y, text, color = '#f44') {
     // 由调用方管理生命周期（添加到数组）
+    var isUlt=text.indexOf('—')>0; // 终结技文字更大更持久
     return {
-      x, y, text, color,
-      life: 40,
+      x, y, text, color, isUlt:isUlt,
+      life: isUlt?80:40,
       vy: -1.5,
       update() { this.y += this.vy; this.life--; this.vy *= 0.98; },
       get alive() { return this.life > 0; },
       draw(ctx) {
-        const alpha = Math.min(1, this.life / 20);
+        var alpha = Math.min(1, this.life / (this.isUlt?40:20));
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = this.color;
-        ctx.font = 'bold 13px sans-serif';
+        ctx.font = 'bold '+(this.isUlt?'18px':'13px')+' sans-serif';
+        ctx.shadowColor = this.isUlt?'rgba(0,0,0,0.8)':'transparent';
+        ctx.shadowBlur = this.isUlt?4:0;
         ctx.textAlign = 'center';
         ctx.fillText(this.text, this.x, this.y);
         ctx.restore();
