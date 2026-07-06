@@ -5429,47 +5429,112 @@ window._acClearIcon=function(chId){delete window._acCustomIcons[chId];acPrepRend
 // ═══════════════════════════════════════
 window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
 window._dreamUser=null; // Supabase Auth 用户
-// 页面加载时检查登录状态
-(async function(){if(supabase){try{var r=await supabase.auth.getSession();if(r.data.session){window._dreamUser=r.data.session.user;}}catch(e){}}})();
+// 页面加载时检查登录状态（含邮件链接自动登录）
+(async function(){
+  if(!supabase)return;
+  // 处理邮件链接中的token(hash模式)
+  var hash=window.location.hash;
+  if(hash&&hash.includes('access_token')){
+    try{
+      var r=await supabase.auth.getSession();
+      if(r.data.session){window._dreamUser=r.data.session.user;}
+    }catch(e){}
+    // 清除hash
+    if(window.history&&window.history.replaceState)window.history.replaceState(null,'',window.location.pathname);
+  }
+  try{
+    var r=await supabase.auth.getSession();
+    if(r.data.session){window._dreamUser=r.data.session.user;}
+  }catch(e){}
+})();
 
 // 📧 邮箱登录/注册界面
 window._dreamLogin=function(){
   var app=document.getElementById('app');
   var h='<div style="max-width:400px;margin:60px auto;padding:20px;text-align:center">';
   h+='<h2 style="color:var(--gold)">🌙 好梦 · 登录</h2>';
-  h+='<p style="color:var(--dim);font-size:0.8em">输入邮箱，验证码一键登录</p>';
   h+='<div class="panel" style="padding:20px">';
-  h+='<input id="dreamEmail" placeholder="你的邮箱（QQ/163/Gmail均可）" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em;margin-bottom:10px">';
-  h+='<button class="btn btn-p" onclick="window._dreamSendOTP()" style="width:100%;padding:10px">📧 发送验证码</button>';
-  h+='<div id="dreamOTPSection" style="display:none;margin-top:10px">';
-  h+='<input id="dreamOTP" placeholder="输入6位验证码" maxlength="6" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em;margin-bottom:10px;text-align:center;letter-spacing:8px">';
-  h+='<button class="btn btn-p" onclick="window._dreamVerifyOTP()" style="width:100%;padding:10px">✅ 验证登录</button></div>';
-  h+='</div><p style="color:var(--dim);font-size:0.7em;margin-top:10px">首次登录自动注册账号</p>';
+  h+='<input id="dreamEmail" placeholder="你的邮箱" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em;margin-bottom:10px">';
+  // 密码登录
+  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+  h+='<input id="dreamPass" type="password" placeholder="密码（首次自动注册）" style="flex:1;padding:8px 10px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.85em">';
+  h+='<button class="btn btn-p" onclick="window._dreamPasswordLogin()" style="padding:8px 14px;font-size:0.85em">🔐 登录</button></div>';
+  // 验证码
+  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+  h+='<input id="dreamCode" placeholder="验证码" maxlength="6" style="width:80px;padding:8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.85em;text-align:center;letter-spacing:4px">';
+  h+='<button class="btn btn-s" onclick="window._dreamSendCode()" style="padding:8px 10px;font-size:0.75em;white-space:nowrap">📩 发验证码</button>';
+  h+='<button class="btn btn-p" onclick="window._dreamVerifyCode()" style="padding:8px 14px;font-size:0.85em">验证码登录</button></div>';
+  // 免密链接
+  h+='<button class="btn btn-s" onclick="window._dreamSendOTP()" style="width:100%;padding:8px;font-size:0.75em;margin-top:4px">📧 发送登录链接（同设备免密）</button>';
+  h+='</div><p style="color:var(--dim);font-size:0.7em;margin-top:10px">三种方式任选 · 首次使用自动注册</p>';
   h+='<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:10px">跳过 → 匿名访问</button></div>';
   app.innerHTML=h;
 };
 
-window._dreamSendOTP=async function(){
+// 🔐 邮箱+密码登录
+window._dreamPasswordLogin=async function(){
+  var email=document.getElementById('dreamEmail').value.trim();
+  var pass=document.getElementById('dreamPass').value.trim();
+  if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
+  if(pass.length<6){alert('密码至少6位');return;}
+  try{
+    var r=await supabase.auth.signInWithPassword({email:email,password:pass});
+    if(r.error){
+      var signup=await supabase.auth.signUp({email:email,password:pass});
+      if(signup.error)throw signup.error;
+      var login=await supabase.auth.signInWithPassword({email:email,password:pass});
+      if(login.error)throw login.error;
+      window._dreamUser=login.data.user;
+      _dreamLoadPosts(document.getElementById('app'));
+      alert('🎉 注册成功！任何设备都可用邮箱+密码登录');
+    }else{
+      window._dreamUser=r.data.user;
+      _dreamLoadPosts(document.getElementById('app'));
+    }
+  }catch(e){alert('登录失败: '+e.message);}
+};
+
+// 📩 Resend发验证码
+function _getResendKey(){
+  var k=localStorage._resendKey||'';
+  if(!k){k=prompt('管理员：输入 Resend API Key（仅首次）：','');if(k)localStorage._resendKey=k;}
+  return k;
+}
+window._dreamSendCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
   if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
+  var code=String(Math.floor(100000+Math.random()*900000));
   try{
-    var r=await supabase.auth.signInWithOtp({email:email});
-    if(r.error)throw r.error;
-    document.getElementById('dreamOTPSection').style.display='block';
-    alert('验证码已发送到 '+email+'，请查收（检查垃圾箱）');
+    await supabase.from('login_codes').upsert({email:email,code:code,expires_at:new Date(Date.now()+600000).toISOString()});
+    await fetch('https://api.resend.com/emails',{method:'POST',
+      headers:{'Authorization':'Bearer '+_getResendKey(),'Content-Type':'application/json'},
+      body:JSON.stringify({from:'好梦论坛 <onboarding@resend.dev>',to:email,subject:'好梦论坛 · 登录验证码',
+        html:'<h2>🌙 好梦论坛</h2><h1 style="font-size:32px;letter-spacing:8px">'+code+'</h1><p>6位验证码，10分钟内有效</p>'})});
+    document.getElementById('dreamCode').focus();
+    alert('验证码已发送到 '+email+'（检查垃圾箱）');
   }catch(e){alert('发送失败: '+e.message);}
 };
 
-window._dreamVerifyOTP=async function(){
+// 🔢 验证码登录
+window._dreamVerifyCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
-  var token=document.getElementById('dreamOTP').value.trim();
-  if(!token||token.length!==6){alert('请输入6位验证码');return;}
+  var code=document.getElementById('dreamCode').value.trim();
+  if(!email||!code||code.length!==6){alert('请输入邮箱和6位验证码');return;}
   try{
-    var r=await supabase.auth.verifyOtp({email:email,token:token,type:'email'});
-    if(r.error)throw r.error;
-    window._dreamUser=r.data.user;
+    var r=await supabase.from('login_codes').select('*').eq('email',email).eq('code',code).maybeSingle();
+    if(!r.data){alert('验证码错误或已过期');return;}
+    if(new Date(r.data.expires_at)<new Date()){alert('验证码已过期，请重新发送');return;}
+    // 验证通过，Supabase Auth登录
+    var login=await supabase.auth.signInWithPassword({email:email,password:'resend_'+code+'_aotu'});
+    if(login.error){
+      // 首次：注册
+      await supabase.auth.signUp({email:email,password:'resend_'+code+'_aotu'});
+      login=await supabase.auth.signInWithPassword({email:email,password:'resend_'+code+'_aotu'});
+    }
+    await supabase.from('login_codes').delete().eq('email',email);
+    window._dreamUser=login.data.user;
     _dreamLoadPosts(document.getElementById('app'));
-  }catch(e){alert('验证失败: '+e.message);}
+  }catch(e){alert('登录失败: '+e.message);}
 };
 
 // 退出登录
