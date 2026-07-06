@@ -5616,6 +5616,7 @@ function _dreamRender(app){
       h+='<span onclick="window._dreamLike('+p.id+')" style="cursor:pointer;user-select:none">❤️ '+p.likes_count+'</span>';
       h+='<span onclick="window._dreamView('+p.id+')" style="cursor:pointer;user-select:none">💬 '+p.comments_count+'</span>';
       if(p.user_id&&window._dreamUser)h+='<span onclick="event.stopPropagation();window._dreamStartChat(\''+p.user_id+'\')" style="cursor:pointer;user-select:none;color:var(--blue)">📩 私信</span>';
+      h+='<span onclick="event.stopPropagation();window._dreamReport('+p.id+')" style="cursor:pointer;user-select:none;color:var(--dim);font-size:0.6em">🚩</span>';
       h+='</div></div>';
     });
   }
@@ -5770,6 +5771,8 @@ window._dreamProfile=async function(){
     var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
     h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))" style="margin-bottom:10px">← 返回论坛</button>';
     h+='<div class="panel" style="text-align:center;padding:20px"><div style="font-size:3em">✨</div>';
+    var badges=_dreamCalcBadges(posts.data,totalLikes);
+    if(badges.length>0){h+='<div style="margin:8px 0">';badges.forEach(function(b){h+='<span title="'+b.d+'" style="font-size:1.3em;margin:0 2px">'+b.e+'</span>';});h+='</div>';}
     h+='<h2 style="color:var(--gold)">'+_escapeHtml(email.split('@')[0])+'</h2>';
     h+='<p style="color:var(--dim);font-size:0.8em">📧 '+masked+'</p>';
     h+='<div style="display:flex;gap:20px;justify-content:center;margin:12px 0">';
@@ -5904,6 +5907,31 @@ window._dreamStartChat=function(userId){
   if(userId===window._dreamUser.id){alert('不能给自己发私信');return;}
   window._dreamChat(userId);
 };
+
+// 🚩 举报
+window._dreamReport=async function(postId){
+  if(!window._dreamUser){alert('请先登录');return;}
+  var reason=prompt('举报原因：','违规内容');
+  if(!reason)return;
+  try{await supabase.from('reports').insert({dream_id:postId,reported_by:window._dreamUser.id,reason:reason});alert('已提交举报，管理员会处理');}catch(e){alert('举报失败');}
+};
+
+// 🏆 成就计算
+function _dreamCalcBadges(posts,totalLikes){
+  var badges=[];
+  var postCount=posts?posts.length:0;
+  var totalChars=0;if(posts)posts.forEach(function(p){totalChars+=(p.content||'').length;});
+  if(postCount>=50)badges.push({e:'🔥',n:'红人',d:'发帖50条'});
+  else if(postCount>=20)badges.push({e:'💬',n:'话痨',d:'发帖20条'});
+  else if(postCount>=5)badges.push({e:'🌱',n:'新芽',d:'发帖5条'});
+  if(totalLikes>=100)badges.push({e:'👑',n:'万人迷',d:'获赞100+'});
+  else if(totalLikes>=30)badges.push({e:'❤️',n:'受欢迎',d:'获赞30+'});
+  if(totalChars>=5000)badges.push({e:'📝',n:'作家',d:'写超5000字'});
+  if(G.day>=30)badges.push({e:'🌙',n:'守夜人',d:'坚持30天'});
+  if(G.day>=7)badges.push({e:'🛏️',n:'常客',d:'坚持7天'});
+  if(window._dreamUser&&G.attr&&G.attr.SPR>=8)badges.push({e:'💪',n:'强者',d:'精神8+'});
+  return badges;
+}
 
 // 🔔 通知系统
 async function _dreamNotify(userId,type,message,link){
