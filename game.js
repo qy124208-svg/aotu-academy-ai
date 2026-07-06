@@ -5456,7 +5456,10 @@ function _dreamRender(app){
   if(state.viewing){_dreamRenderComments(app);return;}
   var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
   h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
-  h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页</p>';
+  var id=_dreamLoadIdentity();
+  h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
+  h+=(id.name?'<span style="color:'+id.color+'">'+id.emoji+' '+id.name+'</span>':'👤 未设置身份')+' ';
+  h+='<button class="btn btn-xs" onclick="window._dreamSetIdentity()" style="font-size:0.65em">'+(id.name?'✏️ 修改身份':'✨ 设置身份')+'</button></p>';
   // 发布框
   h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/YouTube链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
   h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
@@ -5494,12 +5497,13 @@ window._dreamPost=async function(){
   if(!supabase)return;
   var content=document.getElementById('dreamInput').value.trim();
   if(!content){alert('请写下你的梦话~');return;}
-  var name=document.getElementById('dreamName').value.trim()||'匿名学生';
-  localStorage._dreamName=name;
+  var id=_dreamLoadIdentity();
+  var name=document.getElementById('dreamName').value.trim()||id.name||'匿名学生';
+  if(!id.name&&name!=='匿名学生'){id.name=name;_dreamSaveIdentity(id);}
   var state=window._dreamState;
   var imgUrl=state._pendingImage||null;
   try{
-    var r=await supabase.from('dreams').insert({author_name:name,content:content,author_emoji:_randomEmoji(),author_color:_randomColor(),image_url:imgUrl}).select().single();
+    var r=await supabase.from('dreams').insert({author_name:name,content:content,author_emoji:_getIdentityEmoji(),author_color:_getIdentityColor(),image_url:imgUrl}).select().single();
     if(r.error)throw r.error;
     state._pendingImage=null;document.getElementById('dreamImage').value='';
     document.getElementById('dreamImgLabel').textContent='';
@@ -5588,10 +5592,11 @@ window._dreamPostComment=async function(dreamId){
   if(!supabase)return;
   var content=document.getElementById('commentInput').value.trim();
   if(!content)return;
-  var name=document.getElementById('commentName').value.trim()||'匿名学生';
-  localStorage._dreamName=name;
+  var id=_dreamLoadIdentity();
+  var name=document.getElementById('commentName').value.trim()||id.name||'匿名学生';
+  if(!id.name&&name!=='匿名学生'){id.name=name;_dreamSaveIdentity(id);}
   try{
-    await supabase.from('dream_comments').insert({dream_id:dreamId,author_name:name,content:content,author_emoji:'💬',author_color:'#8b949e'});
+    await supabase.from('dream_comments').insert({dream_id:dreamId,author_name:name,content:content,author_emoji:_getIdentityEmoji(),author_color:_getIdentityColor()});
     window._dreamView(dreamId);
   }catch(e){alert('评论失败');}
 };
@@ -5600,7 +5605,23 @@ window._dreamPostComment=async function(dreamId){
 window._dreamPage=function(p){window._dreamState.page=p;_dreamLoadPosts(document.getElementById('app'));};
 
 // 工具
-function _getSavedName(){return localStorage._dreamName||'';}
+function _getSavedName(){var id=_dreamLoadIdentity();return id.name||'';}
+// 🌟 本地身份系统 — 设置一次永久记住
+function _dreamLoadIdentity(){try{return JSON.parse(localStorage._dreamIdentity||'{}');}catch(e){return{};}}
+function _dreamSaveIdentity(id){localStorage._dreamIdentity=JSON.stringify(id);}
+window._dreamSetIdentity=function(){
+  var id=_dreamLoadIdentity();
+  var name=prompt('你的昵称：',id.name||'');
+  if(!name||!name.trim())return;
+  id.name=name.trim();
+  id.emoji=prompt('头像emoji：',id.emoji||_randomEmoji())||id.emoji||'😶';
+  id.color=prompt('名称颜色(hex)：',id.color||_randomColor())||id.color||'#f0c040';
+  _dreamSaveIdentity(id);
+  _dreamLoadPosts(document.getElementById('app'));
+};
+
+function _getIdentityEmoji(){var id=_dreamLoadIdentity();return id.emoji||_randomEmoji();}
+function _getIdentityColor(){var id=_dreamLoadIdentity();return id.color||_randomColor();}
 function _timeAgo(d){var ms=Date.now()-new Date(d).getTime(),s=Math.floor(ms/1000);if(s<60)return '刚刚';if(s<3600)return Math.floor(s/60)+'分钟前';if(s<86400)return Math.floor(s/3600)+'小时前';return Math.floor(s/86400)+'天前';}
 function _escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _randomEmoji(){var e=['😴','💤','🌙','✨','💭','🧸','🛏️','🌠','🕯️','☁️','🎑','💫'];return e[Math.floor(Math.random()*e.length)];}
