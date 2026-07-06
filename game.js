@@ -5582,6 +5582,8 @@ function _dreamRender(app){
   h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
   var id=_dreamGetIdentity();
   h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
+  if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';}
+  else{h+='<button class="btn btn-xs" onclick="window._dreamAdminLogin()" style="font-size:0.65em;color:var(--dim)">🔑</button> ';}
   if(window._dreamUser){
     h+='<span style="color:'+id.color+'">✨ '+id.name+'</span> ';
     h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
@@ -5914,6 +5916,51 @@ window._dreamReport=async function(postId){
   var reason=prompt('举报原因：','违规内容');
   if(!reason)return;
   try{await supabase.from('reports').insert({dream_id:postId,reported_by:window._dreamUser.id,reason:reason});alert('已提交举报，管理员会处理');}catch(e){alert('举报失败');}
+};
+
+// 🛡️ 管理后台
+window._isAdmin=function(){return localStorage._dreamAdmin==='凹凸好梦2026';};
+window._dreamAdminLogin=function(){
+  var pw=prompt('管理员密码：','');
+  if(pw==='凹凸好梦2026'){localStorage._dreamAdmin=pw;alert('✅ 管理员模式已开启');_dreamLoadPosts(document.getElementById('app'));}
+  else alert('密码错误');
+};
+window._dreamAdminPanel=async function(){
+  if(!window._isAdmin())return;
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="text-align:center;padding:20px"><h3>🛡️ 加载后台...</h3></div>';
+  try{
+    var reports=await supabase.from('reports').select('*,dreams(*)').eq('status','pending').order('created_at',{ascending:false}).limit(20);
+    var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button>';
+    h+='<h3 style="color:#e94560;margin:10px 0">🛡️ 管理后台</h3>';
+    h+='<p style="color:var(--dim);font-size:0.8em">待处理举报: '+(reports.data?reports.data.length:0)+'</p>';
+    if(!reports.data||reports.data.length===0)h+='<p style="text-align:center;padding:20px;color:var(--dim)">✅ 没有待处理举报</p>';
+    else reports.data.forEach(function(rp){
+      h+='<div class="panel" style="padding:10px;margin:6px 0;border-left:3px solid #e94560">';
+      h+='<div style="font-size:0.75em;color:var(--dim)">🚩 '+rp.reason+' · '+_timeAgo(rp.created_at)+'</div>';
+      if(rp.dreams){
+        h+='<div style="font-size:0.85em;margin:4px 0">'+(rp.dreams.author_name||'匿名')+': '+_escapeHtml((rp.dreams.content||'').slice(0,100))+'</div>';
+        h+='<div style="margin-top:6px">';
+        h+='<button class="btn btn-xs" onclick="window._dreamAdminDelete('+rp.dream_id+','+rp.id+')" style="background:#e94560;color:#fff">🗑️ 删帖</button> ';
+        h+='<button class="btn btn-xs" onclick="window._dreamAdminDismiss('+rp.id+')" style="background:#333;color:#fff">✅ 忽略</button>';
+        h+='</div>';
+      }else h+='<div style="color:var(--dim);font-size:0.8em">帖子已删除</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    app.innerHTML=h;
+  }catch(e){app.innerHTML='<p style="color:#e94560">加载失败</p>';}
+};
+window._dreamAdminDelete=async function(dreamId,reportId){
+  if(!confirm('确定永久删除这条帖子？'))return;
+  try{await supabase.from('dreams').update({is_deleted:true}).eq('id',dreamId);
+    await supabase.from('reports').update({status:'resolved'}).eq('id',reportId);
+    window._dreamAdminPanel();}catch(e){alert('操作失败');}
+};
+window._dreamAdminDismiss=async function(reportId){
+  try{await supabase.from('reports').update({status:'dismissed'}).eq('id',reportId);
+    window._dreamAdminPanel();}catch(e){alert('操作失败');}
 };
 
 // 🏆 成就计算
