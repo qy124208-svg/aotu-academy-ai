@@ -5458,11 +5458,13 @@ function _dreamRender(app){
   h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
   h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页</p>';
   // 发布框
-  h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...（不超过500字）" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
-  h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center">';
+  h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/YouTube链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
+  h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
+  h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">';
   h+='<input id="dreamName" placeholder="昵称" maxlength="10" style="width:100px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em" value="'+_getSavedName()+'">';
-  h+='<button class="btn btn-p" onclick="window._dreamPost()" style="font-size:0.8em;padding:6px 14px">✨ 发布</button>';
-  h+='<span style="font-size:0.7em;color:var(--dim);margin-left:auto">💡 友善交流，共享好梦</span></div></div>';
+  h+='<button class="btn btn-s" onclick="document.getElementById(\'dreamImage\').click()" style="font-size:0.75em;padding:5px 8px">📷 图片</button>';
+  h+='<span id="dreamImgLabel" style="font-size:0.65em;color:var(--dim)"></span>';
+  h+='<button class="btn btn-p" onclick="window._dreamPost()" style="font-size:0.8em;padding:6px 14px;margin-left:auto">✨ 发布</button></div></div>';
   // 留言列表
   if(!state.posts||state.posts.length===0){h+='<div style="text-align:center;color:var(--dim);padding:30px">💤 还没有人留言…来做第一个说梦话的人吧！</div>';}
   else{
@@ -5471,7 +5473,8 @@ function _dreamRender(app){
       h+='<div class="panel" style="margin:8px 0;padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
       h+='<span style="font-size:0.85em"><b style="color:'+(p.author_color||'#888')+'">'+(p.author_emoji||'😶')+' '+(p.author_name||'匿名')+'</b></span>';
       h+='<span style="font-size:0.65em;color:var(--dim)">'+ago+'</span></div>';
-      h+='<div style="font-size:0.9em;line-height:1.5;margin:6px 0;color:var(--text)">'+_escapeHtml(p.content)+'</div>';
+      h+='<div style="font-size:0.9em;line-height:1.5;margin:6px 0;color:var(--text)">'+_dreamFormatContent(p.content)+'</div>';
+      if(p.image_url)h+='<div style="margin:6px 0"><img src="'+p.image_url+'" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #333" loading="lazy"></div>';
       h+='<div style="display:flex;gap:12px;font-size:0.75em;color:var(--dim);margin-top:6px">';
       h+='<span onclick="window._dreamLike('+p.id+')" style="cursor:pointer;user-select:none">❤️ '+p.likes_count+'</span>';
       h+='<span onclick="window._dreamView('+p.id+')" style="cursor:pointer;user-select:none">💬 '+p.comments_count+'</span></div></div>';
@@ -5494,12 +5497,45 @@ window._dreamPost=async function(){
   var name=document.getElementById('dreamName').value.trim()||'匿名学生';
   localStorage._dreamName=name;
   var state=window._dreamState;
+  var imgUrl=state._pendingImage||null;
   try{
-    var r=await supabase.from('dreams').insert({author_name:name,content:content,author_emoji:_randomEmoji(),author_color:_randomColor()}).select().single();
+    var r=await supabase.from('dreams').insert({author_name:name,content:content,author_emoji:_randomEmoji(),author_color:_randomColor(),image_url:imgUrl}).select().single();
     if(r.error)throw r.error;
+    state._pendingImage=null;document.getElementById('dreamImage').value='';
+    document.getElementById('dreamImgLabel').textContent='';
     state.page=0;_dreamLoadPosts(document.getElementById('app'));
   }catch(e){alert('发布失败: '+e.message);}
 };
+
+// 图片上传处理
+window._dreamImagePicked=async function(){
+  var file=document.getElementById('dreamImage').files[0];
+  if(!file)return;
+  if(file.size>5*1024*1024){alert('图片不能超过5MB');return;}
+  var label=document.getElementById('dreamImgLabel');
+  label.textContent='上传中...';
+  try{
+    var ext=file.name.split('.').pop();
+    var fname='dream_'+Date.now()+'.'+ext;
+    var up=await supabase.storage.from('dreams').upload(fname,file,{upsert:true});
+    if(up.error)throw up.error;
+    var url=supabase.storage.from('dreams').getPublicUrl(fname).data.publicUrl;
+    window._dreamState._pendingImage=url;
+    label.textContent='✅ '+file.name;
+  }catch(e){label.textContent='❌ 上传失败';}
+};
+
+// 内容格式化：自动检测视频链接→iframe, 转义HTML
+function _dreamFormatContent(text){
+  text=_escapeHtml(text);
+  // B站链接 → 嵌入播放器
+  text=text.replace(/(https?:\/\/)?(www\.)?bilibili\.com\/video\/(BV[a-zA-Z0-9]+)\/?/g,'<div style="margin:6px 0"><iframe src="https://player.bilibili.com/player.html?bvid=$3&autoplay=0" style="width:100%;height:200px;border:none;border-radius:8px" allowfullscreen></iframe></div>');
+  // YouTube链接 → 嵌入播放器
+  text=text.replace(/(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/g,'<div style="margin:6px 0"><iframe src="https://www.youtube.com/embed/$4" style="width:100%;height:200px;border:none;border-radius:8px" allowfullscreen></iframe></div>');
+  // 换行转<br>
+  text=text.replace(/\n/g,'<br>');
+  return text;
+}
 
 // 点赞/取消
 window._dreamLike=async function(dreamId){
@@ -5534,7 +5570,9 @@ function _dreamRenderComments(app){
   var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
   h+='<button class="btn btn-s" onclick="window._dreamState.viewing=null;window._dreamState.comments=[];_dreamLoadPosts(document.getElementById(\'app\'))" style="margin-bottom:8px">← 返回列表</button>';
   h+='<div class="panel" style="padding:12px"><div style="font-size:0.85em"><b style="color:'+(p.author_color||'#888')+'">'+(p.author_emoji||'')+' '+(p.author_name||'匿名')+'</b> <span style="color:var(--dim);font-size:0.65em">'+_timeAgo(p.created_at)+'</span></div>';
-  h+='<div style="font-size:0.9em;line-height:1.5;margin:8px 0">'+_escapeHtml(p.content)+'</div></div>';
+  h+='<div style="font-size:0.9em;line-height:1.5;margin:8px 0">'+_dreamFormatContent(p.content)+'</div>';
+  if(p.image_url)h+='<div style="margin:6px 0"><img src="'+p.image_url+'" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #333" loading="lazy"></div>';
+  h+='</div>';
   h+='<div style="font-size:0.8em;color:var(--gold);margin:8px 0">💬 评论 ('+state.comments.length+')</div>';
   // 评论列表
   if(state.comments.length===0)h+='<div style="color:var(--dim);text-align:center;padding:15px">还没有评论</div>';
