@@ -6221,7 +6221,7 @@ window._acStart=function(){
   if(placed!==5||eplaced!==5)return;
   var dpr=window.devicePixelRatio||1,app=document.getElementById('app');
 
-  acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false,_revive:false,_healBurst:false,_healUsed:false,_screenFlash:0,_flashColor:'#fff',_perfQ:1.0,_lastFrameT:0,_deathChain:0,_ultLock:0,};
+  acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false,_revive:false,_healBurst:false,_healUsed:false,_screenFlash:0,_flashColor:'#fff',_perfQ:1.0,_lastFrameT:0,_deathChain:0,_ultLock:0,_frameCount:0,_ended:false};
   acFloatTexts=[];acProjectiles=[];acParticles=new ParticleSystem();acShake=new ScreenShake();
 
   var playerPieces=[],enemyPieces=[];
@@ -6527,7 +6527,7 @@ Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
-  if(acState.over||acState._frameCount>8000){acState.over=true;acParticles.clear();acState._bgFx=null;acRender();if(!acState._ended){acState._ended=true;setTimeout(acEnd,100);}return;}
+  if(acState.over||acState._frameCount>8000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acRender();if(!acState._ended){acState._ended=true;setTimeout(acEnd,100);}return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
