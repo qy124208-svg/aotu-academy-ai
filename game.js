@@ -5264,7 +5264,7 @@ const AC_HERO_KITS={
 };
 
 function acMakePiece(ch,aff,side,homeX,homeY,gridRow){
-  var hp=50+aff,atk=3+Math.floor((G.attr.STR||5)/5)+aff*0.02,spd=2+aff*0.05;
+  var hp=200+Math.floor(aff/2),atk=5+aff*0.01,spd=3+aff*0.03;
   var arch=AC_ARCHETYPES[ch.id]||{range:1,role:'melee'};
   var sk=BATTLE_CHAR_SKILLS[ch.id];var scd=(sk?3+Math.random()*5:99);
   var kit=AC_HERO_KITS[ch.id]||{};
@@ -6606,7 +6606,7 @@ function acBattleLoop(){
     // 安迷修紧急护盾: HP<50%触发一次
     if(p._kit&&p._kit.emergShield&&!p._emergShieldUsed&&p.hp>0&&p.hp<p.maxHp*0.5){p._shield=Math.max(p._shield||0,Math.floor(p.maxHp*p._kit.emergShield));p._shieldTimer=p._kit.shieldDur;p._emergShieldUsed=true;acFloatTexts.push(FloatingText.spawn(acCtx,p.x,p.y-25,'🛡️紧急!','#3fb950'));}
     // 怒气被动增长
-    if(p._kit&&p._kit.specialCD)p._rage=Math.min(p._rageMax,p._rage+5*dt*(p._rageRate||1.0));
+    if(p._kit&&p._kit.specialCD)p._rage=Math.min(p._rageMax,p._rage+3*dt*(p._rageRate||1.0));
     if(p._windTimer>0){p._windTimer-=dt;if(p._windTimer<=0)p._windTimer=0;}
     if(p._regen>0)p.hp=Math.min(p.maxHp,p.hp+p.maxHp*p._regen*dt);
     if(acState._healBurst&&!acState._healUsed&&p.hp>0&&p.hp/p.maxHp<(p._healTrigger||0.4)){
@@ -7111,7 +7111,7 @@ function acBattleLoop(){
 
   var pAlive=acState.player.filter(function(p){return p.alive;}).length;
   var eAlive=acState.enemy.filter(function(p){return p.alive;}).length;
-  if(pAlive===0||eAlive===0||acState.battleTime>300){acState.over=true;acState.winner=pAlive>0?'player':(eAlive>0?'enemy':'draw');}
+  if(pAlive===0||eAlive===0||acState.battleTime>480){acState.over=true;acState.winner=pAlive>0?'player':(eAlive>0?'enemy':'draw');}
   acRender();
   if(!acState.over)acAnim=requestAnimationFrame(acBattleLoop);
   else{acParticles.clear();var ub2=document.getElementById('ultBg');if(ub2)ub2.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);}
