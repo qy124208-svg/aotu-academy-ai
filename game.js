@@ -6435,8 +6435,9 @@ function acFX_Guihu(p){
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
-  if(acState.over){acRender();return;}
+  if(acState.over||acState._frameCount>8000){acState.over=true;acParticles.clear();acState._bgFx=null;acRender();if(!acState._ended){acState._ended=true;setTimeout(acEnd,100);}return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
+  acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
   // 每帧重置死亡计数器
   acState._deathChain=0;
@@ -7004,7 +7005,7 @@ function acBattleLoop(){
   // ✨ 召唤物清理 + 紫堂幻光环 + 帕洛斯分身死亡被动
   allPieces.forEach(function(p){
     // 帕洛斯分身死亡被动
-    if(p._isSummon&&p._summoner&&!p.alive&&!p._deathTriggered&&acState._deathChain<6){p._deathTriggered=true;var owner=allPieces.find(function(x){return x.id===p._summoner&&x.alive&&x._kit&&x._kit.cloneATK;});if(owner){var kitO=owner._kit;var enemyTeam=owner.side==='player'?acState.enemy:acState.player;var lowestHP=enemyTeam.filter(function(e){return e.alive;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;});if(lowestHP.length>0){var lh=lowestHP[0];var ddmg=Math.floor(p.atk*kitO.deathDmgRatio);if(lh.role==='melee'||lh.range===1)ddmg=Math.floor(ddmg*kitO.deathMeleeMulti);acApplyDamage(lh,ddmg,owner);}}}
+    if(p._isSummon&&p._summoner&&!p.alive&&!p._deathTriggered&&acState._deathChain<2){p._deathTriggered=true;var owner=allPieces.find(function(x){return x.id===p._summoner&&x.alive&&x._kit&&x._kit.cloneATK;});if(owner){var kitO=owner._kit;var enemyTeam=owner.side==='player'?acState.enemy:acState.player;var lowestHP=enemyTeam.filter(function(e){return e.alive;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;});if(lowestHP.length>0){var lh=lowestHP[0];var ddmg=Math.floor(p.atk*kitO.deathDmgRatio);if(lh.role==='melee'||lh.range===1)ddmg=Math.floor(ddmg*kitO.deathMeleeMulti);acApplyDamage(lh,ddmg,owner);}}}
     if(p._isSummon&&p._summoner){if(p._summonDRTimer>0){p._summonDRTimer-=dt;if(p._summonDRTimer<=0){p._dmgReduc=Math.max(0,(p._dmgReduc||0)-0.20);}}var owner=allPieces.find(function(x){return x.id===p._summoner&&x.alive;});if(!owner)p.alive=false;}
     if(p._kit&&p._kit.ultSmallCount&&p.alive){var hasAlive=allPieces.some(function(x){return x._isSummon&&x._summoner===p.id&&x.alive;});if(hasAlive&&!p._zthAuraOn){var tm=p.side==='player'?acState.player:acState.enemy;tm.forEach(function(a){if(a.alive)a._dmgRate+=p._kit.allyDmgBuff;});p._dmgRate+=p._kit.selfExtraDmg;p._zthAuraOn=true;}else if(!hasAlive&&p._zthAuraOn){var tm2=p.side==='player'?acState.player:acState.enemy;tm2.forEach(function(a){if(a.alive)a._dmgRate-=p._kit.allyDmgBuff;});p._dmgRate-=p._kit.selfExtraDmg;p._zthAuraOn=false;}}
   });
