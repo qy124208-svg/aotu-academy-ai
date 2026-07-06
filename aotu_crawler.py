@@ -240,8 +240,55 @@ def _crawl_weibo(cookie):
     except Exception as e:
         print(f"  ❌ 微博爬取失败: {e}")
 
+# ═══ 抖音爬虫 (复用 Douyin_Spider by cv-cat) ═══
+# API: /aweme/v1/web/general/search/single/ 支持时间过滤 publish_time: 1=一天内 7=一周内 180=半年内
 def _crawl_douyin(cookie):
-    print("  ⚠️ 抖音爬虫待实现（已有JMeowKit，需适配为API模式）")
+    """抖音: 搜索凹凸世界关键词 → 按时间分类"""
+    print("  🎵 抖音爬取中...")
+    try:
+        sys.path.insert(0, r"C:\Users\14206\Desktop\抖音\Douyin_Spider-main")
+        from dy_apis.douyin_api import DouyinAPI
+        from builder.auth import DouyinAuth
+        # 用Cookie创建认证对象
+        auth = DouyinAuth(cookie)
+        total = 0
+        # publish_time: 1=1天, 7=1周, 180=半年
+        time_map = {1: "day1", 7: "week", 180: "month"}
+        for pt, cat in time_map.items():
+            try:
+                works = DouyinAPI.search_some_general_work(
+                    auth, "凹凸世界", 30, sort_type="2", publish_time=str(pt))
+                for w in works:
+                    if w.get("aweme_type") != 0: continue  # 只取视频/图文
+                    pub_time = datetime.fromtimestamp(w.get("create_time", 0), tz=timezone.utc) if w.get("create_time") else None
+                    if not pub_time: continue
+                    tc = time_category(pub_time)
+                    author = w.get("author", {}) or {}
+                    stats = w.get("statistics", {}) or {}
+                    cover = w.get("video", {}).get("cover", {}) or {}
+                    desc = w.get("desc", "") or ""
+                    full_text = desc + " " + " ".join([t.get("title","") for t in (w.get("text_extra", []) or [])])
+                    if not is_aotu_related(full_text): continue
+                    aweme_id = w.get("aweme_id", "")
+                    if insert_feed({"platform": "douyin",
+                        "author_name": author.get("nickname", "未知"),
+                        "author_url": f"https://www.douyin.com/user/{author.get('sec_uid','')}",
+                        "title": desc[:100], "content": desc[:200],
+                        "url": f"https://www.douyin.com/video/{aweme_id}" if aweme_id else "",
+                        "cover_url": cover.get("url_list", [""])[0] if cover and cover.get("url_list") else "",
+                        "publish_time": pub_time.isoformat(), "time_category": tc or cat,
+                        "likes_count": stats.get("digg_count", 0),
+                        "comments_count": stats.get("comment_count", 0)}): total += 1
+                time.sleep(0.5)
+            except Exception as e: print(f"    time={pt} 搜索失败: {e}")
+        print(f"  🎵 抖音完成! 新增 {total} 条")
+    except ImportError as e:
+        print(f"  ⚠️ Douyin_Spider 未安装: {e}")
+        print(f"     需要: pip install requests protobuf protobuf-to-dict beautifulsoup4")
+        print(f"     以及: npm install (在 Douyin_Spider-main 目录)")
+        print(f"     路径: C:\\Users\\14206\\Desktop\\抖音\\Douyin_Spider-main")
+    except Exception as e:
+        print(f"  ❌ 抖音爬取失败: {e}")
 
 def _crawl_lofter(cookie):
     print("  ⚠️ Lofter爬虫待实现")
