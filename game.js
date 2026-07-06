@@ -6242,15 +6242,31 @@ window._acEnemyPlaceSlot=function(si){var slots=window._acEnemySlots||[];var sel
 window._acEnemyAutoDeploy=function(){
   var enemy=window._acEnemy||[];
   if(enemy.length<5){window._acLastMsg='需要选择5名敌方角色';acPrepRender(document.getElementById('app'));return;}
-  // 角色专属最佳位置
+  // 角色专属最佳位置（严格按定位）
+  // 前排(row0-1): 坦克/战士/刺客 — 后排(row2-3): 射手/辅助/召唤
   var ENEMY_POS={
-    anmixiu:{row:0,col:2},yinjue:{row:1,col:2},aimi:{row:0,col:3},
-    gerui:{row:1,col:3},jiadeluosi:{row:0,col:2},peili:{row:1,col:2},
-    kamier:{row:1,col:3},
-    aibi:{row:3,col:2},jin:{row:3,col:3},kaili:{row:2,col:3},leishi:{row:2,col:2},
-    anlijie:{row:3,col:2},zuma:{row:3,col:3},
-    zitanghuan:{row:2,col:2},paluosi:{row:2,col:3},
-    guihu:{row:3,col:2}
+    // 🛡️ 坦克 — 前排中央吸引火力
+    anmixiu:{row:0,col:2},    // 盾卫：最前线嘲讽
+    yinjue:{row:0,col:3},     // 光环坦：前排反伤光环覆盖全员
+    aimi:{row:1,col:2},       // 半坦：前排反伤
+    // ⚔️ 战士/强袭 — 前排输出+控制
+    jiadeluosi:{row:1,col:3}, // 强袭：前排全体眩晕
+    gerui:{row:1,col:2},      // 战士：前排整列控制
+    // 🗡️ 刺客/影刃 — 前排侧翼快速切入
+    kamier:{row:0,col:3},     // 刺客：前排侧翼单体爆发
+    peili:{row:0,col:2},      // 影刃：前排重力减益+偷强化
+    // 🏹 射手 — 后排安全输出
+    aibi:{row:3,col:2},       // 成长射：后排12箭随机
+    jin:{row:3,col:3},        // 收割射：后排单体收割
+    kaili:{row:2,col:3},      // 暴击射：后排整列暴击
+    leishi:{row:2,col:2},     // 双系：中排十字吸怒
+    // ✨ 辅助 — 后排保护队友
+    anlijie:{row:3,col:2},    // 辅助：后排冰冻+冰晶护盾
+    zuma:{row:3,col:3},       // 治愈：后排全体治疗
+    // 👾 召唤 — 后排安全铺场
+    zitanghuan:{row:2,col:2}, // 召唤：中排召唤斯巴达
+    paluosi:{row:2,col:3},    // 召唤：中排暗影分身
+    guihu:{row:3,col:2}       // 暗灵：后排降怒镜像
   };
   var slots=[null,null,null,null,null,null,null,null];
   var usedSlots={};
@@ -6318,14 +6334,14 @@ window._acStart=function(){
   var ENEMY_POS={
     // 坦克: 前排中央吸引火力
     anmixiu:{row:0,col:2,tag:'🛡️嘲讽坦'},
-    yinjue:{row:1,col:2,tag:'🛡️光环坦'},
-    aimi:{row:0,col:3,tag:'🛡️反伤坦'},
+    yinjue:{row:0,col:3,tag:'🛡️光环坦'},
+    aimi:{row:1,col:2,tag:'🛡️反伤坦'},
     // 战士: 前排输出+控制
-    gerui:{row:1,col:3,tag:'⚔️整列控制'},
-    jiadeluosi:{row:0,col:2,tag:'🔥全体眩晕'},
-    peili:{row:1,col:2,tag:'🌀重力减益'},
+    jiadeluosi:{row:1,col:3,tag:'🔥全体眩晕'},
+    gerui:{row:1,col:2,tag:'⚔️整列控制'},
     // 刺客: 前排侧翼快速切入
-    kamier:{row:1,col:3,tag:'🗡️单体爆发'},
+    kamier:{row:0,col:3,tag:'🗡️单体爆发'},
+    peili:{row:0,col:2,tag:'🌀重力减益'},
     // 射手: 后排安全输出
     aibi:{row:3,col:2,tag:'🏹12箭随机'},
     jin:{row:3,col:3,tag:'⭐单体收割'},
