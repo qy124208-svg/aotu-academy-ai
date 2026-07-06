@@ -6128,7 +6128,7 @@ function acPrepRender(app){
       h+='</div>';
     }
     // 我方放完→直接自动部署敌人并开战
-    if(curPlaced===5&&!isEnemyPhase){h+='<div style="text-align:center;margin-top:8px"><button class="btn btn-p pulse" onclick="window._acEnemyAutoDeploy();window._acStart();">⚔️ 我方完成 → 自动开战 ▸</button></div>';}
+    if(curPlaced===5&&!isEnemyPhase){h+='<div style="text-align:center;margin-top:8px"><button class="btn btn-p pulse" onclick="window._acEnemyAutoDeploy();setTimeout(function(){window._acStart();},200);">⚔️ 我方完成 → 自动开战 ▸</button></div>';}
     h+='</div>';
   }
   // 全放完才能开战
