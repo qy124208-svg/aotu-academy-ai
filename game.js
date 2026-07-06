@@ -5711,7 +5711,7 @@ function acUltFX(p,color,ringColor,count){acParticles.ring(p.x,p.y,35,16,ringCol
 function acSkillFX(p,target,color,count){acParticles.burst(target.x,target.y,Math.atan2(target.y-p.y,target.x-p.x),count||8,color,{speed:4,life:12,spread:30,size:3});acParticles.explode(target.x,target.y,count||10,color,{speed:5,life:12,size:4});acShake.trigger(Math.min(4,count/3),0.85);}
 function hexToRgb(h){if(h[0]==='#')h=h.slice(1);var v=parseInt(h,16);return((v>>16)&255)+','+((v>>8)&255)+','+(v&255);}
 // 智能粒子限流: 已有很多粒子时自动缩减新增数量
-function acSafeCount(n){var c=acParticles.count(),q=acState._perfQ||1.0;if(c>700)return 0;if(c>500)q*=0.3;else if(c>350)q*=0.6;if(acState._deathChain>4)q*=0.3;return Math.max(2,Math.floor(n*q));}
+function acSafeCount(n){var c=acParticles.count,q=acState._perfQ||1.0;if(c>700)return 0;if(c>500)q*=0.3;else if(c>350)q*=0.6;if(acState._deathChain>4)q*=0.3;return Math.max(2,Math.floor(n*q));}
 
 // ═══ v6.16 角色专属终结技 — 严格按aotu.docx设计文档实现 ═══
 
@@ -5944,7 +5944,7 @@ function acBattleLoop(){
   // 每帧重置死亡计数器
   acState._deathChain=0;
   // 帧率自适应降质: 帧时>33ms(30fps)→降低质量
-  acState._perfQ+=((dt<0.033&&acParticles.count()<600)?0.03:-0.06);acState._perfQ=Math.max(0.25,Math.min(1.0,acState._perfQ));
+  acState._perfQ+=((dt<0.033&&acParticles.count<600)?0.03:-0.06);acState._perfQ=Math.max(0.25,Math.min(1.0,acState._perfQ));
   acParticles.update(dt*1000);acShake.update();
   if(acState._screenFlash>0){acState._screenFlash-=dt*2;}
   for(var fi=acFloatTexts.length-1;fi>=0;fi--){acFloatTexts[fi].update();if(!acFloatTexts[fi].alive)acFloatTexts.splice(fi,1);}
