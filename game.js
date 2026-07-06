@@ -5717,7 +5717,7 @@ function acSafeCount(n){var c=acParticles.count,q=acState._perfQ||1.0;if(c>700)r
 
 // 1. 安迷修 — 冷热流: X形双剑交叉(↘黄火 + ↗蓝冰) + 护盾光环
 function acFX_Anmixiu(p){
-  acState._screenFlash=1.0;acState._flashColor='#ffdd00';
+  acState._screenFlash=1.0;acState._flashColor='#ffaa00';
   acParticles.burst(p.x,p.y-40,Math.PI*0.35,5,'#ffff00',{speed:10,life:30,size:7,spread:2});
   acParticles.burst(p.x,p.y-40,Math.PI*0.65,5,'#00ccff',{speed:10,life:30,size:7,spread:2});
   acParticles.burst(p.x,p.y-20,Math.PI*0.35,4,'#ffdd00',{speed:9,life:26,size:6,spread:3});
@@ -5729,7 +5729,7 @@ function acFX_Anmixiu(p){
 
 // 2. 卡米尔 — 无定之躯: 3圈扩散波纹 + 驱散碎片
 function acFX_Kamier(p){
-  acState._screenFlash=1.0;acState._flashColor='#00ff88';
+  acState._screenFlash=1.0;acState._flashColor='#00ff66';
   acParticles.ring(p.x,p.y,25,12,'#00ff88',{speed:5,life:28,size:6});
   acParticles.ring(p.x,p.y,45,10,'#00cc66',{speed:4,life:32,size:5});
   acParticles.ring(p.x,p.y,65,8,'#009944',{speed:3,life:36,size:4});
@@ -5740,7 +5740,7 @@ function acFX_Kamier(p){
 
 // 3. 格瑞 — 神镰烈斩: 巨大弧形镰刀从左到右横扫
 function acFX_Gerui(p){
-  acState._screenFlash=1.0;acState._flashColor='#00ff00';
+  acState._screenFlash=1.0;acState._flashColor='#33ff00';
   for(var i=0;i<16;i++){var t=i/16;acParticles.burst(p.x-60+t*120,p.y-30+Math.sin(t*Math.PI)*40,Math.PI*0.7+t*0.6,2,'#00ff00',{speed:10,life:22,size:7,spread:4})}
   acParticles.explode(p.x,p.y,15,'#88ff88',{speed:8,life:18,size:6});
   for(var i=0;i<3;i++){var ox=-15+i*10;for(var j=0;j<5;j++)acParticles.burst(p.x+ox+j*6,p.y-5,0,1,'#aaffaa',{speed:3,life:18,size:4,spread:2})}
@@ -5749,7 +5749,7 @@ function acFX_Gerui(p){
 
 // 4. 埃米 — 恶魔之手: 黑手从地下伸出 + 蓝色能量环
 function acFX_Aimi(p){
-  acState._screenFlash=1.0;acState._flashColor='#4400aa';
+  acState._screenFlash=1.0;acState._flashColor='#5500dd';
   for(var i=0;i<14;i++)acParticles.burst(p.x+Math.random()*20-10,p.y+35-i*5,-Math.PI/2,2,'#222222',{speed:5,life:26,size:7,spread:8});
   for(var i=0;i<10;i++){var a=i*Math.PI*2/10;acParticles.burst(p.x+Math.cos(a)*25,p.y+Math.sin(a)*25,a+Math.PI,2,'#0066cc',{speed:3,life:30,size:5,spread:10})}
   acParticles.ring(p.x,p.y,35,10,'#004488',{speed:2,life:38,size:4});
@@ -5758,7 +5758,7 @@ function acFX_Aimi(p){
 
 // 5. 艾比 — 天矢流星: 12道白色流星斜射
 function acFX_Aibi(p){
-  acState._screenFlash=1.0;acState._flashColor='#ffffff';
+  acState._screenFlash=1.0;acState._flashColor='#ffeeee';
   for(var i=0;i<12;i++){var sx=p.x-40+i*7;for(var j=0;j<5;j++)acParticles.burst(sx,p.y-50+j*9,Math.PI*0.4,2,'#ffffff',{speed:9+j*2,life:20-j*2,size:5,spread:2})}
   for(var i=0;i<8;i++){var sy=p.y-30+i*8;acParticles.burst(p.x+30,sy,Math.PI*0.9,1,'#ffdd88',{speed:6,life:16,size:3,spread:5})}
   acShake.trigger(5,0.9);
@@ -5766,7 +5766,7 @@ function acFX_Aibi(p){
 
 // 6. 金 — 矢量轰炸: 箭头指向前方
 function acFX_Jin(p){
-  acState._screenFlash=1.0;acState._flashColor='#ffd700';
+  acState._screenFlash=1.0;acState._flashColor='#ffe43d';
   acParticles.burst(p.x-20,p.y-10,Math.PI*0.8,4,'#ffd700',{speed:9,life:24,size:7,spread:3});
   acParticles.burst(p.x+20,p.y-10,Math.PI*1.2,4,'#ffd700',{speed:9,life:24,size:7,spread:3});
   acParticles.burst(p.x,p.y-25,Math.PI/2,5,'#ffcc00',{speed:10,life:22,size:8,spread:2});
@@ -5777,7 +5777,7 @@ function acFX_Jin(p){
 
 // 7. 安莉洁 — 冰界领主: 六角雪花 + 冰晶散落
 function acFX_Anlijie(p){
-  acState._screenFlash=1.0;acState._flashColor='#aaddff';
+  acState._screenFlash=1.0;acState._flashColor='#88ccff';
   for(var i=0;i<6;i++){var a=i*Math.PI/3;for(var j=0;j<3;j++)acParticles.burst(p.x+Math.cos(a)*j*15,p.y+Math.sin(a)*j*15-25,-Math.PI/2,2,'#aaddff',{speed:2+j,life:38,size:7,spread:8})}
   for(var i=0;i<15;i++)acParticles.burst(p.x+Math.random()*50-25,p.y-40+Math.random()*30,-Math.PI/2,1,'#cceeff',{speed:2,life:40,size:5,spread:20});
   acParticles.ring(p.x,p.y,38,12,'#88ccff',{speed:2,life:38,size:4});
@@ -5786,7 +5786,7 @@ function acFX_Anlijie(p){
 
 // 8. 凯莉 — 星月刃: 粉色月牙弧 + 星星四散
 function acFX_Kaili(p){
-  acState._screenFlash=1.0;acState._flashColor='#ff88cc';
+  acState._screenFlash=1.0;acState._flashColor='#ff55aa';
   for(var i=0;i<10;i++){var t=i/10;acParticles.burst(p.x+Math.cos(t*Math.PI)*30,p.y-Math.sin(t*Math.PI)*20,t*Math.PI+0.2,2,'#ff88cc',{speed:7,life:24,size:6,spread:3})}
   for(var i=0;i<14;i++){var a=i*Math.PI*2/14;acParticles.burst(p.x+Math.cos(a)*30,p.y+Math.sin(a)*30,a,2,'#ffaadd',{speed:6,life:22,size:6,spread:15})}
   acParticles.explode(p.x,p.y,10,'#ffccee',{speed:5,life:20,size:5});
@@ -5795,7 +5795,7 @@ function acFX_Kaili(p){
 
 // 9. 紫堂幻 — 斯巴达战阵: 地面双圈阵 + 进化光
 function acFX_Zitanghuan(p,big){
-  acState._screenFlash=1.0;acState._flashColor='#ff8800';
+  acState._screenFlash=1.0;acState._flashColor='#ff6600';
   for(var i=0;i<24;i++){var a=i*Math.PI*2/24;acParticles.burst(p.x+Math.cos(a)*35,p.y+Math.sin(a)*35+15,a,1,'#ff8800',{speed:2,life:32,size:4,spread:3})}
   for(var i=0;i<18;i++){var a=i*Math.PI*2/18;acParticles.burst(p.x+Math.cos(a)*22,p.y+Math.sin(a)*22+15,-a,1,'#cc66ff',{speed:2,life:28,size:3,spread:3})}
   for(var i=0;i<10;i++)acParticles.burst(p.x+Math.random()*40-20,p.y+15+Math.random()*5,-Math.PI*0.8,1,'#aa8855',{speed:3,life:16,size:3,spread:20});
@@ -5805,7 +5805,7 @@ function acFX_Zitanghuan(p,big){
 
 // 10. 雷狮 — 雷神之锤: 蓝紫十字雷 + 金色能量吸
 function acFX_Leishi(p){
-  acState._screenFlash=1.0;acState._flashColor='#cc88ff';
+  acState._screenFlash=1.0;acState._flashColor='#9944ff';
   for(var i=0;i<8;i++){var dx=-50+i*13;acParticles.burst(dx,p.y,Math.PI*0.9+i%2*0.2,2,'#cc88ff',{speed:5,life:20,size:5,spread:2})}
   for(var i=0;i<8;i++){var dy=-50+i*13;acParticles.burst(p.x,dy,Math.PI*0.4+i%2*0.2,2,'#cc88ff',{speed:5,life:20,size:5,spread:2})}
   acParticles.explode(p.x,p.y,14,'#bb77ee',{speed:9,life:18,size:7});
@@ -5815,7 +5815,7 @@ function acFX_Leishi(p){
 
 // 11. 帕洛斯 — 暗黑使者: 8方向分身散开
 function acFX_Paluosi(p){
-  acState._screenFlash=1.0;acState._flashColor='#9966ff';
+  acState._screenFlash=1.0;acState._flashColor='#7733dd';
   for(var d=0;d<8;d++){var a=d*Math.PI/4;for(var j=0;j<6;j++)acParticles.burst(p.x+Math.cos(a)*(10+j*8),p.y+Math.sin(a)*(10+j*8),a,1,'#9966ff',{speed:2+j*0.5,life:28-j*2,size:5,spread:3})}
   acParticles.ring(p.x,p.y,30,12,'#6644aa',{speed:4,life:26,size:5});
   acShake.trigger(6,0.9);
@@ -5823,7 +5823,7 @@ function acFX_Paluosi(p){
 
 // 12. 佩利 — 重力爆炸: 向内螺旋漩涡
 function acFX_Peili(p){
-  acState._screenFlash=1.0;acState._flashColor='#cc8800';
+  acState._screenFlash=1.0;acState._flashColor='#dd7700';
   for(var i=0;i<24;i++){var a=i*Math.PI*2/24;var r=55-i*2;acParticles.burst(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r,a+Math.PI/2,1,'#9955dd',{speed:3,life:24,size:5,spread:10})}
   for(var i=0;i<16;i++){var a=i*Math.PI*2/16;var r=40-i*2;acParticles.burst(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r,a-Math.PI/2,1,'#cc8800',{speed:3,life:22,size:4,spread:8})}
   acShake.trigger(7,0.92);
@@ -5831,7 +5831,7 @@ function acFX_Peili(p){
 
 // 13. 嘉德罗斯 — 大罗神通棍: 砸地爆炸冲击波(不再用柱子)
 function acFX_Jiadeluosi(p){
-  acState._screenFlash=1.0;acState._flashColor='#ffcc00';
+  acState._screenFlash=1.0;acState._flashColor='#ee3300';
   acParticles.explode(p.x,p.y+15,25,'#ffcc00',{speed:12,life:22,size:8});
   acParticles.explode(p.x,p.y+15,15,'#333333',{speed:8,life:18,size:5});
   for(var i=0;i<10;i++){var a=i*Math.PI*2/10;acParticles.burst(p.x+Math.cos(a)*20,p.y+15+Math.sin(a)*5,a,2,'#ffaa00',{speed:8,life:18,size:5,spread:10})}
@@ -5841,7 +5841,7 @@ function acFX_Jiadeluosi(p){
 
 // 14. 银爵 — 斗魔天刑: 8条银链延伸 + 护盾光环
 function acFX_Yinjue(p){
-  acState._screenFlash=1.0;acState._flashColor='#aaaacc';
+  acState._screenFlash=1.0;acState._flashColor='#bbbbdd';
   for(var d=0;d<8;d++){var a=d*Math.PI/4;for(var j=0;j<10;j++)acParticles.burst(p.x+Math.cos(a)*(8+j*7),p.y+Math.sin(a)*(8+j*7),a,1,'#aaaacc',{speed:1+j*0.3,life:32-j,size:3,spread:2})}
   acParticles.ring(p.x,p.y,55,18,'#ccccff',{speed:2,life:36,size:4});
   acShake.trigger(6,0.9);
@@ -5849,7 +5849,7 @@ function acFX_Yinjue(p){
 
 // 15. 祖玛 — 风之庇佑: 绿风上升 + 治疗光雨下落
 function acFX_Zuma(p){
-  acState._screenFlash=1.0;acState._flashColor='#66ccaa';
+  acState._screenFlash=1.0;acState._flashColor='#33bb88';
   for(var i=0;i<12;i++){var a=i*Math.PI*2/12;acParticles.burst(p.x+Math.cos(a)*20,p.y+20,-Math.PI/2,2,'#66ccaa',{speed:3,life:32,size:5,spread:20})}
   for(var i=0;i<16;i++)acParticles.burst(p.x+Math.random()*50-25,p.y-35+Math.random()*25,Math.PI/2,1,'#44aa88',{speed:2,life:36,size:5,spread:25});
   acParticles.ring(p.x,p.y,40,12,'#88ddbb',{speed:2,life:34,size:4});
@@ -5858,7 +5858,7 @@ function acFX_Zuma(p){
 
 // 16. 鬼狐 — 镜像空间: 4向白面具 + 绿色能量吸收
 function acFX_Guihu(p){
-  acState._screenFlash=1.0;acState._flashColor='#44aa44';
+  acState._screenFlash=1.0;acState._flashColor='#33dd55';
   var masks=[[0,-30,'#ffffff'],[0,30,'#ffffff'],[-30,0,'#ffffff'],[30,0,'#ffffff']];
   masks.forEach(function(m){for(var i=0;i<4;i++)acParticles.burst(p.x+m[0],p.y+m[1],Math.atan2(m[1],m[0])+i*0.3,2,m[2],{speed:3,life:30,size:6,spread:5})});
   for(var i=0;i<14;i++){var a=Math.random()*Math.PI*2;acParticles.burst(p.x+Math.cos(a)*45,p.y+Math.sin(a)*45,a+Math.PI,2,'#44aa44',{speed:5,life:20,size:4,spread:10})}
@@ -6450,7 +6450,7 @@ function acBattleLoop(){
 function acRender(){
   acCtx.clearRect(0,0,800,500);
   // ✨ 全屏闪光(终结技触发时)
-  if(acState._screenFlash>0.05){acCtx.fillStyle='rgba('+hexToRgb(acState._flashColor)+','+(acState._screenFlash*0.3)+')';acCtx.fillRect(0,0,800,500);}
+  if(acState._screenFlash>0.05){acCtx.fillStyle='rgba('+hexToRgb(acState._flashColor)+','+(acState._screenFlash*0.55)+')';acCtx.fillRect(0,0,800,500);}
   // ✨ 网格 + 格位Buff标记
   for(var r=0;r<4;r++){for(var c=0;c<4;c++){
     var gx=AC_OFFX+c*AC_CELL_W,gy=AC_OFFY+r*AC_CELL_H;
