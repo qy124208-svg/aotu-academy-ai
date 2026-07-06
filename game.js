@@ -5543,6 +5543,12 @@ function _dreamSubscribe(){
           window._dreamView(payload.new.dream_id);
         }
       })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'dm_messages'},function(payload){
+        if(window._dreamUser&&payload.new.receiver_id===window._dreamUser.id){
+          // 有新私信！如果在聊天窗口就刷新
+          if(window._dreamState._chatWith===payload.new.sender_id)window._dreamChat(payload.new.sender_id);
+        }
+      })
       .subscribe();
   }catch(e){_dreamChannel=null;}
 }
@@ -5577,6 +5583,7 @@ function _dreamRender(app){
   if(window._dreamUser){
     h+='<span style="color:'+id.color+'">✨ '+id.name+'</span> ';
     h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
+    h+='<button class="btn btn-xs" onclick="window._dreamInbox()" style="font-size:0.65em;color:var(--blue)">💬 私信</button> ';
     h+='<button class="btn btn-xs" onclick="window._dreamLogout()" style="font-size:0.65em;color:#e94560">退出</button>';
   }else{
     h+='👤 未登录 ';
@@ -5602,7 +5609,9 @@ function _dreamRender(app){
       if(p.image_url)h+='<div style="margin:6px 0"><img src="'+p.image_url+'" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #333" loading="lazy"></div>';
       h+='<div style="display:flex;gap:12px;font-size:0.75em;color:var(--dim);margin-top:6px">';
       h+='<span onclick="window._dreamLike('+p.id+')" style="cursor:pointer;user-select:none">❤️ '+p.likes_count+'</span>';
-      h+='<span onclick="window._dreamView('+p.id+')" style="cursor:pointer;user-select:none">💬 '+p.comments_count+'</span></div></div>';
+      h+='<span onclick="window._dreamView('+p.id+')" style="cursor:pointer;user-select:none">💬 '+p.comments_count+'</span>';
+      if(p.user_id&&window._dreamUser)h+='<span onclick="event.stopPropagation();window._dreamStartChat(\''+p.user_id+'\')" style="cursor:pointer;user-select:none;color:var(--blue)">📩 私信</span>';
+      h+='</div></div>';
     });
   }
   // 翻页
@@ -5783,6 +5792,103 @@ window._dreamDeletePost=async function(postId){
   if(!confirm('确定删除这条帖子？'))return;
   try{await supabase.from('dreams').update({is_deleted:true}).eq('id',postId).eq('user_id',window._dreamUser.id);
     window._dreamProfile();}catch(e){alert('删除失败');}
+};
+
+// 💬 私信系统
+// 收件箱—显示所有聊过的人
+window._dreamInbox=async function(){
+  if(!window._dreamUser||!supabase)return;
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="text-align:center;padding:40px"><h3>💬 加载私信...</h3></div>';
+  try{
+    var uid=window._dreamUser.id;
+    // 找到所有和我发过私信的人
+    var sent=await supabase.from('dm_messages').select('receiver_id').eq('sender_id',uid);
+    var recv=await supabase.from('dm_messages').select('sender_id').eq('receiver_id',uid);
+    var partnerIds=[];
+    if(sent.data)sent.data.forEach(function(m){if(partnerIds.indexOf(m.receiver_id)<0)partnerIds.push(m.receiver_id);});
+    if(recv.data)recv.data.forEach(function(m){if(partnerIds.indexOf(m.sender_id)<0)partnerIds.push(m.sender_id);});
+    if(partnerIds.length===0){
+      app.innerHTML='<div style="max-width:600px;margin:60px auto;text-align:center"><h3>💬 私信</h3><p style="color:var(--dim)">还没有私信对话</p><p style="color:var(--dim);font-size:0.8em">在帖子中点击其他用户的名称即可发起私信</p><button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button></div>';
+      return;
+    }
+    // 查每个伙伴的最新一条消息
+    var partners=[];
+    for(var i=0;i<partnerIds.length;i++){
+      var pid=partnerIds[i];
+      var last=await supabase.from('dm_messages').select('*').or('sender_id.eq.'+uid+',sender_id.eq.'+pid).or('receiver_id.eq.'+uid+',receiver_id.eq.'+pid).order('created_at',{ascending:false}).limit(1);
+      var unread=await supabase.from('dm_messages').select('*',{count:'exact'}).eq('sender_id',pid).eq('receiver_id',uid).eq('is_read',false);
+      var partnerEmail='用户';
+      if(last.data&&last.data.length>0)partnerEmail=last.data[0].sender_id===uid?(last.data[0].receiver_email||'用户'):(last.data[0].sender_email||'用户');
+      partners.push({id:pid,lastMsg:last.data?last.data[0]:null,unread:unread.count||0});
+    }
+    // 渲染
+    var h='<div style="max-width:600px;margin:0 auto;padding:10px">';
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button>';
+    h+='<h3 style="color:var(--gold);margin:10px 0">💬 私信</h3>';
+    partners.forEach(function(p){
+      h+='<div class="panel" onclick="window._dreamChat(\''+p.id+'\')" style="padding:10px;margin:6px 0;cursor:pointer">';
+      h+='<b>'+p.id.slice(0,8)+'...</b>'+(p.unread>0?' <span style="color:#e94560;font-size:0.7em">🔴 '+p.unread+'新</span>':'');
+      if(p.lastMsg)h+='<div style="font-size:0.75em;color:var(--dim);margin-top:3px">'+(p.lastMsg.content||'').slice(0,40)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    app.innerHTML=h;
+  }catch(e){app.innerHTML='<p style="color:#e94560;text-align:center">加载失败</p>';}
+};
+
+// 聊天窗口
+window._dreamChat=async function(partnerId){
+  if(!window._dreamUser||!supabase)return;
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="text-align:center;padding:40px"><h3>💬 加载...</h3></div>';
+  var uid=window._dreamUser.id;
+  try{
+    // 标记已读
+    await supabase.from('dm_messages').update({is_read:true}).eq('sender_id',partnerId).eq('receiver_id',uid).eq('is_read',false);
+    // 查所有消息
+    var msgs=await supabase.from('dm_messages').select('*').or('(sender_id.eq.'+uid+',receiver_id.eq.'+partnerId+'),(sender_id.eq.'+partnerId+',receiver_id.eq.'+uid+')').order('created_at',{ascending:true});
+    function render(){
+      var h='<div style="max-width:600px;margin:0 auto;padding:10px">';
+      h+='<button class="btn btn-s" onclick="window._dreamInbox()">← 返回收件箱</button>';
+      h+='<h3 style="color:var(--gold);margin:10px 0">💬 对话中</h3>';
+      h+='<div id="dmMessages" style="min-height:300px;max-height:400px;overflow-y:auto;margin:10px 0">';
+      if(msgs.data)msgs.data.forEach(function(m){
+        var isMe=m.sender_id===uid;
+        h+='<div style="text-align:'+(isMe?'right':'left')+';margin:6px 0">';
+        h+='<div style="display:inline-block;max-width:80%;padding:8px 12px;border-radius:12px;font-size:0.85em;'+(isMe?'background:var(--blue);color:#fff;':'background:var(--card);color:var(--text);')+'">'+_escapeHtml(m.content)+'</div>';
+        h+='<div style="font-size:0.55em;color:var(--dim)">'+_timeAgo(m.created_at)+(isMe?'':' · '+m.sender_id.slice(0,8))+'</div></div>';
+      });
+      if(!msgs.data||msgs.data.length===0)h+='<p style="color:var(--dim);text-align:center">还没有消息，打个招呼吧</p>';
+      h+='</div>';
+      h+='<div style="display:flex;gap:6px"><input id="dmInput" placeholder="输入消息..." maxlength="500" style="flex:1;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em"><button class="btn btn-p" onclick="window._dreamSendDM(\''+partnerId+'\')">发送</button></div>';
+      h+='</div>';
+      app.innerHTML=h;
+      document.getElementById('dmInput').focus();
+      // 滚动到底部
+      setTimeout(function(){var el=document.getElementById('dmMessages');if(el)el.scrollTop=el.scrollHeight;},100);
+    }
+    render();
+    // 存储当前聊天对象，用于实时刷新
+    window._dreamState._chatWith=partnerId;
+  }catch(e){app.innerHTML='<p style="color:#e94560">加载失败</p>';}
+};
+
+window._dreamSendDM=async function(partnerId){
+  var content=document.getElementById('dmInput').value.trim();
+  if(!content)return;
+  try{
+    await supabase.from('dm_messages').insert({sender_id:window._dreamUser.id,receiver_id:partnerId,content:content});
+    document.getElementById('dmInput').value='';
+    window._dreamChat(partnerId);
+  }catch(e){alert('发送失败');}
+};
+
+// 从帖子中发起私信
+window._dreamStartChat=function(userId){
+  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
+  if(userId===window._dreamUser.id){alert('不能给自己发私信');return;}
+  window._dreamChat(userId);
 };
 
 // 工具
