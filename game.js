@@ -5429,11 +5429,31 @@ window._acClearIcon=function(chId){delete window._acCustomIcons[chId];acPrepRend
 // ═══════════════════════════════════════
 window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
 window._dreamFp=localStorage._dreamFp||(function(){var fp='fp_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage._dreamFp=fp;return fp;})();
+// 🌟 IP身份系统 — 用IP定位玩家，身份永不丢失
+window._dreamIpHash=null;
+window._dreamMyIdentity=null;
+(async function(){
+  try{var r=await fetch('https://api.ipify.org?format=json');var d=await r.json();window._dreamIpHash=btoa(d.ip).replace(/[+=/]/g,'').slice(0,20);}
+  catch(e1){try{var r2=await fetch('https://api.ip.sb/ip');var ip=await r2.text();window._dreamIpHash=btoa(ip.trim()).replace(/[+=/]/g,'').slice(0,20);}catch(e2){}}
+  _dreamLoadMyIdentity();
+})();
+async function _dreamLoadMyIdentity(){
+  if(!supabase||!window._dreamIpHash)return;
+  try{var r=await supabase.from('dream_identities').select('*').eq('ip_hash',window._dreamIpHash).maybeSingle();
+    if(r.data){window._dreamMyIdentity=r.data;}
+  }catch(e){}
+}
+async function _dreamSaveMyIdentity(name,emoji,color){
+  if(!supabase||!window._dreamIpHash)return;
+  var data={ip_hash:window._dreamIpHash,name:name,emoji:emoji,color:color,updated_at:new Date().toISOString()};
+  try{await supabase.from('dream_identities').upsert(data);window._dreamMyIdentity=data;}catch(e){}
+}
 
 // 🌙 打开好梦论坛
 window._openGoodDream=function(){
   var app=document.getElementById('app');
   window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
+  if(window._dreamIpHash&&!window._dreamMyIdentity)_dreamLoadMyIdentity();
   _dreamLoadPosts(app);
 };
 
@@ -5606,17 +5626,20 @@ window._dreamPage=function(p){window._dreamState.page=p;_dreamLoadPosts(document
 
 // 工具
 function _getSavedName(){var id=_dreamLoadIdentity();return id.name||'';}
-// 🌟 本地身份系统 — 设置一次永久记住
-function _dreamLoadIdentity(){try{return JSON.parse(localStorage._dreamIdentity||'{}');}catch(e){return{};}}
-function _dreamSaveIdentity(id){localStorage._dreamIdentity=JSON.stringify(id);}
-window._dreamSetIdentity=function(){
-  var id=_dreamLoadIdentity();
-  var name=prompt('你的昵称：',id.name||'');
+// 🌟 IP身份系统 — IP定位，永不丢失
+function _dreamLoadIdentity(){
+  if(window._dreamMyIdentity&&window._dreamMyIdentity.name)return window._dreamMyIdentity;
+  return {name:localStorage._dreamName||'',emoji:_randomEmoji(),color:_randomColor()};
+}
+window._dreamSetIdentity=async function(){
+  var cur=_dreamLoadIdentity();
+  var name=prompt('你的昵称：',cur.name||'');
   if(!name||!name.trim())return;
-  id.name=name.trim();
-  id.emoji=prompt('头像emoji：',id.emoji||_randomEmoji())||id.emoji||'😶';
-  id.color=prompt('名称颜色(hex)：',id.color||_randomColor())||id.color||'#f0c040';
-  _dreamSaveIdentity(id);
+  name=name.trim();
+  var emoji=prompt('头像emoji：',cur.emoji||'😶')||'😶';
+  var color=prompt('名称颜色(hex)：',cur.color||'#f0c040')||'#f0c040';
+  localStorage._dreamName=name;
+  await _dreamSaveMyIdentity(name,emoji,color);
   _dreamLoadPosts(document.getElementById('app'));
 };
 
