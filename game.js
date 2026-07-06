@@ -5454,7 +5454,41 @@ window._openGoodDream=function(){
   var app=document.getElementById('app');
   window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
   if(window._dreamIpHash&&!window._dreamMyIdentity)_dreamLoadMyIdentity();
+  // 订阅实时推送
+  _dreamSubscribe();
   _dreamLoadPosts(app);
+};
+// 离开论坛时取消订阅
+var _dreamChannel=null;
+function _dreamSubscribe(){
+  if(!supabase||_dreamChannel)return;
+  try{
+    _dreamChannel=supabase.channel('dreams-realtime')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'dreams'},function(payload){
+        if(window._dreamState.viewing)return; // 看评论时不刷新列表
+        var app=document.getElementById('app');
+        if(app&&app.querySelector('[onclick*="_openGoodDream"]')||app.querySelector('textarea[id="dreamInput"]')){
+          window._dreamState.page=0;_dreamLoadPosts(app);
+        }
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'dreams'},function(payload){
+        if(window._dreamState.viewing)return;
+        var app=document.getElementById('app');
+        if(app&&app.querySelector('textarea[id="dreamInput"]'))_dreamLoadPosts(app);
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'dream_comments'},function(payload){
+        if(window._dreamState.viewing&&window._dreamState.viewing.id===payload.new.dream_id){
+          window._dreamView(payload.new.dream_id);
+        }
+      })
+      .subscribe();
+  }catch(e){_dreamChannel=null;}
+}
+// 返回游戏时清理订阅
+var _origGoBack=window._goBack;
+window._goBack=function(){
+  if(_dreamChannel){try{supabase.removeChannel(_dreamChannel);}catch(e){}_dreamChannel=null;}
+  if(_origGoBack)_origGoBack();
 };
 
 // 加载留言列表
