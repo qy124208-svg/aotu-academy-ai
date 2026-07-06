@@ -5515,6 +5515,8 @@ async function _dreamSaveMyIdentity(name,emoji,color){
 window._openGoodDream=function(){
   var app=document.getElementById('app');
   document.body.style.background='#080812';
+  // ✨ 启动标题同款星空背景(流星+星座+鼠标互动)
+  if(!_titleCanvas||!_titleAnim){try{_startTitleParticles();}catch(e){}}
   window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
   if(window._dreamIpHash&&!window._dreamMyIdentity)_dreamLoadMyIdentity();
   _dreamSubscribe();
@@ -5558,6 +5560,10 @@ function _dreamSubscribe(){
 var _origGoBack=window._goBack;
 window._goBack=function(){
   document.body.style.background='';
+  // ✨ 停止星空背景(回到非论坛页面)
+  if(_titleAnim){cancelAnimationFrame(_titleAnim);_titleAnim=null;}
+  if(_titleParticles)_titleParticles.length=0;
+  _titleCanvas=null;
   if(_dreamChannel){try{supabase.removeChannel(_dreamChannel);}catch(e){}_dreamChannel=null;}
   if(_origGoBack)_origGoBack();
 };
