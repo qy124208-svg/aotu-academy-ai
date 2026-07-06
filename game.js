@@ -6335,95 +6335,186 @@ function hexToRgb(h){if(h[0]==='#')h=h.slice(1);var v=parseInt(h,16);return((v>>
 // 智能粒子限流: 已有很多粒子时自动缩减新增数量
 function acSafeCount(n){var c=acParticles.count,q=acState._perfQ||1.0;if(c>700)return 0;if(c>500)q*=0.3;else if(c>350)q*=0.6;if(acState._deathChain>4)q*=0.3;return Math.max(2,Math.floor(n*q));}
 
-// ═══ v6.17 全屏背景特效 — 整个页面变色 ═══
-function _showUltBg(gradient,icon,color){
+// ═══ v6.17 全屏背景特效 — 严格按照aotu.docx文档描述 ═══
+function _showUltBg(html,color){
   var el=window._ultBgEl||document.getElementById('ultBg');
   if(!el)return;
-  el.style.background=gradient;
-  el.style.opacity='0.85';
-  el.innerHTML='<div style=\"position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:8em;opacity:0.3;pointer-events:none\">'+icon+'</div>';
+  el.style.background='#0a0a12';
+  el.style.opacity='1';
+  el.innerHTML=html;
   clearTimeout(window._ultBgTimer);
-  window._ultBgTimer=setTimeout(function(){el.style.opacity='0';el.innerHTML='';},1200);
+  window._ultBgTimer=setTimeout(function(){el.style.opacity='0';el.innerHTML='';},1500);
 }
 
-// 1. 安迷修 — 冷热流: X形黄蓝交叉
+// 1. 安迷修 — 🔥荧光黄火焰剑 + ❄️荧光蓝冰霜剑 + 💫双剑X形交叉 + 🛡️骑士护盾光环
 function acFX_Anmixiu(p){
-  _showUltBg('linear-gradient(135deg,rgba(255,255,0,0.4) 0%,rgba(0,0,0,0) 30%,rgba(0,204,255,0.4) 100%)','⚔️','#ffaa00');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,rgba(255,255,0,0.35) 0%,transparent 40%,rgba(0,204,255,0.35) 100%)"></div>'+
+'<div style="position:absolute;top:30%;left:25%;font-size:10em;opacity:0.5;transform:rotate(-45deg);color:#ffff00;text-shadow:0 0 40px #ffdd00">🔥</div>'+
+'<div style="position:absolute;top:30%;right:25%;font-size:10em;opacity:0.5;transform:rotate(45deg);color:#00ccff;text-shadow:0 0 40px #00aaff">❄️</div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12em;opacity:0.25">⚔️</div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:300px;height:300px;border:3px solid rgba(136,204,255,0.4);border-radius:50%;animation:ultPulse 1s ease-out"></div>',
+  '#ffaa00');
   acState._screenFlash=1.0;acState._flashColor='#ffaa00';acShake.trigger(8,0.95);
 }
-// 2. 卡米尔 — 无定之躯: 绿色波纹
+// 2. 卡米尔 — 💚绿色风之波纹3层 + 🗡️飞劈轨迹从天降 + 💫眩晕星星 + ✨驱散碎片
 function acFX_Kamier(p){
-  _showUltBg('radial-gradient(circle,rgba(0,255,136,0.5) 0%,rgba(0,153,68,0.3) 40%,rgba(0,0,0,0) 70%)','🗡️','#00ff66');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 0%,rgba(0,255,136,0.4) 0%,transparent 60%)"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">'+
+'<div style="width:120px;height:120px;border:3px solid #00ff88;border-radius:50%;animation:ultPulse 1.2s ease-out"></div>'+
+'<div style="width:200px;height:200px;border:2px solid #00cc66;border-radius:50%;position:absolute;top:-40px;left:-40px;animation:ultPulse 1.2s 0.15s ease-out"></div>'+
+'<div style="width:280px;height:280px;border:2px solid #009944;border-radius:50%;position:absolute;top:-80px;left:-80px;animation:ultPulse 1.2s 0.3s ease-out"></div>'+
+'</div>'+
+'<div style="position:absolute;top:20%;left:48%;font-size:6em;opacity:0.6;color:#aaffcc;text-shadow:0 0 30px #00ff88">🗡️</div>'+
+'<div style="position:absolute;top:15%;left:42%;font-size:2em;opacity:0.8">💫</div><div style="position:absolute;top:12%;left:52%;font-size:2em;opacity:0.8">💫</div><div style="position:absolute;top:18%;left:47%;font-size:2em;opacity:0.8">💫</div>'+
+'<div style="position:absolute;top:60%;left:40%;font-size:1.5em;opacity:0.5;animation:ultSpark 0.8s ease-out infinite">✨</div>',
+  '#00ff66');
   acState._screenFlash=1.0;acState._flashColor='#00ff66';acShake.trigger(7,0.92);
 }
-// 3. 格瑞 — 神镰烈斩: 绿色弧线
+// 3. 格瑞 — 💚巨大绿色镰刀横向挥出 + 💫整列眩晕 + ✨2-3道镰刀残影
 function acFX_Gerui(p){
-  _showUltBg('linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,255,0,0.5) 50%,rgba(0,0,0,0) 100%)','🟢','#33ff00');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(90deg,transparent 0%,rgba(0,255,0,0.4) 40%,rgba(0,255,0,0.5) 60%,transparent 100%)"></div>'+
+'<div style="position:absolute;top:40%;left:10%;font-size:10em;opacity:0.4;color:#00ff00;text-shadow:0 0 50px #88ff88;transform:rotate(-15deg)">💚</div>'+
+'<div style="position:absolute;top:35%;left:55%;font-size:3em;opacity:0.6">💫</div>'+
+'<div style="position:absolute;top:45%;left:60%;font-size:2em;opacity:0.4">💫</div>'+
+'<div style="position:absolute;top:30%;left:50%;font-size:2em;opacity:0.4">💫</div>'+
+'<div style="position:absolute;top:45%;left:0;width:100%;height:3px;background:linear-gradient(90deg,transparent,rgba(170,255,170,0.5),transparent);animation:ultSweep 1s ease-out"></div>',
+  '#33ff00');
   acState._screenFlash=1.0;acState._flashColor='#33ff00';acShake.trigger(7,0.92);
 }
-// 4. 埃米 — 恶魔之手: 黑紫从下升起
+// 4. 埃米 — 🖤从地面伸出巨大黑色恶魔手臂 + 💙蓝色恶魔能量环绕 + 🔴反伤荆棘环
 function acFX_Aimi(p){
-  _showUltBg('linear-gradient(0deg,rgba(34,34,34,0.7) 0%,rgba(0,102,204,0.4) 50%,rgba(0,0,0,0) 80%)','👿','#5500dd');
+  _showUltBg(
+'<div style="position:absolute;bottom:0;left:0;width:100%;height:60%;background:linear-gradient(0deg,rgba(34,34,34,0.8) 0%,rgba(68,68,68,0.5) 40%,transparent 80%)"></div>'+
+'<div style="position:absolute;bottom:10%;left:40%;font-size:15em;opacity:0.4;color:#222222;text-shadow:0 -20px 40px #0066cc">🖤</div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:3px solid rgba(0,102,204,0.5);border-radius:50%;animation:ultPulse 1.2s ease-out"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:180px;border:2px dashed rgba(0,68,136,0.4);border-radius:50%;animation:ultPulse 1.2s 0.2s ease-out"></div>',
+  '#5500dd');
   acState._screenFlash=1.0;acState._flashColor='#5500dd';acShake.trigger(8,0.95);
 }
-// 5. 艾比 — 天矢流星: 白色星光
+// 5. 艾比 — 🌟12支白色光箭从天而降带金色尾焰 + 💫贯穿光束 + 🎯金色准星
 function acFX_Aibi(p){
-  _showUltBg('radial-gradient(ellipse at 50% 30%,rgba(255,255,255,0.5) 0%,rgba(255,221,136,0.3) 30%,rgba(0,0,0,0) 70%)','🏹','#ffeeee');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 20%,rgba(255,255,255,0.5) 0%,rgba(255,221,136,0.2) 30%,transparent 60%)"></div>'+
+Array.from({length:12},function(_,i){return'<div style="position:absolute;top:'+(5+i*3)+'%;left:'+(15+i*6)+'%;font-size:3em;opacity:0.6;color:#ffffff;text-shadow:0 0 15px #ffdd88;transform:rotate(20deg)">🏹</div>';}).join('')+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border:2px solid #ffdd88;border-radius:50%;animation:ultPulse 0.8s ease-out"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2em;opacity:0.6">🎯</div>',
+  '#ffeeee');
   acState._screenFlash=1.0;acState._flashColor='#ffeeee';acShake.trigger(5,0.9);
 }
-// 6. 金 — 矢量轰炸: 金黄箭头
+// 6. 金 — 🟡巨大黄色能量箭头 + 🛹滑板速度线 + 💥金色能量回流
 function acFX_Jin(p){
-  _showUltBg('linear-gradient(180deg,rgba(255,215,0,0.5) 0%,rgba(255,255,136,0.3) 40%,rgba(0,0,0,0) 80%)','⭐','#ffe43d');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,rgba(255,215,0,0.5) 0%,rgba(255,255,136,0.2) 30%,transparent 60%)"></div>'+
+'<div style="position:absolute;top:25%;left:50%;transform:translateX(-50%);font-size:14em;opacity:0.35;color:#ffd700;text-shadow:0 0 60px #ffcc00">⭐</div>'+
+'<div style="position:absolute;top:60%;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(255,238,136,0.6),rgba(255,238,136,0.6),transparent);animation:ultSweep 0.8s ease-out"></div>'+
+'<div style="position:absolute;top:40%;left:50%;font-size:2em;opacity:0.5;animation:ultSpark 0.6s ease-out infinite">💥</div>',
+  '#ffe43d');
   acState._screenFlash=1.0;acState._flashColor='#ffe43d';acShake.trigger(7,0.92);
 }
-// 7. 安莉洁 — 冰界领主: 冰蓝雪花
+// 7. 安莉洁 — ❄️六角冰晶从天旋转下落 + 🧊蓝色寒气冰冻光环 + 💎圣女冰蓝光环
 function acFX_Anlijie(p){
-  _showUltBg('radial-gradient(circle at 50% 40%,rgba(170,221,255,0.5) 0%,rgba(136,204,255,0.3) 30%,rgba(0,0,0,0) 70%)','❄️','#88ccff');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at 50% 40%,rgba(170,221,255,0.5) 0%,rgba(136,204,255,0.25) 30%,transparent 70%)"></div>'+
+Array.from({length:6},function(_,i){var a=i*Math.PI/3;return'<div style="position:absolute;top:35%;left:50%;font-size:3em;opacity:0.5;color:#aaddff;text-shadow:0 0 20px #88ccff;transform:translate('+(Math.cos(a)*120)+'px,'+(Math.sin(a)*120-50)+'px)">❄️</div>';}).join('')+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:220px;height:220px;border:2px solid rgba(200,238,255,0.5);border-radius:50%;animation:ultPulse 1.5s ease-out"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10em;opacity:0.2">💎</div>',
+  '#88ccff');
   acState._screenFlash=1.0;acState._flashColor='#88ccff';acShake.trigger(5,0.88);
 }
-// 8. 凯莉 — 星月刃: 粉色月牙
+// 8. 凯莉 — 🌙粉色月牙剑气横向扩散 + ⭐星星碎片飞散 + 💫星月环绕
 function acFX_Kaili(p){
-  _showUltBg('radial-gradient(ellipse at 60% 40%,rgba(255,136,204,0.5) 0%,rgba(255,170,221,0.3) 30%,rgba(0,0,0,0) 70%)','🌙','#ff55aa');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at 60% 40%,rgba(255,136,204,0.4) 0%,rgba(255,170,221,0.2) 35%,transparent 65%)"></div>'+
+'<div style="position:absolute;top:30%;left:35%;font-size:6em;opacity:0.5;color:#ff88cc;text-shadow:0 0 40px #ffaadd">🌙</div>'+
+Array.from({length:10},function(_,i){var a=i*Math.PI*2/10;return'<div style="position:absolute;top:'+(40+Math.sin(a)*25)+'%;left:'+(50+Math.cos(a)*25)+'%;font-size:2em;opacity:0.5;color:#ffaadd">⭐</div>';}).join('')+
+'<div style="position:absolute;top:40%;left:45%;font-size:3em;opacity:0.4;animation:ultSpark 0.7s ease-out infinite">💫</div>',
+  '#ff55aa');
   acState._screenFlash=1.0;acState._flashColor='#ff55aa';acShake.trigger(6,0.92);
 }
-// 9. 紫堂幻 — 斯巴达战阵: 橙紫魔法阵
+// 9. 紫堂幻 — 👾地面紫色召唤阵旋转 + 🛡️斯巴达跳跃尘土 + ✨融合进化金光 + 💜军团光环
 function acFX_Zitanghuan(p,big){
-  _showUltBg(big?'radial-gradient(circle,rgba(255,170,0,0.5) 0%,rgba(204,102,255,0.3) 40%,rgba(0,0,0,0) 70%)':'radial-gradient(circle,rgba(255,136,0,0.4) 0%,rgba(204,102,255,0.2) 40%,rgba(0,0,0,0) 70%)','👾','#ff6600');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at 50% 70%,rgba(255,136,0,0.4) 0%,rgba(204,102,255,0.3) 30%,transparent 60%)"></div>'+
+'<div style="position:absolute;top:55%;left:50%;transform:translate(-50%,-50%)">'+
+'<div style="width:200px;height:200px;border:3px solid #ff8800;border-radius:50%;animation:ultPulse 1.3s ease-out"></div>'+
+'<div style="width:140px;height:140px;border:2px solid #cc66ff;border-radius:50%;position:absolute;top:30px;left:30px;animation:ultPulse 1.3s 0.15s ease-out"></div>'+
+'</div>'+
+'<div style="position:absolute;bottom:20%;left:50%;transform:translateX(-50%);font-size:8em;opacity:0.3;color:#aa8855">🛡️</div>'+
+(big?'<div style="position:absolute;top:40%;left:50%;transform:translateX(-50%);font-size:10em;opacity:0.3;color:#ffaa00;text-shadow:0 0 60px #ffaa00">✨</div>':''),
+  big?'#ffaa00':'#ff6600');
   acState._screenFlash=1.0;acState._flashColor=big?'#ffaa00':'#ff6600';acShake.trigger(big?8:5,0.92);
 }
-// 10. 雷狮 — 雷神之锤: 紫电十字
+// 10. 雷狮 — 💜蓝紫色雷电十字扩散 + 💫金色吸怒能量 + 🌩️雷电王冠
 function acFX_Leishi(p){
-  _showUltBg('linear-gradient(90deg,rgba(0,0,0,0) 48%,rgba(204,136,255,0.5) 50%,rgba(0,0,0,0) 52%),linear-gradient(0deg,rgba(0,0,0,0) 48%,rgba(204,136,255,0.5) 50%,rgba(0,0,0,0) 52%)','⚡','#9944ff');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(90deg,transparent 48%,rgba(204,136,255,0.4) 49%,rgba(204,136,255,0.5) 51%,transparent 52%),linear-gradient(0deg,transparent 48%,rgba(204,136,255,0.4) 49%,rgba(204,136,255,0.5) 51%,transparent 52%)"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12em;opacity:0.25;color:#cc88ff;text-shadow:0 0 80px #bb77ee">⚡</div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:2px solid rgba(255,221,0,0.4);border-radius:50%;animation:ultPulse 1s ease-out"></div>'+
+'<div style="position:absolute;top:25%;left:50%;transform:translateX(-50%);font-size:5em;opacity:0.3">🌩️</div>',
+  '#9944ff');
   acState._screenFlash=1.0;acState._flashColor='#9944ff';acShake.trigger(9,0.94);
 }
-// 11. 帕洛斯 — 暗黑使者: 多重分身紫影
+// 11. 帕洛斯 — 👥本体分裂半透明紫色分身 + ✨分身连线 + 💀死亡爆炸
 function acFX_Paluosi(p){
-  _showUltBg('radial-gradient(circle at 30% 40%,rgba(153,102,255,0.4) 0%,rgba(0,0,0,0) 30%),radial-gradient(circle at 70% 40%,rgba(153,102,255,0.4) 0%,rgba(0,0,0,0) 30%),radial-gradient(circle at 50% 70%,rgba(102,68,170,0.3) 0%,rgba(0,0,0,0) 30%)','👥','#7733dd');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at 30% 40%,rgba(153,102,255,0.4),transparent 30%),radial-gradient(circle at 70% 40%,rgba(153,102,255,0.4),transparent 30%),radial-gradient(circle at 50% 70%,rgba(102,68,170,0.3),transparent 30%)"></div>'+
+Array.from({length:8},function(_,i){var a=i*Math.PI/4;return'<div style="position:absolute;top:'+(50+Math.sin(a)*20)+'%;left:'+(50+Math.cos(a)*20)+'%;font-size:5em;opacity:0.35;color:#9966ff;text-shadow:0 0 30px #aa88ff">👥</div>';}).join('')+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4em;opacity:0.4;color:#ccbbff">💀</div>',
+  '#7733dd');
   acState._screenFlash=1.0;acState._flashColor='#7733dd';acShake.trigger(6,0.9);
 }
-// 12. 佩利 — 重力爆炸: 黄紫漩涡
+// 12. 佩利 — 💜黄紫色旋转重力漩涡 + ⬇️重力压制 + 🌙月牙爪痕
 function acFX_Peili(p){
-  _showUltBg('conic-gradient(from 0deg,rgba(204,136,0,0.4),rgba(153,85,221,0.4),rgba(204,136,0,0.4),rgba(153,85,221,0.4))','🐺','#dd7700');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:conic-gradient(from 0deg,rgba(204,136,0,0.3),rgba(153,85,221,0.3),rgba(204,136,0,0.3),rgba(153,85,221,0.3))"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14em;opacity:0.2;animation:ultSpin 2s linear infinite">🌀</div>'+
+'<div style="position:absolute;bottom:5%;left:0;width:100%;height:30%;background:linear-gradient(0deg,rgba(187,136,0,0.4),transparent)"></div>'+
+'<div style="position:absolute;top:45%;left:50%;font-size:3em;opacity:0.4;color:#ddaa44">🌙</div>',
+  '#dd7700');
   acState._screenFlash=1.0;acState._flashColor='#dd7700';acShake.trigger(7,0.92);
 }
-// 13. 嘉德罗斯 — 大罗神通棍: 金红冲击
+// 13. 嘉德罗斯 — 🔥金黑色棍棒从天挥击 + 💫眩晕范围 + ✨黑色暴击蓄力
 function acFX_Jiadeluosi(p){
-  _showUltBg('radial-gradient(circle at 50% 70%,rgba(255,204,0,0.6) 0%,rgba(238,51,0,0.4) 30%,rgba(0,0,0,0) 70%)','🔥','#ee3300');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at 50% 60%,rgba(255,204,0,0.5) 0%,rgba(51,51,51,0.4) 35%,transparent 65%)"></div>'+
+'<div style="position:absolute;top:15%;left:47%;width:6px;height:40%;background:linear-gradient(180deg,rgba(255,204,0,0.8),rgba(51,51,51,0.6));border-radius:3px;box-shadow:0 0 20px #ffaa00"></div>'+
+'<div style="position:absolute;top:15%;left:45%;font-size:4em;opacity:0.6">🔥</div>'+
+'<div style="position:absolute;top:55%;left:50%;transform:translate(-50%,-50%);font-size:2em;opacity:0.5">💫</div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:2px solid rgba(68,68,68,0.4);border-radius:50%;animation:ultPulse 1s ease-out"></div>',
+  '#ee3300');
   acState._screenFlash=1.0;acState._flashColor='#ee3300';acShake.trigger(10,0.95);
 }
-// 14. 银爵 — 斗魔天刑: 银链网
+// 14. 银爵 — ⛓️银色锁链延伸到所有敌人 + 🛡️银色护盾覆盖全队 + 💫锁链缠绕
 function acFX_Yinjue(p){
-  _showUltBg('linear-gradient(45deg,rgba(170,170,204,0.3) 0%,rgba(0,0,0,0) 10%,rgba(204,204,255,0.3) 50%,rgba(0,0,0,0) 90%),linear-gradient(-45deg,rgba(170,170,204,0.3) 0%,rgba(0,0,0,0) 10%,rgba(204,204,255,0.3) 50%,rgba(0,0,0,0) 90%)','🔗','#bbbbdd');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(45deg,rgba(170,170,204,0.2) 0%,transparent 15%,rgba(204,204,255,0.2) 50%,transparent 85%),linear-gradient(-45deg,rgba(170,170,204,0.2) 0%,transparent 15%,rgba(204,204,255,0.2) 50%,transparent 85%)"></div>'+
+Array.from({length:8},function(_,i){var a=i*Math.PI/4;return'<div style="position:absolute;top:50%;left:50%;width:2px;height:200px;background:rgba(170,170,204,0.5);transform:translate(-50%,-50%) rotate('+(a*180/Math.PI)+'deg);transform-origin:top center;box-shadow:0 0 10px #aaaacc"></div>';}).join('')+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:300px;height:300px;border:3px solid rgba(204,204,255,0.4);border-radius:50%;animation:ultPulse 1.5s ease-out"></div>',
+  '#bbbbdd');
   acState._screenFlash=1.0;acState._flashColor='#bbbbdd';acShake.trigger(6,0.9);
 }
-// 15. 祖玛 — 风之庇佑: 绿风治愈
+// 15. 祖玛 — 🍃绿色风旋围绕友方全体 + 💚治疗光雨从天降 + 🛡️风之护盾 + ✨典范光环
 function acFX_Zuma(p){
-  _showUltBg('linear-gradient(180deg,rgba(102,204,170,0.4) 0%,rgba(68,170,136,0.2) 50%,rgba(0,0,0,0) 100%)','💨','#33bb88');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,rgba(102,204,170,0.3) 0%,rgba(68,170,136,0.15) 40%,transparent 80%)"></div>'+
+'<div style="position:absolute;top:40%;left:50%;transform:translateX(-50%);font-size:8em;opacity:0.2;color:#66ccaa">🍃</div>'+
+Array.from({length:15},function(_,i){return'<div style="position:absolute;top:'+(20+Math.random()*20)+'%;left:'+(20+Math.random()*60)+'%;font-size:1.5em;opacity:0.4;color:#44aa88">💚</div>';}).join('')+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:180px;border:2px solid rgba(136,221,187,0.4);border-radius:50%;animation:ultPulse 1.5s ease-out"></div>'+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:6em;opacity:0.15">✨</div>',
+  '#33bb88');
   acState._screenFlash=1.0;acState._flashColor='#33bb88';acShake.trigger(4,0.88);
 }
-// 16. 鬼狐 — 镜像空间: 白面具+绿能
+// 16. 鬼狐 — 🦊绿色狐火在敌人间弹跳 + 💫蓝色能量吸取 + 🔮镜像碎裂 + ⚪白色面具环绕
 function acFX_Guihu(p){
-  _showUltBg('radial-gradient(circle at 30% 50%,rgba(255,255,255,0.4) 0%,rgba(0,0,0,0) 25%),radial-gradient(circle at 70% 50%,rgba(255,255,255,0.4) 0%,rgba(0,0,0,0) 25%),radial-gradient(circle at 50% 50%,rgba(68,170,68,0.3) 0%,rgba(0,0,0,0) 40%)','🦊','#33dd55');
+  _showUltBg(
+'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at 25% 50%,rgba(255,255,255,0.3) 0%,transparent 25%),radial-gradient(circle at 75% 50%,rgba(255,255,255,0.3) 0%,transparent 25%),radial-gradient(circle at 50% 50%,rgba(68,170,68,0.35) 0%,transparent 40%)"></div>'+
+Array.from({length:6},function(_,i){var x=20+Math.random()*60;var y=20+Math.random()*60;return'<div style="position:absolute;top:'+y+'%;left:'+x+'%;font-size:3em;opacity:0.5;color:#44aa44;text-shadow:0 0 20px #66cc66">🦊</div>';}).join('')+
+Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return'<div style="position:absolute;top:'+(50+m[i][1]-5)+'%;left:'+(50+m[i][0]-5)+'%;font-size:5em;opacity:0.4;color:#ffffff;text-shadow:0 0 25px #eeeeee">⚪</div>';}).join('')+
+'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4em;opacity:0.3">🔮</div>',
+  '#33dd55');
   acState._screenFlash=1.0;acState._flashColor='#33dd55';acShake.trigger(7,0.9);
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
