@@ -6632,6 +6632,14 @@ function acBattleLoop(){
         if(acDist(p,{x:scx,y:scy})>25){var sa2=Math.atan2(scy-p.y,scx-p.x);p.x+=Math.cos(sa2)*AC_MOVE_SPD*0.5*dt;p.y+=Math.sin(sa2)*AC_MOVE_SPD*0.5*dt;}
       }
       alA.forEach(function(a){if(a!==p&&acDist(p,a)<80){a.hp=Math.min(a.maxHp,a.hp+1*dt);}});
+    }else{
+      // ✨ 远程角色：有目标时保持距离，无目标时回归原位
+      var hd2=acDist(p,{x:p.homeX,y:p.homeY});
+      if(!p._target||!p._target.alive){p._target=acFindTarget(p,enemies2);}
+      if(p._target&&p._target.alive){
+        var td=acDist(p,p._target);
+        if(td>120){var ta=Math.atan2(p._target.y-p.y,p._target.x-p.x);p.x+=Math.cos(ta)*AC_MOVE_SPD*0.4*dt;p.y+=Math.sin(ta)*AC_MOVE_SPD*0.4*dt;}
+      }else if(hd2>10){var ha3=Math.atan2(p.homeY-p.y,p.homeX-p.x);p.x+=Math.cos(ha3)*AC_MOVE_SPD*0.3*dt;p.y+=Math.sin(ha3)*AC_MOVE_SPD*0.3*dt;}
     }
 
     p.actTime+=dt*p.spd*(nearCheer?1.3:1);
