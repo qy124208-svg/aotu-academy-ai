@@ -5514,9 +5514,9 @@ async function _dreamSaveMyIdentity(name,emoji,color){
 // 🌙 打开好梦论坛
 window._openGoodDream=function(){
   var app=document.getElementById('app');
+  document.body.style.background='#080812';
   window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
   if(window._dreamIpHash&&!window._dreamMyIdentity)_dreamLoadMyIdentity();
-  // 订阅实时推送
   _dreamSubscribe();
   _dreamLoadPosts(app);
 };
@@ -5557,6 +5557,7 @@ function _dreamSubscribe(){
 // 返回游戏时清理订阅
 var _origGoBack=window._goBack;
 window._goBack=function(){
+  document.body.style.background='';
   if(_dreamChannel){try{supabase.removeChannel(_dreamChannel);}catch(e){}_dreamChannel=null;}
   if(_origGoBack)_origGoBack();
 };
@@ -5578,7 +5579,8 @@ async function _dreamLoadPosts(app){
 function _dreamRender(app){
   var state=window._dreamState;
   if(state.viewing){_dreamRenderComments(app);return;}
-  var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
+  var h='<div style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;background:radial-gradient(2px 2px at 20% 30%,rgba(255,255,255,0.4),transparent),radial-gradient(2px 2px at 40% 70%,rgba(255,255,255,0.3),transparent),radial-gradient(1px 1px at 60% 20%,rgba(255,255,255,0.5),transparent),radial-gradient(2px 2px at 80% 50%,rgba(255,255,255,0.3),transparent),radial-gradient(1px 1px at 10% 60%,rgba(255,255,255,0.4),transparent),radial-gradient(2px 2px at 70% 80%,rgba(255,255,255,0.3),transparent),radial-gradient(1px 1px at 30% 40%,rgba(255,255,255,0.5),transparent),radial-gradient(2px 2px at 50% 10%,rgba(255,255,255,0.2),transparent)"></div>';
+  h+='<div style="max-width:700px;margin:0 auto;padding:10px;position:relative;z-index:1">';
   h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
   var id=_dreamGetIdentity();
   h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
