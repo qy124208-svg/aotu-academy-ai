@@ -5337,7 +5337,7 @@ function acApplyDamage(target,rawDmg,attacker,isBurn,isTrue){
   acFloatTexts.push(FloatingText.spawn(acCtx,target.x,target.y-10,label,clr));
   if(!isBurn)acParticles.burst(target.x,target.y,Math.atan2(target.y-(attacker?attacker.y:target.y),target.x-(attacker?attacker.x:target.x)),1,isTrue?'#fff':attacker?attacker.clr:'#ff0',{speed:2,life:4,spread:5,size:1});
   // 反击 (真实伤害不触发)
-  if(!isBurn&&!isTrue&&attacker&&target._reflect>0){var rdmg=Math.floor(dmg*target._reflect);attacker.hp-=rdmg;acFloatTexts.push(FloatingText.spawn(acCtx,attacker.x,attacker.y-15,'🔁反弹!-'+rdmg,'#f0c040'));if(attacker.hp<=0){attacker.alive=false;acParticles.explode(attacker.x,attacker.y,15,attacker.clr||'#f44',{speed:3,life:20,size:3});}}
+  if(!isBurn&&!isTrue&&attacker&&target._reflect>0){var rdmg=Math.floor(dmg*target._reflect);attacker.hp-=rdmg;acFloatTexts.push(FloatingText.spawn(acCtx,attacker.x,attacker.y-15,'🔁反弹!-'+rdmg,'#f0c040'));if(attacker.hp<=0){attacker.alive=false;acState._deathChain++;if(acState._deathChain<=4){acParticles.explode(attacker.x,attacker.y,15,attacker.clr||'#f44',{speed:3,life:20,size:3});}}}
   // 受击怒气
   if(!isBurn&&target._kit&&target._kit.rageOnHit)target._rage=Math.min(target._rageMax,target._rage+target._kit.rageOnHit);
   // 安迷修被动：命中后加盾
@@ -7114,7 +7114,7 @@ function acBattleLoop(){
   if(pAlive===0||eAlive===0||acState.battleTime>120){acState.over=true;acState.winner=pAlive>0?'player':(eAlive>0?'enemy':'draw');}
   acRender();
   if(!acState.over)acAnim=requestAnimationFrame(acBattleLoop);
-  else{acParticles.clear();acRender();setTimeout(function(){acEnd();},250);}
+  else{acParticles.clear();var ub2=document.getElementById('ultBg');if(ub2)ub2.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);}
 }
 
 function acRender(){
