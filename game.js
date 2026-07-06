@@ -5494,22 +5494,14 @@ window._dreamPasswordLogin=async function(){
   }catch(e){alert('登录失败: '+e.message);}
 };
 
-// 📩 Resend发验证码
-function _getResendKey(){
-  var k=localStorage._resendKey||'';
-  if(!k){k=prompt('管理员：输入 Resend API Key（仅首次）：','');if(k)localStorage._resendKey=k;}
-  return k;
-}
+// 📩 Resend发验证码（通过Supabase函数服务端发送，Key不暴露）
 window._dreamSendCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
   if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
-  var code=String(Math.floor(100000+Math.random()*900000));
   try{
-    await supabase.from('login_codes').upsert({email:email,code:code,expires_at:new Date(Date.now()+600000).toISOString()});
-    await fetch('https://api.resend.com/emails',{method:'POST',
-      headers:{'Authorization':'Bearer '+_getResendKey(),'Content-Type':'application/json'},
-      body:JSON.stringify({from:'好梦论坛 <onboarding@resend.dev>',to:email,subject:'好梦论坛 · 登录验证码',
-        html:'<h2>🌙 好梦论坛</h2><h1 style="font-size:32px;letter-spacing:8px">'+code+'</h1><p>6位验证码，10分钟内有效</p>'})});
+    // 调用Supabase RPC函数（服务端执行，Key在数据库里）
+    var r=await supabase.rpc('send_login_code',{p_email:email});
+    if(r.error)throw r.error;
     document.getElementById('dreamCode').focus();
     alert('验证码已发送到 '+email+'（检查垃圾箱）');
   }catch(e){alert('发送失败: '+e.message);}
