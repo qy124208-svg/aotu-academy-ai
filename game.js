@@ -5264,7 +5264,7 @@ const AC_HERO_KITS={
 };
 
 function acMakePiece(ch,aff,side,homeX,homeY,gridRow){
-  var hp=15+Math.floor(aff/5),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.05,spd=2+aff*0.05;
+  var hp=25+Math.floor(aff/3),atk=2+Math.floor((G.attr.STR||5)/3)+aff*0.05,spd=2+aff*0.05;
   var arch=AC_ARCHETYPES[ch.id]||{range:1,role:'melee'};
   var sk=BATTLE_CHAR_SKILLS[ch.id];var scd=(sk?3+Math.random()*5:99);
   var kit=AC_HERO_KITS[ch.id]||{};
@@ -5277,7 +5277,7 @@ function acMakePiece(ch,aff,side,homeX,homeY,gridRow){
     range:arch.range,role:arch.role,_gridRow:gridRow!=null?gridRow:-1,_gridBuff:null,
     // v6.13 新系统
     _shield:0,_shieldTimer:0,_block:0,_dmgRate:1.0,
-    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:150,
+    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:200,
     _emergShieldUsed:false,_kit:kit,
     _critRate:0,_critDmg:kit.critDmg||0,_critTimer:0,_stunTimer:0,_trueDmg:kit.trueDmgRatio||0,_ultCount:0,
     _reflectBase:0,_reflectTimer:0,_emiPassiveOn:false,
@@ -5396,7 +5396,7 @@ function acSpawnSummon(summoner,hpR,atkR,defR,side,label,emoji){
     _skillCd:99,_skillCdMax:99,_regen:0,_lifesteal:0,_dmgReduc:defR,_skillCdMul:1,_boosted:false,
     range:1,role:'melee',_gridRow:summoner._gridRow,_gridBuff:null,
     _shield:0,_shieldTimer:0,_block:0,_dmgRate:1.0,
-    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:150,
+    _tauntBy:null,_tauntTimer:0,_burns:[],_rage:0,_rageMax:200,
     _emergShieldUsed:false,_kit:{},
     _critRate:0,_critDmg:0,_critTimer:0,_stunTimer:0,_trueDmg:0,_ultCount:0,
     _reflectBase:0,_reflectTimer:0,_emiPassiveOn:false,
@@ -6316,7 +6316,7 @@ window._acStart=function(){
   acCanvas.style.width=Math.min(window.innerWidth-16,800)+'px';
   acCanvas.style.height=Math.floor(Math.min(window.innerWidth-16,800)*500/800)+'px';
   acCtx.setTransform(dpr,0,0,dpr,0,0);
-  document.removeEventListener('keydown',acKeyDown);document.addEventListener('keydown',acKeyDown);acLastTime=performance.now();
+  document.removeEventListener('keydown',acKeyDown);document.addEventListener('keydown',acKeyDown);acState._rageBoosts=3;acState._focusTarget=null;acState._focusTimer=0;acCanvas.onclick=function(e){var rect=acCanvas.getBoundingClientRect();var mx=(e.clientX-rect.left)*(800/rect.width),my=(e.clientY-rect.top)*(500/rect.height);var all=acState.player.concat(acState.enemy);var clicked=null,cd=22;for(var i=0;i<all.length;i++){if(!all[i].alive)continue;var d=acDist({x:mx,y:my},all[i]);if(d<cd){cd=d;clicked=all[i];}}if(clicked&&clicked.side==='enemy'){acState._focusTarget=clicked.id;acState._focusTimer=4;acFloatTexts.push(FloatingText.spawn(acCtx,clicked.x,clicked.y-25,'🎯集火!','#ff0'));}else if(clicked&&clicked.side==='player'&&acState._rageBoosts>0){acState._rageBoosts--;clicked._rage=Math.min(clicked._rageMax,clicked._rage+50);acFloatTexts.push(FloatingText.spawn(acCtx,clicked.x,clicked.y-25,'⚡鼓舞!+50','#ffd700'));}};acLastTime=performance.now();
   acAnim=requestAnimationFrame(acBattleLoop);
 };
 
@@ -6324,7 +6324,7 @@ function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acStat
 
 function acFindTarget(piece,enemies){
   // 被嘲讽 → 强制攻击嘲讽者
-  if(piece._tauntBy){var tb=enemies.find(function(e){return e.id===piece._tauntBy&&e.alive;});if(tb)return tb;}
+  if(acState._focusTarget&&acState._focusTimer>0){var ft=enemies.find(function(e){return e.id===acState._focusTarget&&e.alive;});if(ft)return ft;}if(piece._tauntBy){var tb=enemies.find(function(e){return e.id===piece._tauntBy&&e.alive;});if(tb)return tb;}
   var alive=enemies.filter(function(e){return e.alive;});
   if(alive.length===0)return null;
   // 远程随机选目标(可打后排), 近战打最近
@@ -6537,7 +6537,7 @@ function acBattleLoop(){
   acState._perfQ+=((dt<0.033&&acParticles.count<600)?0.03:-0.06);acState._perfQ=Math.max(0.25,Math.min(1.0,acState._perfQ));
   acParticles.update(dt*1000);acShake.update();
   if(acState._screenFlash>0){acState._screenFlash-=dt*2;}
-  if(acState._ultLock>0){acState._ultLock-=dt;}
+  if(acState._ultLock>0){acState._ultLock-=dt;}if(acState._focusTimer>0){acState._focusTimer-=dt;}
   for(var fi=acFloatTexts.length-1;fi>=0;fi--){acFloatTexts[fi].update();if(!acFloatTexts[fi].alive)acFloatTexts.splice(fi,1);}
 
   // ✨ 弹道更新 — 锁定目标碰撞
@@ -7186,7 +7186,7 @@ function acRender(){
   acCtx.fillStyle='#58a6ff';acCtx.fillText('💙 '+pa+' vs '+ea+' ❤️',500,28);
   // 性能指示: 绿>50fps 黄>30fps 红<30fps
   var pq=acState._perfQ||1.0;acCtx.fillStyle=pq>0.8?'#3fb950':pq>0.5?'#f0c040':'#e94560';acCtx.fillText('●',640,28);
-  acCtx.fillStyle=acState.speedMul>1?'#3fb950':'#888';acCtx.fillText(acState.speedMul+'x',660,28);
+  acCtx.fillStyle=acState.speedMul>1?'#3fb950':'#888';acCtx.fillText(acState.speedMul+'x',630,28);acCtx.fillStyle='#ffd700';acCtx.font='bold 11px sans-serif';acCtx.fillText('⚡x'+acState._rageBoosts+' 🎯',690,28);
   if(window._acArtifact)acCtx.fillText('🎴'+window._acArtifact.n,690,28);
   if(acState.over){acCtx.fillStyle='rgba(0,0,0,0.5)';acCtx.fillRect(0,0,800,500);acCtx.fillStyle='#fff';acCtx.font='bold 36px sans-serif';acCtx.textAlign='center';acCtx.fillText(acState.winner==='player'?'🎉 胜利！':'💀 败北',400,250);}
 }
