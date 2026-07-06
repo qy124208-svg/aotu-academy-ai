@@ -5425,9 +5425,71 @@ window._acClearIcon=function(chId){delete window._acCustomIcons[chId];acPrepRend
 
 // ─── 战前准备阶段 ───
 // ═══════════════════════════════════════
-// 🌙 好梦论坛系统 (Supabase驱动)
+// 🌙 好梦论坛系统 (Supabase驱动 + 邮箱登录)
 // ═══════════════════════════════════════
 window._dreamState={page:0,pageSize:10,viewing:null,comments:[]};
+window._dreamUser=null; // Supabase Auth 用户
+// 页面加载时检查登录状态
+(async function(){if(supabase){try{var r=await supabase.auth.getSession();if(r.data.session){window._dreamUser=r.data.session.user;}}catch(e){}}})();
+
+// 📧 邮箱登录/注册界面
+window._dreamLogin=function(){
+  var app=document.getElementById('app');
+  var h='<div style="max-width:400px;margin:60px auto;padding:20px;text-align:center">';
+  h+='<h2 style="color:var(--gold)">🌙 好梦 · 登录</h2>';
+  h+='<p style="color:var(--dim);font-size:0.8em">输入邮箱，验证码一键登录</p>';
+  h+='<div class="panel" style="padding:20px">';
+  h+='<input id="dreamEmail" placeholder="你的邮箱（QQ/163/Gmail均可）" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em;margin-bottom:10px">';
+  h+='<button class="btn btn-p" onclick="window._dreamSendOTP()" style="width:100%;padding:10px">📧 发送验证码</button>';
+  h+='<div id="dreamOTPSection" style="display:none;margin-top:10px">';
+  h+='<input id="dreamOTP" placeholder="输入6位验证码" maxlength="6" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em;margin-bottom:10px;text-align:center;letter-spacing:8px">';
+  h+='<button class="btn btn-p" onclick="window._dreamVerifyOTP()" style="width:100%;padding:10px">✅ 验证登录</button></div>';
+  h+='</div><p style="color:var(--dim);font-size:0.7em;margin-top:10px">首次登录自动注册账号</p>';
+  h+='<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:10px">跳过 → 匿名访问</button></div>';
+  app.innerHTML=h;
+};
+
+window._dreamSendOTP=async function(){
+  var email=document.getElementById('dreamEmail').value.trim();
+  if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
+  try{
+    var r=await supabase.auth.signInWithOtp({email:email});
+    if(r.error)throw r.error;
+    document.getElementById('dreamOTPSection').style.display='block';
+    alert('验证码已发送到 '+email+'，请查收（检查垃圾箱）');
+  }catch(e){alert('发送失败: '+e.message);}
+};
+
+window._dreamVerifyOTP=async function(){
+  var email=document.getElementById('dreamEmail').value.trim();
+  var token=document.getElementById('dreamOTP').value.trim();
+  if(!token||token.length!==6){alert('请输入6位验证码');return;}
+  try{
+    var r=await supabase.auth.verifyOtp({email:email,token:token,type:'email'});
+    if(r.error)throw r.error;
+    window._dreamUser=r.data.user;
+    _dreamLoadPosts(document.getElementById('app'));
+  }catch(e){alert('验证失败: '+e.message);}
+};
+
+// 退出登录
+window._dreamLogout=async function(){
+  if(supabase)await supabase.auth.signOut();
+  window._dreamUser=null;
+  _dreamLoadPosts(document.getElementById('app'));
+};
+
+// 获取当前用户身份
+function _dreamGetIdentity(){
+  if(window._dreamUser){
+    var u=window._dreamUser;
+    var email=u.email||'';
+    var name=email.split('@')[0];
+    return {name:name,emoji:'✨',color:'#f0c040',user_id:u.id,email:email};
+  }
+  var ip=_dreamLoadIdentity();
+  return {name:ip.name||'',emoji:ip.emoji||_getIdentityEmoji(),color:ip.color||_getIdentityColor(),user_id:null};
+}
 window._dreamFp=localStorage._dreamFp||(function(){var fp='fp_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage._dreamFp=fp;return fp;})();
 // 🌟 IP身份系统 — 用IP定位玩家，身份永不丢失
 window._dreamIpHash=null;
@@ -5510,10 +5572,16 @@ function _dreamRender(app){
   if(state.viewing){_dreamRenderComments(app);return;}
   var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
   h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
-  var id=_dreamLoadIdentity();
+  var id=_dreamGetIdentity();
   h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
-  h+=(id.name?'<span style="color:'+id.color+'">'+id.emoji+' '+id.name+'</span>':'👤 未设置身份')+' ';
-  h+='<button class="btn btn-xs" onclick="window._dreamSetIdentity()" style="font-size:0.65em">'+(id.name?'✏️ 修改身份':'✨ 设置身份')+'</button></p>';
+  if(window._dreamUser){
+    h+='<span style="color:'+id.color+'">✨ '+id.name+'</span> ';
+    h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
+    h+='<button class="btn btn-xs" onclick="window._dreamLogout()" style="font-size:0.65em;color:#e94560">退出</button>';
+  }else{
+    h+='👤 未登录 ';
+    h+='<button class="btn btn-xs" onclick="window._dreamLogin()" style="font-size:0.65em;color:var(--gold)">📧 登录</button>';
+  }h+='</p>';
   // 发布框
   h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/YouTube链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
   h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
@@ -5551,13 +5619,14 @@ window._dreamPost=async function(){
   if(!supabase)return;
   var content=document.getElementById('dreamInput').value.trim();
   if(!content){alert('请写下你的梦话~');return;}
-  var id=_dreamLoadIdentity();
+  var id=_dreamGetIdentity();
   var name=document.getElementById('dreamName').value.trim()||id.name||'匿名学生';
-  if(!id.name&&name!=='匿名学生'){id.name=name;_dreamSaveIdentity(id);}
   var state=window._dreamState;
   var imgUrl=state._pendingImage||null;
   try{
-    var r=await supabase.from('dreams').insert({author_name:name,content:content,author_emoji:_getIdentityEmoji(),author_color:_getIdentityColor(),image_url:imgUrl}).select().single();
+    var row={author_name:name,content:content,author_emoji:id.emoji,author_color:id.color,image_url:imgUrl};
+    if(id.user_id)row.user_id=id.user_id;
+    var r=await supabase.from('dreams').insert(row).select().single();
     if(r.error)throw r.error;
     state._pendingImage=null;document.getElementById('dreamImage').value='';
     document.getElementById('dreamImgLabel').textContent='';
@@ -5646,17 +5715,75 @@ window._dreamPostComment=async function(dreamId){
   if(!supabase)return;
   var content=document.getElementById('commentInput').value.trim();
   if(!content)return;
-  var id=_dreamLoadIdentity();
+  var id=_dreamGetIdentity();
   var name=document.getElementById('commentName').value.trim()||id.name||'匿名学生';
-  if(!id.name&&name!=='匿名学生'){id.name=name;_dreamSaveIdentity(id);}
   try{
-    await supabase.from('dream_comments').insert({dream_id:dreamId,author_name:name,content:content,author_emoji:_getIdentityEmoji(),author_color:_getIdentityColor()});
+    var row={dream_id:dreamId,author_name:name,content:content,author_emoji:id.emoji,author_color:id.color};
+    if(id.user_id)row.user_id=id.user_id;
+    await supabase.from('dream_comments').insert(row);
     window._dreamView(dreamId);
   }catch(e){alert('评论失败');}
 };
 
 // 翻页
 window._dreamPage=function(p){window._dreamState.page=p;_dreamLoadPosts(document.getElementById('app'));};
+
+// 👤 个人主页
+window._dreamProfile=async function(){
+  if(!window._dreamUser||!supabase)return;
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="text-align:center;padding:40px"><h3>👤 加载中...</h3></div>';
+  var u=window._dreamUser;
+  var email=u.email||'未知邮箱';
+  var masked=email.split('@')[0].slice(0,3)+'***@'+email.split('@')[1];
+  try{
+    // 查发帖
+    var posts=await supabase.from('dreams').select('*',{count:'exact'}).eq('user_id',u.id).eq('is_deleted',false).order('created_at',{ascending:false}).limit(20);
+    // 统计收到的赞
+    var totalLikes=0;
+    if(posts.data)posts.data.forEach(function(p){totalLikes+=p.likes_count||0;});
+    // 好感度排行
+    var affList=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);}).slice(0,5);
+    // 渲染
+    var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))" style="margin-bottom:10px">← 返回论坛</button>';
+    h+='<div class="panel" style="text-align:center;padding:20px"><div style="font-size:3em">✨</div>';
+    h+='<h2 style="color:var(--gold)">'+_escapeHtml(email.split('@')[0])+'</h2>';
+    h+='<p style="color:var(--dim);font-size:0.8em">📧 '+masked+'</p>';
+    h+='<div style="display:flex;gap:20px;justify-content:center;margin:12px 0">';
+    h+='<div><b style="color:var(--gold)">'+(posts.count||0)+'</b><br><span style="font-size:0.7em;color:var(--dim)">发帖</span></div>';
+    h+='<div><b style="color:#e94560">'+totalLikes+'</b><br><span style="font-size:0.7em;color:var(--dim)">获赞</span></div>';
+    h+='<div><b style="color:var(--green)">'+(G.day||0)+'</b><br><span style="font-size:0.7em;color:var(--dim)">游戏天数</span></div></div>';
+    h+='<button class="btn btn-s" onclick="window._dreamLogout()" style="color:#e94560;font-size:0.75em">退出登录</button></div>';
+    // 好感度排行
+    if(affList.length>0){
+      h+='<div class="panel" style="padding:12px;margin:8px 0"><h3 style="color:var(--purple);font-size:0.9em">❤️ 最高好感度</h3>';
+      affList.forEach(function(k,i){
+        var ch=CH[k];h+='<div style="font-size:0.8em;margin:3px 0">'+ch.e+' '+ch.n+' <span style="color:var(--gold)">❤️ '+(G.aff[k]||0)+'</span></div>';
+      });
+      h+='</div>';
+    }
+    // 我的帖子
+    h+='<h3 style="color:var(--gold);font-size:0.9em;margin:10px 0">📝 我的帖子</h3>';
+    if(!posts.data||posts.data.length===0)h+='<div style="color:var(--dim);text-align:center;padding:20px">还没有发过帖</div>';
+    else posts.data.forEach(function(p){
+      h+='<div class="panel" style="margin:6px 0;padding:10px"><div style="font-size:0.75em;color:var(--dim)">'+_timeAgo(p.created_at)+'</div>';
+      h+='<div style="font-size:0.85em;margin:4px 0">'+_dreamFormatContent(p.content)+'</div>';
+      if(p.image_url)h+='<img src="'+p.image_url+'" style="max-width:100%;max-height:200px;border-radius:6px">';
+      h+='<span style="font-size:0.7em;color:var(--dim)">❤️ '+p.likes_count+' 💬 '+p.comments_count+'</span>';
+      h+='<button class="btn btn-xs" onclick="window._dreamDeletePost('+p.id+')" style="color:#e94560;margin-left:8px;font-size:0.6em">删除</button></div>';
+    });
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button></div>';
+    app.innerHTML=h;
+  }catch(e){app.innerHTML='<div style="text-align:center;padding:40px"><p style="color:#e94560">加载失败</p></div>';}
+};
+
+// 删除自己的帖子
+window._dreamDeletePost=async function(postId){
+  if(!confirm('确定删除这条帖子？'))return;
+  try{await supabase.from('dreams').update({is_deleted:true}).eq('id',postId).eq('user_id',window._dreamUser.id);
+    window._dreamProfile();}catch(e){alert('删除失败');}
+};
 
 // 工具
 function _getSavedName(){var id=_dreamLoadIdentity();return id.name||'';}
