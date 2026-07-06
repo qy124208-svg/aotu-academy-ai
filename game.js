@@ -5798,6 +5798,29 @@ window._dreamProfile=async function(){
       });
       h+='</div>';
     }
+    // 🔗 内容订阅
+    h+='<div class="panel" style="padding:12px;margin:8px 0">';
+    h+='<h3 style="color:var(--blue);font-size:0.9em">🔗 内容订阅</h3>';
+    h+='<p style="font-size:0.7em;color:var(--dim)">绑定社交账号后，自动抓取关注的凹凸世界创作者最新作品</p>';
+    var platforms=[
+      {id:'bilibili',n:'B站',e:'📺',color:'#fb7299'},
+      {id:'weibo',n:'微博',e:'📢',color:'#e6162d'},
+      {id:'douyin',n:'抖音',e:'🎵',color:'#111'},
+      {id:'xiaohongshu',n:'小红书',e:'📕',color:'#ff2442'},
+      {id:'lofter',n:'Lofter',e:'🎨',color:'#333'}
+    ];
+    platforms.forEach(function(pl){
+      h+='<div style="display:inline-block;margin:4px 8px 4px 0;cursor:pointer" onclick="window._dreamConnectPlatform(\''+pl.id+'\')" title="绑定'+pl.n+'">';
+      h+='<span style="font-size:1.2em">'+pl.e+'</span> ';
+      h+='<span style="font-size:0.7em;color:var(--dim)">'+pl.n+'</span>';
+      h+=' <span id="conn_'+pl.id+'" style="font-size:0.6em;color:var(--dim)">⚪</span></div>';
+    });
+    h+='</div>';
+    // 检查已连接的平台
+    _dreamCheckConnections(u.id);
+    // 📡 凹凸世界动态
+    h+='<h3 style="color:var(--accent);font-size:0.9em;margin:10px 0">📡 凹凸世界动态</h3>';
+    h+='<div id="aotuFeeds"><div style="color:var(--dim);text-align:center;padding:15px">加载中...</div></div>';
     // 我的帖子
     h+='<h3 style="color:var(--gold);font-size:0.9em;margin:10px 0">📝 我的帖子</h3>';
     if(!posts.data||posts.data.length===0)h+='<div style="color:var(--dim);text-align:center;padding:20px">还没有发过帖</div>';
@@ -5810,6 +5833,8 @@ window._dreamProfile=async function(){
     });
     h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button></div>';
     app.innerHTML=h;
+    // 异步加载动态
+    _dreamLoadFeeds();
   }catch(e){app.innerHTML='<div style="text-align:center;padding:40px"><p style="color:#e94560">加载失败</p></div>';}
 };
 
@@ -5819,6 +5844,63 @@ window._dreamDeletePost=async function(postId){
   try{await supabase.from('dreams').update({is_deleted:true}).eq('id',postId).eq('user_id',window._dreamUser.id);
     window._dreamProfile();}catch(e){alert('删除失败');}
 };
+
+// 🔗 平台连接管理
+window._dreamConnectPlatform=async function(platform){
+  if(!window._dreamUser||!supabase){alert('请先登录');return;}
+  var labels={bilibili:'B站',weibo:'微博',douyin:'抖音',xiaohongshu:'小红书',lofter:'Lofter'};
+  var cookie=prompt(labels[platform]+' Cookie：\n登录'+labels[platform]+'后，在浏览器按F12→Application→Cookies→复制所有cookie值','');
+  if(!cookie||!cookie.trim())return;
+  try{
+    var existing=await supabase.from('platform_accounts').select('id').eq('user_id',window._dreamUser.id).eq('platform',platform).maybeSingle();
+    if(existing.data)await supabase.from('platform_accounts').update({cookie:cookie.trim(),is_active:true,updated_at:new Date().toISOString()}).eq('id',existing.data.id);
+    else await supabase.from('platform_accounts').insert({user_id:window._dreamUser.id,platform:platform,cookie:cookie.trim(),updated_at:new Date().toISOString()});
+    alert('✅ '+labels[platform]+' 已连接！');
+    _dreamCheckConnections(window._dreamUser.id);
+  }catch(e){alert('连接失败: '+e.message);}
+};
+
+async function _dreamCheckConnections(uid){
+  if(!supabase)return;
+  try{var r=await supabase.from('platform_accounts').select('platform,updated_at').eq('user_id',uid).eq('is_active',true);
+    if(r.data)r.data.forEach(function(a){
+      var el=document.getElementById('conn_'+a.platform);if(!el)return;
+      var hours=999;if(a.updated_at){var t=new Date(a.updated_at);hours=(Date.now()-t.getTime())/3600000;}
+      if(hours>24){el.textContent='🔴';el.style.color='#e94560';el.title='已过期 '+Math.floor(hours)+'h';}
+      else if(hours>12){el.textContent='🟡';el.style.color='#f0c040';el.title='即将过期 '+Math.floor(hours)+'h';}
+      else{el.textContent='🟢';el.style.color='#3fb950';el.title='正常 '+Math.floor(hours)+'h前更新';}
+    });
+  }catch(e){}
+}
+
+// 📡 加载凹凸世界动态
+async function _dreamLoadFeeds(){
+  if(!supabase)return;
+  var el=document.getElementById('aotuFeeds');if(!el)return;
+  try{
+    var r=await supabase.from('aotu_feeds').select('*').order('publish_time',{ascending:false}).limit(50);
+    var feeds=r.data||[];
+    if(feeds.length===0){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">暂无动态<br><span style="font-size:0.7em">连接社交账号后将自动抓取</span></div>';return;}
+    var cats={'day1':'📅 一天内','day2':'📆 两天内','week':'📋 一周内','month':'🗓️ 一月内'};
+    var catCounts={};
+    feeds.forEach(function(f){catCounts[f.time_category]=(catCounts[f.time_category]||0)+1;});
+    var h='';
+    Object.keys(cats).forEach(function(cat){
+      if(!catCounts[cat])return;
+      h+='<details '+(cat==='day1'?'open':'')+' style="margin:4px 0"><summary style="cursor:pointer;font-size:0.8em;color:var(--gold)">'+cats[cat]+' ('+catCounts[cat]+')</summary>';
+      feeds.filter(function(f){return f.time_category===cat;}).forEach(function(f){
+        var pEmoji={bilibili:'📺',weibo:'📢',douyin:'🎵',xiaohongshu:'📕',lofter:'🎨'};
+        h+='<div class="panel" style="padding:8px;margin:4px 0;font-size:0.8em">';
+        h+='<span style="font-size:0.65em;color:var(--dim)">'+pEmoji[f.platform]+' '+_escapeHtml(f.author_name)+' · '+_timeAgo(f.publish_time)+'</span>';
+        h+='<div style="margin:3px 0"><a href="'+f.url+'" target="_blank" style="color:var(--text);text-decoration:none">'+(f.title||f.content||'查看').slice(0,80)+'</a></div>';
+        if(f.cover_url)h+='<img src="'+f.cover_url+'" style="max-width:100%;max-height:120px;border-radius:4px;margin-top:4px">';
+        h+='<span style="font-size:0.6em;color:var(--dim)">❤️ '+(f.likes_count||0)+' 💬 '+(f.comments_count||0)+'</span></div>';
+      });
+      h+='</details>';
+    });
+    el.innerHTML=h;
+  }catch(e){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">加载失败</div>';}
+}
 
 // 💬 私信系统
 // 收件箱—显示所有聊过的人
