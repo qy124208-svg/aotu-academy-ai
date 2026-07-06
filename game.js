@@ -6527,7 +6527,7 @@ Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
-  if(acState.over||acState._frameCount>2000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
+  if(acState.over||acState._frameCount>3000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
