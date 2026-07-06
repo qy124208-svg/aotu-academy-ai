@@ -6444,7 +6444,7 @@ function acBattleLoop(){
   if(pAlive===0||eAlive===0){acState.over=true;acState.winner=pAlive>0?'player':'enemy';}
   acRender();
   if(!acState.over)acAnim=requestAnimationFrame(acBattleLoop);
-  else setTimeout(function(){acEnd();},1500);
+  else{acRender();setTimeout(function(){acEnd();},400);}
 }
 
 function acRender(){

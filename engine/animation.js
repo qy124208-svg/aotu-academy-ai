@@ -142,9 +142,6 @@ class ParticleSystem {
    * @param {object} opts - {speed, life, size}
    */
   explode(x, y, count = 12, color = '#ff0', opts = {}) {
-    if(this.particles.length>550)return;
-    if(this.particles.length>400)count=Math.floor(count*0.4);
-    else if(this.particles.length>250)count=Math.floor(count*0.7);
     const { speed = 3, life = 30, size = 3 } = opts;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
@@ -161,9 +158,6 @@ class ParticleSystem {
    * 生成线性粒子（技能射线、冲刺痕迹）
    */
   burst(x, y, angle, count = 8, color = '#58a6ff', opts = {}) {
-    if(this.particles.length>550)return;
-    if(this.particles.length>400)count=Math.floor(count*0.4);
-    else if(this.particles.length>250)count=Math.floor(count*0.7);
     const { speed = 4, life = 25, spread = 30, size = 2 } = opts;
     for (let i = 0; i < count; i++) {
       const a = angle + (Math.random() - 0.5) * spread * Math.PI / 180;
@@ -180,9 +174,6 @@ class ParticleSystem {
    * 生成环形粒子（冲击波）
    */
   ring(x, y, radius, count = 20, color = '#fff', opts = {}) {
-    if(this.particles.length>550)return;
-    if(this.particles.length>400)count=Math.floor(count*0.4);
-    else if(this.particles.length>250)count=Math.floor(count*0.7);
     const { speed = 2, life = 25, size = 2 } = opts;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
