@@ -5451,7 +5451,8 @@ window._dreamUser=null; // Supabase Auth 用户
       var meta=r.data.session.user.user_metadata||{};
       window._dreamUser._nickname=meta.nickname||'';
       window._dreamUser._face=meta.face||'';
-      try{var saved=JSON.parse(localStorage.getItem('aotu_bili_info')||'{}');if(!window._dreamUser._nickname&&saved.nickname){window._dreamUser._nickname=saved.nickname;window._dreamUser._face=saved.face||'';}}catch(e){}
+      try{var saved=JSON.parse(localStorage.getItem('aotu_bili_info')||'{}');if(!window._dreamUser._nickname&&saved.nickname){window._dreamUser._nickname=saved.nickname;window._dreamUser._face=saved.face||'';}if(!window._dreamUser._uid&&saved.bili_uid){window._dreamUser._uid=saved.bili_uid;}}catch(e){}
+      if(!window._dreamUser._uid){var meta=r.data.session.user.user_metadata||{};window._dreamUser._uid=meta.bili_uid||'';}
     }
   }catch(e){}
   // 📱 扫码登录 — 手机端确认
@@ -5671,7 +5672,8 @@ window._dreamBiliLogin=function(){
             window._dreamUser=data.user;
             window._dreamUser._nickname=pollD.nickname||data.user.user_metadata?.nickname||'';
             window._dreamUser._face=pollD.face||data.user.user_metadata?.face||'';
-            try{localStorage.setItem('aotu_bili_info',JSON.stringify({nickname:window._dreamUser._nickname,face:window._dreamUser._face}));}catch(e){}
+            window._dreamUser._uid=pollD.bili_uid||'';
+            try{localStorage.setItem('aotu_bili_info',JSON.stringify({nickname:window._dreamUser._nickname,face:window._dreamUser._face,bili_uid:pollD.bili_uid}));}catch(e){}
             _dreamLoadPosts(document.getElementById('app'));
           }else if(pollD.status==='expired'){
             clearInterval(pollTimer);
@@ -6027,7 +6029,9 @@ window._dreamProfile=async function(){
     var badges=_dreamCalcBadges(posts.data,totalLikes);
     if(badges.length>0){h+='<div style="margin:8px 0">';badges.forEach(function(b){h+='<span title="'+b.d+'" style="font-size:1.3em;margin:0 2px">'+b.e+'</span>';});h+='</div>';}
     h+='<h2 style="color:var(--gold)">'+_escapeHtml(biliName||email.split('@')[0])+'</h2>';
+    var biliUid=window._dreamUser._uid||'';
     h+='<p style="color:var(--dim);font-size:0.8em">📧 '+masked+'</p>';
+    if(biliUid)h+='<p style="color:#fb7299;font-size:0.85em">📺 B站UID：'+biliUid+'</p>';
     h+='<div style="display:flex;gap:20px;justify-content:center;margin:12px 0">';
     h+='<div><b style="color:var(--gold)">'+(posts.count||0)+'</b><br><span style="font-size:0.7em;color:var(--dim)">发帖</span></div>';
     h+='<div><b style="color:#e94560">'+totalLikes+'</b><br><span style="font-size:0.7em;color:var(--dim)">获赞</span></div>';
