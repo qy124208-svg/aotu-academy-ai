@@ -997,7 +997,7 @@ var _charImgCache={};
 (function(){try{Object.keys(CH).forEach(function(id){var d=localStorage.getItem('aotu4_img_'+id);if(d)_charImgCache[id]=d;});}catch(e){}})();
 function saveCharImage(id,b64){try{localStorage.setItem('aotu4_img_'+id,b64);_charImgCache[id]=b64;}catch(e){if(typeof Toast!=='undefined')Toast.show('⚠️ 图片太大，请压缩到200KB以内','error',2000);}}
 function removeCharImage(id){localStorage.removeItem('aotu4_img_'+id);delete _charImgCache[id];}
-function charIcon(id,size){size=size||24;var img=_charImgCache[id];if(img)return'<img src="'+img+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">';var c=CH[id];return c?c.e:'?';}
+function charIcon(id,size){size=size||24;var img=_charImgCache[id];if(img)return'<img src="'+img+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:50%;vertical-align:middle" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">';var c=CH[id];return c?c.e:'?';}
 window._uploadCharImg=function(id){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>200*1024){if(typeof Toast!=='undefined')Toast.show('⚠️ 需小于200KB','error',2000);return;}var r=new FileReader();r.onload=function(ev){saveCharImage(id,ev.target.result);render('title');};r.readAsDataURL(f);};inp.click();};
 window._clearAllCharImages=function(){Object.keys(CH).forEach(function(k){removeCharImage(k);});render('title');};
 
@@ -5690,19 +5690,19 @@ window._dreamBiliLogin=function(){
             window._dreamUser=data.user;
             window._dreamUser._nickname=pollD.nickname||'';
             window._dreamUser._uid=pollD.bili_uid||'';
-            window._dreamUser._face='';
-            // 从B站公开API拿头像
+            // 用Edge Function代理拿B站头像（绕过CORS）
             if(pollD.bili_uid){
               try{
-                var uir=await fetch('https://api.bilibili.com/x/space/acc/info?mid='+pollD.bili_uid);
-                var uid=await uir.json();
-                if(uid.code===0&&uid.data){
-                  window._dreamUser._face=uid.data.face||'';
-                  if(!window._dreamUser._nickname||window._dreamUser._nickname==='B站用户')window._dreamUser._nickname=uid.data.name||'';
-                }
+                var cardR=await fetch(SUPABASE_URL+'/functions/v1/bilibili-qr',{
+                  method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+                  body:JSON.stringify({action:'card',uid:pollD.bili_uid})
+                });
+                var cardD=await cardR.json();
+                if(cardD.face)window._dreamUser._face=cardD.face;
+                if(cardD.nickname&&(!window._dreamUser._nickname||window._dreamUser._nickname==='B站用户'))window._dreamUser._nickname=cardD.nickname;
               }catch(e){}
             }
-            if(!window._dreamUser._face)window._dreamUser._face=pollD.face||'';
+            if(!window._dreamUser._face)window._dreamUser._face='';
             // 持久化
             try{localStorage.setItem('aotu_session',JSON.stringify({access_token:pollD.access_token,refresh_token:pollD.refresh_token,nickname:window._dreamUser._nickname,face:window._dreamUser._face,bili_uid:pollD.bili_uid}));}catch(e){}
             _dreamLoadPosts(document.getElementById('app'));
@@ -5756,7 +5756,8 @@ function _dreamGetIdentity(){
     var email=u.email||'';
     var name=u._nickname||email.split('@')[0];
     var face=localStorage.getItem('aotu_custom_face')||u._face||'';
-    return {name:name,emoji:face?'<img src="'+face+'" style="width:16px;height:16px;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">':'✨',color:'#f0c040',user_id:u.id,email:email};
+    var emojiHtml=face?'<img src="'+face+'" style="width:16px;height:16px;border-radius:50%;vertical-align:middle" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">':'';
+    return {name:name,emoji:emojiHtml,color:'#f0c040',user_id:u.id,email:email};
   }
   var ip=_dreamLoadIdentity();
   return {name:ip.name||'',emoji:ip.emoji||_getIdentityEmoji(),color:ip.color||_getIdentityColor(),user_id:null};
@@ -5866,7 +5867,7 @@ function _dreamRender(app){
   if(window._dreamUser){
     var biliFace=localStorage.getItem('aotu_custom_face')||window._dreamUser._face||'';
     var biliName=window._dreamUser._nickname||id.name;
-    h+=(biliFace?'<img src="'+biliFace+'" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:2px" onerror="this.style.display=\'none\'">':'')+'<span style="color:'+id.color+'">✨ '+biliName+'</span> ';
+    h+='<img src="'+(biliFace||'')+'" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:2px" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'"><span style="color:'+id.color+'"> '+biliName+'</span> ';
     h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
     h+='<button class="btn btn-xs" onclick="window._dreamInbox()" style="font-size:0.65em;color:var(--blue)">💬 私信</button> ';
     h+='<button class="btn btn-xs" onclick="window._dreamNotifications()" id="notifBell" style="font-size:0.65em;color:var(--purple)">🔔</button> ';
@@ -6059,7 +6060,7 @@ window._dreamProfile=async function(){
     var biliName=window._dreamUser._nickname||'';
     h+='<div class="panel" style="text-align:center;padding:20px">';
     h+='<div style="position:relative;display:inline-block;cursor:pointer" onclick="window._dreamUploadFace()" title="点击更换头像">';
-    h+=(face?'<img src="'+face+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:4px" onerror="this.style.display=\'none\'">':'<div style="font-size:3em">✨</div>');
+    h+='<img src="'+(face||'')+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:4px" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">';
     h+='<div style="position:absolute;bottom:0;right:0;background:var(--card);border-radius:50%;width:22px;height:22px;font-size:12px;line-height:22px;text-align:center;border:2px solid var(--gold)">📷</div></div>';
     var badges=_dreamCalcBadges(posts.data,totalLikes);
     if(badges.length>0){h+='<div style="margin:8px 0">';badges.forEach(function(b){h+='<span title="'+b.d+'" style="font-size:1.3em;margin:0 2px">'+b.e+'</span>';});h+='</div>';}
@@ -6080,25 +6081,8 @@ window._dreamProfile=async function(){
       });
       h+='</div>';
     }
-    // 🔗 内容订阅
-    h+='<div class="panel" style="padding:12px;margin:8px 0">';
-    h+='<h3 style="color:var(--blue);font-size:0.9em">🔗 内容订阅</h3>';
-    h+='<p style="font-size:0.7em;color:var(--dim)">绑定社交账号后，自动抓取关注的凹凸世界创作者最新作品</p>';
-    var platforms=[
-      {id:'bilibili',n:'B站',e:'📺',color:'#fb7299'},
-      {id:'weibo',n:'微博',e:'📢',color:'#e6162d'},
-      {id:'douyin',n:'抖音',e:'🎵',color:'#111'},
-      {id:'xiaohongshu',n:'小红书',e:'📕',color:'#ff2442'},
-      {id:'lofter',n:'Lofter',e:'🎨',color:'#333'}
-    ];
-    platforms.forEach(function(pl){
-      h+='<div style="display:inline-block;margin:4px 8px 4px 0;cursor:pointer" onclick="window._dreamConnectPlatform(\''+pl.id+'\')" title="绑定'+pl.n+'">';
-      h+='<span style="font-size:1.2em">'+pl.e+'</span> ';
-      h+='<span style="font-size:0.7em;color:var(--dim)">'+pl.n+'</span>';
-      h+=' <span id="conn_'+pl.id+'" style="font-size:0.6em;color:var(--dim)">⚪</span></div>';
-    });
-    h+='</div>';
-    // 检查已连接的平台
+    // B站已自动连接，显示状态
+    h+='<div style="padding:8px 12px;margin:4px 0">📺 B站 <span id="conn_bilibili" style="font-size:0.7em">⚪</span></div>';
     _dreamCheckConnections(u.id);
     // 📡 凹凸世界动态
     h+='<h3 style="color:var(--accent);font-size:0.9em;margin:10px 0">📡 凹凸世界动态</h3>';
@@ -6141,21 +6125,6 @@ window._dreamDeletePost=async function(postId){
   if(!confirm('确定删除这条帖子？'))return;
   try{await supabase.from('dreams').update({is_deleted:true}).eq('id',postId).eq('user_id',window._dreamUser.id);
     window._dreamProfile();}catch(e){alert('删除失败');}
-};
-
-// 🔗 平台连接管理
-window._dreamConnectPlatform=async function(platform){
-  if(!window._dreamUser||!supabase){alert('请先登录');return;}
-  var labels={bilibili:'B站',weibo:'微博',douyin:'抖音',xiaohongshu:'小红书',lofter:'Lofter'};
-  var cookie=prompt(labels[platform]+' Cookie：\n登录'+labels[platform]+'后，在浏览器按F12→Application→Cookies→复制所有cookie值','');
-  if(!cookie||!cookie.trim())return;
-  try{
-    var existing=await supabase.from('platform_accounts').select('id').eq('user_id',window._dreamUser.id).eq('platform',platform).maybeSingle();
-    if(existing.data)await supabase.from('platform_accounts').update({cookie:cookie.trim(),is_active:true,updated_at:new Date().toISOString()}).eq('id',existing.data.id);
-    else await supabase.from('platform_accounts').insert({user_id:window._dreamUser.id,platform:platform,cookie:cookie.trim(),updated_at:new Date().toISOString()});
-    alert('✅ '+labels[platform]+' 已连接！');
-    _dreamCheckConnections(window._dreamUser.id);
-  }catch(e){alert('连接失败: '+e.message);}
 };
 
 async function _dreamCheckConnections(uid){
