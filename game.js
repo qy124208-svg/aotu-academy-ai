@@ -5447,14 +5447,27 @@ window._dreamUser=null; // Supabase Auth 用户
     var r=await supabase.auth.getSession();
     if(r.data.session){
       window._dreamUser=r.data.session.user;
-      // 恢复B站头像昵称
-      var meta=r.data.session.user.user_metadata||{};
-      window._dreamUser._nickname=meta.nickname||'';
-      window._dreamUser._face=meta.face||'';
-      try{var saved=JSON.parse(localStorage.getItem('aotu_bili_info')||'{}');if(!window._dreamUser._nickname&&saved.nickname){window._dreamUser._nickname=saved.nickname;window._dreamUser._face=saved.face||'';}if(!window._dreamUser._uid&&saved.bili_uid){window._dreamUser._uid=saved.bili_uid;}}catch(e){}
-      if(!window._dreamUser._uid){var meta=r.data.session.user.user_metadata||{};window._dreamUser._uid=meta.bili_uid||'';}
     }
   }catch(e){}
+  // 如果Supabase session丢失，从localStorage恢复
+  if(!window._dreamUser){
+    try{
+      var saved=JSON.parse(localStorage.getItem('aotu_session')||'');
+      if(saved&&saved.access_token){
+        var {data}=await supabase.auth.setSession({access_token:saved.access_token,refresh_token:saved.refresh_token});
+        if(data&&data.user)window._dreamUser=data.user;
+      }
+    }catch(e){}
+  }
+  // 恢复B站头像昵称UID
+  if(window._dreamUser){
+    try{
+      var saved=JSON.parse(localStorage.getItem('aotu_session')||'{}');
+      window._dreamUser._nickname=saved.nickname||'';
+      window._dreamUser._face=saved.face||'';
+      window._dreamUser._uid=saved.bili_uid||'';
+    }catch(e){}
+  }
   // 📱 扫码登录 — 手机端确认
   var params=new URLSearchParams(window.location.search);
   var qrToken=params.get('qr_login');
@@ -5670,10 +5683,11 @@ window._dreamBiliLogin=function(){
             });
             if(error)throw error;
             window._dreamUser=data.user;
-            window._dreamUser._nickname=pollD.nickname||data.user.user_metadata?.nickname||'';
-            window._dreamUser._face=pollD.face||data.user.user_metadata?.face||'';
+            window._dreamUser._nickname=pollD.nickname||'';
+            window._dreamUser._face=pollD.face||'';
             window._dreamUser._uid=pollD.bili_uid||'';
-            try{localStorage.setItem('aotu_bili_info',JSON.stringify({nickname:window._dreamUser._nickname,face:window._dreamUser._face,bili_uid:pollD.bili_uid}));}catch(e){}
+            // 持久化 — 同设备不丢登录
+            try{localStorage.setItem('aotu_session',JSON.stringify({access_token:pollD.access_token,refresh_token:pollD.refresh_token,nickname:pollD.nickname,face:pollD.face,bili_uid:pollD.bili_uid}));}catch(e){}
             _dreamLoadPosts(document.getElementById('app'));
           }else if(pollD.status==='expired'){
             clearInterval(pollTimer);
