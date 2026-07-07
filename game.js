@@ -5864,6 +5864,11 @@ function _dreamRender(app){
   h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
   if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';}
   else{h+='<button class="btn btn-xs" onclick="window._dreamAdminLogin()" style="font-size:0.65em;color:var(--dim)">🔑</button> ';}
+  // 🔢 管理员显示总用户数
+  if(window._isAdmin()){
+    h+='<span id="dreamUserCount" style="color:var(--gold);font-size:0.65em">👥 ...</span> ';
+    _dreamLoadUserCount();
+  }
   if(window._dreamUser){
     var biliFace=localStorage.getItem('aotu_custom_face')||window._dreamUser._face||'';
     var biliName=window._dreamUser._nickname||id.name;
@@ -5875,10 +5880,10 @@ function _dreamRender(app){
     h+=' ';
     h+='<button class="btn btn-xs" onclick="window._dreamLogout()" style="font-size:0.65em;color:#e94560">退出</button>';
   }else{
-    h+='👤 未登录 ';
-    h+='<button class="btn btn-xs" onclick="window._dreamLogin()" style="font-size:0.65em;color:var(--gold)">📧 登录</button>';
+    h+='<button class="btn btn-p pulse" onclick="window._dreamLogin()" style="font-size:1em;padding:10px 24px;background:linear-gradient(135deg,#fb7299,#e94560);border:none;border-radius:10px;color:#fff;font-weight:bold">📺 B站扫码登录</button> ';
   }h+='</p>';
-  // 发布框
+  // 发布框 — 未登录不能发
+  if(window._dreamUser){
   h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/抖音链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
   h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
   h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">';
@@ -5886,6 +5891,11 @@ function _dreamRender(app){
   h+='<button class="btn btn-s" onclick="document.getElementById(\'dreamImage\').click()" style="font-size:0.75em;padding:5px 8px">📷 图片</button>';
   h+='<span id="dreamImgLabel" style="font-size:0.65em;color:var(--dim)"></span>';
   h+='<button class="btn btn-p" onclick="window._dreamPost()" style="font-size:0.8em;padding:6px 14px;margin-left:auto">✨ 发布</button></div></div>';
+  }else{
+  h+='<div class="panel" style="margin:10px 0;text-align:center;padding:16px;background:linear-gradient(135deg,rgba(251,114,153,0.1),rgba(233,69,96,0.1))">';
+  h+='<p style="color:var(--dim);font-size:0.85em;margin:0">🔒 登录后可发帖、评论、点赞</p>';
+  h+='<button class="btn btn-p pulse" onclick="window._dreamLogin()" style="font-size:1.1em;padding:12px 32px;margin-top:10px;background:linear-gradient(135deg,#fb7299,#e94560);border:none;border-radius:12px;color:#fff;font-weight:bold">📺 B站扫码登录</button></div>';
+  }
   // 留言列表
   if(!state.posts||state.posts.length===0){h+='<div style="text-align:center;color:var(--dim);padding:30px">💤 还没有人留言…来做第一个说梦话的人吧！</div>';}
   else{
@@ -5967,6 +5977,7 @@ function _dreamFormatContent(text){
 // 点赞/取消
 window._dreamLike=async function(dreamId){
   if(!supabase)return;
+  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
   var fp=window._dreamFp;
   try{
     var exist=await supabase.from('dream_likes').select('id').eq('dream_id',dreamId).eq('user_fingerprint',fp).maybeSingle();
@@ -6018,6 +6029,7 @@ function _dreamRenderComments(app){
 // 发布评论
 window._dreamPostComment=async function(dreamId){
   if(!supabase)return;
+  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
   var content=document.getElementById('commentInput').value.trim();
   if(!content)return;
   var id=_dreamGetIdentity();
@@ -6081,16 +6093,23 @@ window._dreamProfile=async function(){
       });
       h+='</div>';
     }
-    // 🔗 平台连接 + 爬虫时间
+    // 🔗 平台连接 + 时间筛选
     h+='<div class="panel" style="padding:12px;margin:8px 0">';
     h+='<h3 style="color:var(--blue);font-size:0.9em">🔗 内容订阅</h3>';
-    h+='<p style="font-size:0.7em;color:var(--dim);margin:4px 0">B站扫码自动连接 · 其他平台即将支持</p>';
-    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">';
-    [{id:'bilibili',n:'B站',e:'📺',auto:true},{id:'weibo',n:'微博',e:'📢',auto:false},{id:'douyin',n:'抖音',e:'🎵',auto:false},{id:'xiaohongshu',n:'小红书',e:'📕',auto:false},{id:'lofter',n:'Lofter',e:'🎨',auto:false}].forEach(function(pl){
-      h+='<span style="font-size:0.8em">'+pl.e+' '+pl.n+(pl.auto?' <span style="color:var(--green);font-size:0.6em">扫码</span>':' <span style="color:var(--dim);font-size:0.6em">待开放</span>')+'</span>';
+    h+='<p style="font-size:0.7em;color:var(--dim);margin:4px 0">B站扫码自动连接 · 其他平台手动绑定Cookie</p>';
+    var platforms=[
+      {id:'bilibili',n:'B站',e:'📺',auto:true},
+      {id:'weibo',n:'微博',e:'📢',auto:false},
+      {id:'douyin',n:'抖音',e:'🎵',auto:false},
+      {id:'xiaohongshu',n:'小红书',e:'📕',auto:false},
+      {id:'lofter',n:'Lofter',e:'🎨',auto:false}
+    ];
+    platforms.forEach(function(pl){
+      h+='<div style="display:inline-block;margin:4px 8px 4px 0;cursor:pointer" onclick="'+(pl.auto?'':'window._dreamConnectPlatform(\''+pl.id+'\')')+'" title="'+(pl.auto?'扫码自动连接':'点击绑定'+pl.n)+'">';
+      h+='<span style="font-size:1.2em">'+pl.e+'</span> ';
+      h+='<span style="font-size:0.7em;color:var(--dim)">'+pl.n+'</span>';
+      h+=' <span id="conn_'+pl.id+'" style="font-size:0.6em;color:var(--dim)">'+(pl.auto?'🟢':'⚪')+'</span></div>';
     });
-    h+='</div>';
-    // 时间筛选
     h+='<div style="margin:6px 0"><span style="font-size:0.7em;color:var(--dim)">抓取时间：</span>';
     var timeOpts=[{v:'day',t:'近24小时'},{v:'week',t:'近一周'},{v:'month',t:'近一月'}];
     timeOpts.forEach(function(o){
@@ -6098,6 +6117,7 @@ window._dreamProfile=async function(){
       h+='<button class="btn btn-xs" onclick="localStorage.setItem(\'aotu_time_filter\',\''+o.v+'\');window._dreamProfile()" style="font-size:0.65em;padding:2px 8px;margin:2px;'+(sel?'background:var(--gold);color:#000':'')+'">'+o.t+'</button>';
     });
     h+='</div></div>';
+    _dreamCheckConnections(u.id);
     // 📡 凹凸世界动态
     h+='<h3 style="color:var(--accent);font-size:0.9em;margin:10px 0">📡 凹凸世界动态</h3>';
     h+='<div id="aotuFeeds"><div style="color:var(--dim);text-align:center;padding:15px">加载中...</div></div>';
@@ -6141,6 +6161,21 @@ window._dreamDeletePost=async function(postId){
     window._dreamProfile();}catch(e){alert('删除失败');}
 };
 
+// 🔗 平台连接管理
+window._dreamConnectPlatform=async function(platform){
+  if(!window._dreamUser||!supabase){alert('请先登录');return;}
+  var labels={bilibili:'B站',weibo:'微博',douyin:'抖音',xiaohongshu:'小红书',lofter:'Lofter'};
+  var cookie=prompt(labels[platform]+' Cookie：\n登录'+labels[platform]+'后，在浏览器按F12→Application→Cookies→复制所有cookie值','');
+  if(!cookie||!cookie.trim())return;
+  try{
+    var existing=await supabase.from('platform_accounts').select('id').eq('user_id',window._dreamUser.id).eq('platform',platform).maybeSingle();
+    if(existing.data)await supabase.from('platform_accounts').update({cookie:cookie.trim(),is_active:true,updated_at:new Date().toISOString()}).eq('id',existing.data.id);
+    else await supabase.from('platform_accounts').insert({user_id:window._dreamUser.id,platform:platform,cookie:cookie.trim(),updated_at:new Date().toISOString()});
+    alert('✅ '+labels[platform]+' 已连接！');
+    _dreamCheckConnections(window._dreamUser.id);
+  }catch(e){alert('连接失败: '+e.message);}
+};
+
 async function _dreamCheckConnections(uid){
   if(!supabase)return;
   try{var r=await supabase.from('platform_accounts').select('platform,updated_at').eq('user_id',uid).eq('is_active',true);
@@ -6155,6 +6190,19 @@ async function _dreamCheckConnections(uid){
 }
 
 // 📡 加载凹凸世界动态
+// 👥 管理员查看总用户数
+async function _dreamLoadUserCount(){
+  try{
+    var r=await supabase.from('platform_accounts').select('user_id',{count:'exact',head:true}).eq('is_active',true);
+    var uniqueUsers=r.count||0;
+    // 去重
+    var r2=await supabase.from('platform_accounts').select('user_id').eq('is_active',true);
+    if(r2.data){var seen={};r2.data.forEach(function(r){seen[r.user_id]=1;});uniqueUsers=Object.keys(seen).length;}
+    var el=document.getElementById('dreamUserCount');
+    if(el)el.textContent='👥 '+uniqueUsers+' 用户';
+  }catch(e){}
+}
+
 async function _dreamLoadFeeds(){
   if(!supabase)return;
   var el=document.getElementById('aotuFeeds');if(!el)return;
