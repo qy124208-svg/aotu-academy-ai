@@ -5665,22 +5665,13 @@ window._dreamBiliLogin=function(){
           }else if(pollD.status==='confirmed'){
             clearInterval(pollTimer);
             statusEl.textContent='✅ 登录成功！';
-            // 3. 创建/查找论坛账号
-            var biliUid=pollD.bili_uid;
-            var email='bili'+biliUid+'@bili.aotu';
-            var pwd='aotu_bili_'+biliUid;
-            var login=await supabase.auth.signInWithPassword({email:email,password:pwd});
-            if(login.error){
-              await supabase.auth.signUp({email:email,password:pwd});
-              login=await supabase.auth.signInWithPassword({email:email,password:pwd});
-            }
-            // 存B站Cookie
-            var cookie='SESSDATA='+pollD.sessdata+'; bili_jct='+pollD.bili_jct+'; DedeUserID='+biliUid+';';
-            await supabase.from('platform_accounts').upsert({
-              user_id:login.data.user.id,platform:'bilibili',cookie:cookie,
-              is_active:true,updated_at:new Date().toISOString()
-            },{onConflict:'user_id,platform'});
-            window._dreamUser=login.data.user;
+            // Edge Function 已创建账号并返回session，直接用
+            var {data,error}=await supabase.auth.setSession({
+              access_token:pollD.access_token,
+              refresh_token:pollD.refresh_token
+            });
+            if(error)throw error;
+            window._dreamUser=data.user;
             window._dreamUser._nickname=pollD.nickname;
             _dreamLoadPosts(document.getElementById('app'));
           }else if(pollD.status==='expired'){
