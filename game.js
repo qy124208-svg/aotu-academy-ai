@@ -5445,7 +5445,14 @@ window._dreamUser=null; // Supabase Auth 用户
   }
   try{
     var r=await supabase.auth.getSession();
-    if(r.data.session){window._dreamUser=r.data.session.user;}
+    if(r.data.session){
+      window._dreamUser=r.data.session.user;
+      // 恢复B站头像昵称
+      var meta=r.data.session.user.user_metadata||{};
+      window._dreamUser._nickname=meta.nickname||'';
+      window._dreamUser._face=meta.face||'';
+      try{var saved=JSON.parse(localStorage.getItem('aotu_bili_info')||'{}');if(!window._dreamUser._nickname&&saved.nickname){window._dreamUser._nickname=saved.nickname;window._dreamUser._face=saved.face||'';}}catch(e){}
+    }
   }catch(e){}
   // 📱 扫码登录 — 手机端确认
   var params=new URLSearchParams(window.location.search);
@@ -5672,7 +5679,9 @@ window._dreamBiliLogin=function(){
             });
             if(error)throw error;
             window._dreamUser=data.user;
-            window._dreamUser._nickname=pollD.nickname;
+            window._dreamUser._nickname=pollD.nickname||data.user.user_metadata?.nickname||'';
+            window._dreamUser._face=pollD.face||data.user.user_metadata?.face||'';
+            try{localStorage.setItem('aotu_bili_info',JSON.stringify({nickname:window._dreamUser._nickname,face:window._dreamUser._face}));}catch(e){}
             _dreamLoadPosts(document.getElementById('app'));
           }else if(pollD.status==='expired'){
             clearInterval(pollTimer);
@@ -5722,8 +5731,9 @@ function _dreamGetIdentity(){
   if(window._dreamUser){
     var u=window._dreamUser;
     var email=u.email||'';
-    var name=email.split('@')[0];
-    return {name:name,emoji:'✨',color:'#f0c040',user_id:u.id,email:email};
+    var name=u._nickname||email.split('@')[0];
+    var face=u._face||'';
+    return {name:name,emoji:face?'<img src="'+face+'" style="width:16px;height:16px;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">':'✨',color:'#f0c040',user_id:u.id,email:email};
   }
   var ip=_dreamLoadIdentity();
   return {name:ip.name||'',emoji:ip.emoji||_getIdentityEmoji(),color:ip.color||_getIdentityColor(),user_id:null};
@@ -5831,7 +5841,9 @@ function _dreamRender(app){
   if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';}
   else{h+='<button class="btn btn-xs" onclick="window._dreamAdminLogin()" style="font-size:0.65em;color:var(--dim)">🔑</button> ';}
   if(window._dreamUser){
-    h+='<span style="color:'+id.color+'">✨ '+id.name+'</span> ';
+    var biliFace=window._dreamUser._face||'';
+    var biliName=window._dreamUser._nickname||id.name;
+    h+=(biliFace?'<img src="'+biliFace+'" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:2px" onerror="this.style.display=\'none\'">':'')+'<span style="color:'+id.color+'">✨ '+biliName+'</span> ';
     h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
     h+='<button class="btn btn-xs" onclick="window._dreamInbox()" style="font-size:0.65em;color:var(--blue)">💬 私信</button> ';
     h+='<button class="btn btn-xs" onclick="window._dreamNotifications()" id="notifBell" style="font-size:0.65em;color:var(--purple)">🔔</button> ';
@@ -6018,10 +6030,13 @@ window._dreamProfile=async function(){
     // 渲染
     var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
     h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))" style="margin-bottom:10px">← 返回论坛</button>';
-    h+='<div class="panel" style="text-align:center;padding:20px"><div style="font-size:3em">✨</div>';
+    var biliFace=window._dreamUser._face||'';
+    var biliName=window._dreamUser._nickname||'';
+    h+='<div class="panel" style="text-align:center;padding:20px">';
+    h+=(biliFace?'<img src="'+biliFace+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:8px" onerror="this.style.display=\'none\'">':'<div style="font-size:3em">✨</div>');
     var badges=_dreamCalcBadges(posts.data,totalLikes);
     if(badges.length>0){h+='<div style="margin:8px 0">';badges.forEach(function(b){h+='<span title="'+b.d+'" style="font-size:1.3em;margin:0 2px">'+b.e+'</span>';});h+='</div>';}
-    h+='<h2 style="color:var(--gold)">'+_escapeHtml(email.split('@')[0])+'</h2>';
+    h+='<h2 style="color:var(--gold)">'+_escapeHtml(biliName||email.split('@')[0])+'</h2>';
     h+='<p style="color:var(--dim);font-size:0.8em">📧 '+masked+'</p>';
     h+='<div style="display:flex;gap:20px;justify-content:center;margin:12px 0">';
     h+='<div><b style="color:var(--gold)">'+(posts.count||0)+'</b><br><span style="font-size:0.7em;color:var(--dim)">发帖</span></div>';
