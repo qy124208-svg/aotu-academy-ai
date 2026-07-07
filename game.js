@@ -6277,11 +6277,11 @@ window._dreamReport=async function(postId){
 
 // 🛡️ 管理后台
 window._isAdmin=function(){
-  // 管理员：登录邮箱匹配 或 Supabase dream_admins 表中
-  return (window._dreamUser&&window._dreamUser.email==='1420646184@qq.com')||localStorage._dreamAdmin==='ok';
+  // 管理员：B站UID 1179634903 或 手动密码开启
+  return (window._dreamUser&&window._dreamUser._uid==='1179634903')||localStorage._dreamAdmin==='ok';
 };
 window._dreamAdminLogin=function(){
-  if(window._dreamUser&&window._dreamUser.email==='1420646184@qq.com'){localStorage._dreamAdmin='ok';alert('✅ 管理员模式已开启');_dreamLoadPosts(document.getElementById('app'));return;}
+  if(window._dreamUser&&window._dreamUser._uid==='1179634903'){localStorage._dreamAdmin='ok';alert('✅ 管理员模式已开启');_dreamLoadPosts(document.getElementById('app'));return;}
   var pw=prompt('管理员密码：','');
   if(pw==='1420646184'){localStorage._dreamAdmin='ok';alert('✅ 管理员模式已开启');_dreamLoadPosts(document.getElementById('app'));}
   else alert('密码错误');
