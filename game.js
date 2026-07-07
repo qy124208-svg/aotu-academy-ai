@@ -5689,10 +5689,22 @@ window._dreamBiliLogin=function(){
             if(error)throw error;
             window._dreamUser=data.user;
             window._dreamUser._nickname=pollD.nickname||'';
-            window._dreamUser._face=pollD.face||'';
             window._dreamUser._uid=pollD.bili_uid||'';
-            // 持久化 — 同设备不丢登录
-            try{localStorage.setItem('aotu_session',JSON.stringify({access_token:pollD.access_token,refresh_token:pollD.refresh_token,nickname:pollD.nickname,face:pollD.face,bili_uid:pollD.bili_uid}));}catch(e){}
+            window._dreamUser._face='';
+            // 从B站公开API拿头像
+            if(pollD.bili_uid){
+              try{
+                var uir=await fetch('https://api.bilibili.com/x/space/acc/info?mid='+pollD.bili_uid);
+                var uid=await uir.json();
+                if(uid.code===0&&uid.data){
+                  window._dreamUser._face=uid.data.face||'';
+                  if(!window._dreamUser._nickname||window._dreamUser._nickname==='B站用户')window._dreamUser._nickname=uid.data.name||'';
+                }
+              }catch(e){}
+            }
+            if(!window._dreamUser._face)window._dreamUser._face=pollD.face||'';
+            // 持久化
+            try{localStorage.setItem('aotu_session',JSON.stringify({access_token:pollD.access_token,refresh_token:pollD.refresh_token,nickname:window._dreamUser._nickname,face:window._dreamUser._face,bili_uid:pollD.bili_uid}));}catch(e){}
             _dreamLoadPosts(document.getElementById('app'));
           }else if(pollD.status==='expired'){
             clearInterval(pollTimer);
