@@ -5494,14 +5494,19 @@ window._dreamPasswordLogin=async function(){
   }catch(e){alert('登录失败: '+e.message);}
 };
 
-// 📩 Resend发验证码（通过Supabase函数服务端发送，Key不暴露）
+// 📩 Resend发验证码（Edge Function服务端发送，Key不暴露）
 window._dreamSendCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
   if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
   try{
-    // 调用Supabase RPC函数（服务端执行，Key在数据库里）
-    var r=await supabase.rpc('send_login_code',{p_email:email});
-    if(r.error)throw r.error;
+    // 调用Supabase Edge Function（服务端执行，Resend Key安全存储在环境变量中）
+    var r=await fetch(SUPABASE_URL+'/functions/v1/send-code',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email:email})
+    });
+    var data=await r.json();
+    if(!r.ok)throw new Error(data.error||'发送失败');
     document.getElementById('dreamCode').focus();
     alert('验证码已发送到 '+email+'（检查垃圾箱）');
   }catch(e){alert('发送失败: '+e.message);}

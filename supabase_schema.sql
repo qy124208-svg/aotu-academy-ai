@@ -98,3 +98,17 @@ CREATE POLICY "Anyone can insert likes" ON dream_likes FOR INSERT WITH CHECK (tr
 
 -- 公开删除自己的点赞
 CREATE POLICY "Anyone can delete likes" ON dream_likes FOR DELETE USING (true);
+
+-- ═══ 7. 验证码表 ═══
+CREATE TABLE IF NOT EXISTS login_codes (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email TEXT NOT NULL,
+  code TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email);
+
+ALTER TABLE login_codes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can read login codes" ON login_codes FOR SELECT USING (true);
