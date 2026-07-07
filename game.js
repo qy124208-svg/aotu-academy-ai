@@ -5755,7 +5755,7 @@ function _dreamGetIdentity(){
     var u=window._dreamUser;
     var email=u.email||'';
     var name=u._nickname||email.split('@')[0];
-    var face=u._face||'';
+    var face=localStorage.getItem('aotu_custom_face')||u._face||'';
     return {name:name,emoji:face?'<img src="'+face+'" style="width:16px;height:16px;border-radius:50%;vertical-align:middle" onerror="this.style.display=\'none\'">':'✨',color:'#f0c040',user_id:u.id,email:email};
   }
   var ip=_dreamLoadIdentity();
@@ -5864,7 +5864,7 @@ function _dreamRender(app){
   if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';}
   else{h+='<button class="btn btn-xs" onclick="window._dreamAdminLogin()" style="font-size:0.65em;color:var(--dim)">🔑</button> ';}
   if(window._dreamUser){
-    var biliFace=window._dreamUser._face||'';
+    var biliFace=localStorage.getItem('aotu_custom_face')||window._dreamUser._face||'';
     var biliName=window._dreamUser._nickname||id.name;
     h+=(biliFace?'<img src="'+biliFace+'" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:2px" onerror="this.style.display=\'none\'">':'')+'<span style="color:'+id.color+'">✨ '+biliName+'</span> ';
     h+='<button class="btn btn-xs" onclick="window._dreamProfile()" style="font-size:0.65em;color:var(--gold)">👤 主页</button> ';
@@ -6054,10 +6054,13 @@ window._dreamProfile=async function(){
     // 渲染
     var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
     h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))" style="margin-bottom:10px">← 返回论坛</button>';
-    var biliFace=window._dreamUser._face||'';
+    var customFace=localStorage.getItem('aotu_custom_face')||'';
+    var face=customFace||window._dreamUser._face||'';
     var biliName=window._dreamUser._nickname||'';
     h+='<div class="panel" style="text-align:center;padding:20px">';
-    h+=(biliFace?'<img src="'+biliFace+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:8px" onerror="this.style.display=\'none\'">':'<div style="font-size:3em">✨</div>');
+    h+='<div style="position:relative;display:inline-block;cursor:pointer" onclick="window._dreamUploadFace()" title="点击更换头像">';
+    h+=(face?'<img src="'+face+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:4px" onerror="this.style.display=\'none\'">':'<div style="font-size:3em">✨</div>');
+    h+='<div style="position:absolute;bottom:0;right:0;background:var(--card);border-radius:50%;width:22px;height:22px;font-size:12px;line-height:22px;text-align:center;border:2px solid var(--gold)">📷</div></div>';
     var badges=_dreamCalcBadges(posts.data,totalLikes);
     if(badges.length>0){h+='<div style="margin:8px 0">';badges.forEach(function(b){h+='<span title="'+b.d+'" style="font-size:1.3em;margin:0 2px">'+b.e+'</span>';});h+='</div>';}
     h+='<h2 style="color:var(--gold)">'+_escapeHtml(biliName||email.split('@')[0])+'</h2>';
@@ -6118,6 +6121,22 @@ window._dreamProfile=async function(){
 };
 
 // 删除自己的帖子
+// 📷 上传自定义头像
+window._dreamUploadFace=function(){
+  var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+  inp.onchange=function(e){
+    var f=e.target.files[0];if(!f)return;
+    if(f.size>200*1024){alert('图片需小于200KB');return;}
+    var r=new FileReader();
+    r.onload=function(ev){
+      try{localStorage.setItem('aotu_custom_face',ev.target.result);}catch(e){alert('图片太大，请压缩到200KB以内');return;}
+      window._dreamProfile();
+    };
+    r.readAsDataURL(f);
+  };
+  inp.click();
+};
+
 window._dreamDeletePost=async function(postId){
   if(!confirm('确定删除这条帖子？'))return;
   try{await supabase.from('dreams').update({is_deleted:true}).eq('id',postId).eq('user_id',window._dreamUser.id);
@@ -6687,7 +6706,7 @@ window._acStart=function(){
   if(acState._lucky&&Math.random()<0.1){var ranked=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var ep=ranked.slice(0,12);var ex=ep[Math.floor(Math.random()*ep.length)];var ecx=AC_OFFX+0*AC_CELL_W+AC_CELL_W/2,ecy=AC_OFFY+0*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(CH[ex],G.aff[ex]||0,'player',ecx,ecy,0));}
   acState.player=playerPieces;acState.enemy=enemyPieces;
 
-  app.innerHTML='<div id="ultBg" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0;transition:opacity 0.2s"></div><canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px 12px 0 0;background:rgba(10,10,18,0.85);display:block;margin:10px auto 0;cursor:default;position:relative;z-index:2"></canvas><div style="text-align:center;margin:0 auto 10px;max-width:800px;padding:8px;background:rgba(10,10,18,0.9);border:2px solid var(--gold);border-top:none;border-radius:0 0 12px 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn btn-s" onclick="acState.speedMul=acState.speedMul===1?4:1;this.textContent=acState.speedMul===4?\'⏩ 4x\':\'▶ 1x\'" style="font-size:0.75em;padding:6px 12px">⏩ 4x</button><button class="btn btn-s" onclick="acState.over=true" style="font-size:0.75em;padding:6px 12px;color:#f0c040">⏭ 跳过</button><button class="btn btn-s" onclick="acState.over=true;acState.winner=\'enemy\'" style="font-size:0.75em;padding:6px 12px;color:#e94560">🏳 认输</button></div>';
+  app.innerHTML='<div id="ultBg" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0;transition:opacity 0.2s"></div><canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px 12px 0 0;background:rgba(10,10,18,0.85);display:block;margin:10px auto 0;cursor:default;position:relative;z-index:2"></canvas><div style="text-align:center;margin:0 auto 10px;max-width:800px;padding:8px;background:rgba(10,10,18,0.9);border:2px solid var(--gold);border-top:none;border-radius:0 0 12px 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn btn-s" onclick="acState.speedMul=acState.speedMul===1?4:1;this.textContent=acState.speedMul===4?\'⏩ 4x\':\'▶ 1x\'" style="font-size:0.75em;padding:6px 12px">⏩ 4x</button><button class="btn btn-s" onclick="acForceEnd()" style="font-size:0.75em;padding:6px 12px;color:#f0c040">⏭ 跳过</button><button class="btn btn-s" onclick="acState.winner=\'enemy\';acForceEnd()" style="font-size:0.75em;padding:6px 12px;color:#e94560">🏳 认输</button></div>';
   acCanvas=document.getElementById('acCanvas');acCtx=acCanvas.getContext('2d');
   window._ultBgEl=document.getElementById('ultBg');
   acCanvas.width=Math.floor(800*dpr);acCanvas.height=Math.floor(500*dpr);
@@ -6696,6 +6715,13 @@ window._acStart=function(){
   acCtx.setTransform(dpr,0,0,dpr,0,0);
   document.removeEventListener('keydown',acKeyDown);document.addEventListener('keydown',acKeyDown);acState._rageBoosts=3;acState._focusTarget=null;acState._focusTimer=0;acCanvas.onclick=function(e){var rect=acCanvas.getBoundingClientRect();var mx=(e.clientX-rect.left)*(800/rect.width),my=(e.clientY-rect.top)*(500/rect.height);var all=acState.player.concat(acState.enemy);var clicked=null,cd=22;for(var i=0;i<all.length;i++){if(!all[i].alive)continue;var d=acDist({x:mx,y:my},all[i]);if(d<cd){cd=d;clicked=all[i];}}if(clicked&&clicked.side==='enemy'){acState._focusTarget=clicked.id;acState._focusTimer=4;acFloatTexts.push(FloatingText.spawn(acCtx,clicked.x,clicked.y-25,'🎯集火!','#ff0'));}else if(clicked&&clicked.side==='player'&&acState._rageBoosts>0){acState._rageBoosts--;clicked._rage=Math.min(clicked._rageMax,clicked._rage+50);acFloatTexts.push(FloatingText.spawn(acCtx,clicked.x,clicked.y-25,'⚡鼓舞!+50','#ffd700'));}};acLastTime=performance.now();
   acAnim=requestAnimationFrame(acBattleLoop);
+  // 🐕 看门狗 — 每5秒检查，帧数停滞30秒则强制结束
+  var lastFrames=0,stuckCount=0;
+  window._acWatchdog=setInterval(function(){
+    if(acState._ended){clearInterval(window._acWatchdog);return;}
+    if(acState._frameCount===lastFrames){stuckCount++;if(stuckCount>=6){acForceEnd();}} // 30秒无帧→杀
+    else{stuckCount=0;lastFrames=acState._frameCount;}
+  },5000);
 };
 
 function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acState.speedMul===1?4:1;}if(e.key==='Escape'||e.key==='s'){e.preventDefault();acState.over=true;}}
@@ -6904,8 +6930,21 @@ Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return
   acState._screenFlash=1.0;acState._flashColor='#33dd55';acShake.trigger(7,0.9);
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
+// 💣 核弹级强制结束 — 任何情况下都能杀死战斗
+function acForceEnd(){
+  if(acState._ended)return;acState._ended=true;acState.over=true;
+  if(acAnim){cancelAnimationFrame(acAnim);acAnim=null;}
+  if(window._acWatchdog){clearInterval(window._acWatchdog);window._acWatchdog=null;}
+  document.removeEventListener('keydown',acKeyDown);
+  try{acParticles.clear();}catch(e){}
+  var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';
+  setTimeout(acEnd,0);
+}
+
 function acBattleLoop(){
-  if(acState.over||acState._frameCount>20000||acState.battleTime>240){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
+  // 顶层异常捕获 — 任何崩溃都会安全结束
+  try{
+  if(acState.over||acState._frameCount>20000||acState.battleTime>240){acForceEnd();return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
@@ -7492,7 +7531,8 @@ function acBattleLoop(){
   if(pAlive===0||eAlive===0||acState.battleTime>480){acState.over=true;acState.winner=pAlive>0?'player':(eAlive>0?'enemy':'draw');}
   acRender();
   if(!acState.over)acAnim=requestAnimationFrame(acBattleLoop);
-  else{acParticles.clear();var ub2=document.getElementById('ultBg');if(ub2)ub2.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);}
+  else acForceEnd();
+  }catch(e){console.error('Battle crashed:',e);acForceEnd();}
 }
 
 function acRender(){
