@@ -6591,7 +6591,7 @@ window._acPickArtifact=function(){
   document.getElementById('app').innerHTML=h;
 };
 window._acDoArtifact=function(id){var a=AC_ARTIFACTS.find(function(x){return x.id===id;});if(!a)return;var k=loadKarma();if(k<a.cost){window._acLastMsg='因果值不足';return;}spendKarma(a.cost);window._acArtifact=a;window._acLastMsg='已装备: '+a.n+' (-'+a.cost+')';acPrepRender(document.getElementById('app'));};
-window._acReroll=function(){var k=loadKarma();if(k<10){window._acLastMsg='因果值不足 (需10)';acPrepRender(document.getElementById('app'));return;}spendKarma(10);var ranked=Object.keys(CH).filter(function(x){return CH[x]&&CH[x].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var pool=window._acPool;var i=Math.floor(Math.random()*pool.length);var top=ranked.slice(0,12);var newId=top[Math.floor(Math.random()*top.length)];while(pool.indexOf(newId)>=0)newId=top[Math.floor(Math.random()*top.length)];pool[i]=newId;window._acLastMsg='重选了 '+CH[newId].n;acPrepRender(document.getElementById('app'));};
+window._acReroll=function(){var k=loadKarma();if(k<10){window._acLastMsg='因果值不足 (需10)';acPrepRender(document.getElementById('app'));return;}spendKarma(10);var ranked=Object.keys(CH).filter(function(x){return CH[x]&&CH[x].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var pool=window._acPool;var i=Math.floor(Math.random()*pool.length);var top=ranked.slice(0,12);var newId=top[Math.floor(Math.random()*top.length)];for(var retry=0;pool.indexOf(newId)>=0&&retry<100;retry++)newId=top[Math.floor(Math.random()*top.length)];pool[i]=newId;window._acLastMsg='重选了 '+CH[newId].n;acPrepRender(document.getElementById('app'));};
 window._acBoost=function(){var k=loadKarma();if(k<20){window._acLastMsg='因果值不足 (需20)';acPrepRender(document.getElementById('app'));return;}if(window._acBoosted){window._acLastMsg='已强化过: '+CH[window._acBoosted].n;acPrepRender(document.getElementById('app'));return;}var p=window._acPicked||[];if(p.length===0)return;spendKarma(20);window._acBoosted=p[0];window._acLastMsg='已强化: '+CH[p[0]].n+' +30%';acPrepRender(document.getElementById('app'));};
 window._acStart=function(){
   var picked=window._acPicked||[],slots=window._acSlots||[],enemySlots=window._acEnemySlots||[];if(picked.length!==5)return;
@@ -6687,7 +6687,7 @@ window._acStart=function(){
   if(acState._lucky&&Math.random()<0.1){var ranked=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var ep=ranked.slice(0,12);var ex=ep[Math.floor(Math.random()*ep.length)];var ecx=AC_OFFX+0*AC_CELL_W+AC_CELL_W/2,ecy=AC_OFFY+0*AC_CELL_H+AC_CELL_H/2;playerPieces.push(acMakePiece(CH[ex],G.aff[ex]||0,'player',ecx,ecy,0));}
   acState.player=playerPieces;acState.enemy=enemyPieces;
 
-  app.innerHTML='<div id="ultBg" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0;transition:opacity 0.2s"></div><canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px;background:rgba(10,10,18,0.85);display:block;margin:10px auto;cursor:default;position:relative;z-index:2"></canvas>';
+  app.innerHTML='<div id="ultBg" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0;transition:opacity 0.2s"></div><canvas id="acCanvas" style="border:2px solid var(--gold);border-radius:12px 12px 0 0;background:rgba(10,10,18,0.85);display:block;margin:10px auto 0;cursor:default;position:relative;z-index:2"></canvas><div style="text-align:center;margin:0 auto 10px;max-width:800px;padding:8px;background:rgba(10,10,18,0.9);border:2px solid var(--gold);border-top:none;border-radius:0 0 12px 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn btn-s" onclick="acState.speedMul=acState.speedMul===1?4:1;this.textContent=acState.speedMul===4?\'⏩ 4x\':\'▶ 1x\'" style="font-size:0.75em;padding:6px 12px">⏩ 4x</button><button class="btn btn-s" onclick="acState.over=true" style="font-size:0.75em;padding:6px 12px;color:#f0c040">⏭ 跳过</button><button class="btn btn-s" onclick="acState.over=true;acState.winner=\'enemy\'" style="font-size:0.75em;padding:6px 12px;color:#e94560">🏳 认输</button></div>';
   acCanvas=document.getElementById('acCanvas');acCtx=acCanvas.getContext('2d');
   window._ultBgEl=document.getElementById('ultBg');
   acCanvas.width=Math.floor(800*dpr);acCanvas.height=Math.floor(500*dpr);
@@ -6698,7 +6698,7 @@ window._acStart=function(){
   acAnim=requestAnimationFrame(acBattleLoop);
 };
 
-function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acState.speedMul===1?2:1;}}
+function acKeyDown(e){if(e.key===' '){e.preventDefault();acState.speedMul=acState.speedMul===1?4:1;}if(e.key==='Escape'||e.key==='s'){e.preventDefault();acState.over=true;}}
 
 function acFindTarget(piece,enemies){
   // 被嘲讽 → 强制攻击嘲讽者
@@ -6905,7 +6905,7 @@ Array.from({length:4},function(_,i){var m=[[0,-15],[0,15],[-15,0],[15,0]];return
 }
 // ═══ 战斗循环 v6.13 — 护盾/灼烧/嘲讽/格挡/怒气 + 安迷修专属 ═══
 function acBattleLoop(){
-  if(acState.over||acState._frameCount>20000){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
+  if(acState.over||acState._frameCount>20000||acState.battleTime>240){acState.over=true;acParticles.clear();var ub=document.getElementById('ultBg');if(ub)ub.style.opacity='0';acAnim=null;acRender();setTimeout(acEnd,0);return;}
   var now=performance.now(),dt=(now-acLastTime)/1000;acLastTime=now;
   acState._frameCount=(acState._frameCount||0)+1;
   if(dt>0.5)dt=0.5;dt*=acState.speedMul;acState.battleTime+=dt;
