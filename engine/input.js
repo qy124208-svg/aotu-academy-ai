@@ -43,6 +43,7 @@ const Keyboard = {
 
   /** 标记按键按下 (由 DOM 事件调用) */
   _onKeyDown(e) {
+    if(!e||!e.key)return;
     this._current[e.key.toLowerCase()] = true;
     // 同时存 keyCode 版本
     if (e.code) this._current['code:' + e.code] = true;
@@ -50,6 +51,7 @@ const Keyboard = {
 
   /** 标记按键释放 (由 DOM 事件调用) */
   _onKeyUp(e) {
+    if(!e||!e.key)return;
     this._current[e.key.toLowerCase()] = false;
     if (e.code) this._current['code:' + e.code] = false;
   },
