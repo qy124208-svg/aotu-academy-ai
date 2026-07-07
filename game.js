@@ -5447,6 +5447,55 @@ window._dreamUser=null; // Supabase Auth 用户
     var r=await supabase.auth.getSession();
     if(r.data.session){window._dreamUser=r.data.session.user;}
   }catch(e){}
+  // 📱 扫码登录 — 手机端确认
+  var params=new URLSearchParams(window.location.search);
+  var qrToken=params.get('qr_login');
+  if(qrToken){
+    // 清除URL参数
+    if(window.history&&window.history.replaceState)window.history.replaceState(null,'',window.location.pathname);
+    var session=null;try{var sr=await supabase.auth.getSession();session=sr.data.session;}catch(e){}
+    if(session&&session.user){
+      // 已登录 — 显示确认按钮
+      var app=document.getElementById('app');
+      app.innerHTML='<div style="max-width:400px;margin:80px auto;text-align:center;padding:20px">'
+        +'<h2 style="color:var(--gold)">📱 扫码登录确认</h2>'
+        +'<div class="panel" style="padding:20px;margin:15px 0">'
+        +'<p style="font-size:1.1em">当前账号：<b style="color:var(--gold)">'+session.user.email+'</b></p>'
+        +'<p style="color:var(--dim);font-size:0.85em">确认授权电脑登录好梦论坛？</p>'
+        +'<button class="btn btn-p" onclick="window._dreamQRConfirm(\''+qrToken+'\')" style="margin:10px 0;font-size:1em;padding:12px 30px">✅ 确认登录</button>'
+        +'<br><button class="btn btn-s" onclick="window._dreamLogout()" style="margin-top:8px">切换账号</button>'
+        +'</div></div>';
+    }else{
+      // 未登录 — 引导先登录
+      var app=document.getElementById('app');
+      app.innerHTML='<div style="max-width:400px;margin:80px auto;text-align:center;padding:20px">'
+        +'<h2 style="color:var(--gold)">📱 扫码登录</h2>'
+        +'<p style="color:var(--dim);margin:10px 0">请先登录，再确认授权</p>'
+        +'<button class="btn btn-p" onclick="window._dreamLogin()" style="margin:10px 0;font-size:1em;padding:12px 30px">📧 登录</button>'
+        +'<p style="color:var(--dim);font-size:0.75em;margin-top:15px">登录后将自动返回确认页面</p></div>';
+      // 登录后自动跳回：在URL加回qr_login参数
+      var origDreamLogin=window._dreamLogin;
+      window._dreamLogin=function(){
+        origDreamLogin.call(this);
+        var hint=document.createElement('p');
+        hint.style.cssText='color:var(--gold);font-size:0.75em;text-align:center;margin-top:8px';
+        hint.textContent='⬆ 登录后将自动跳回扫码确认';
+        var app2=document.getElementById('app');
+        if(app2)app2.appendChild(hint);
+        // 登录后自动重载确认页
+        var _origPasswordLogin=window._dreamPasswordLogin;
+        window._dreamPasswordLogin=async function(){
+          await _origPasswordLogin.call(this);
+          if(window._dreamUser)window.location.search='?qr_login='+qrToken;
+        };
+        var _origVerifyCode=window._dreamVerifyCode;
+        window._dreamVerifyCode=async function(){
+          await _origVerifyCode.call(this);
+          if(window._dreamUser)window.location.search='?qr_login='+qrToken;
+        };
+      };
+    }
+  }
 })();
 
 // 📧 邮箱登录/注册界面
@@ -5467,8 +5516,10 @@ window._dreamLogin=function(){
   h+='<button class="btn btn-p" onclick="window._dreamVerifyCode()" style="padding:8px 14px;font-size:0.85em">验证码登录</button></div>';
   // 免密链接
   h+='<button class="btn btn-s" onclick="window._dreamSendOTP()" style="width:100%;padding:8px;font-size:0.75em;margin-top:4px">📧 发送登录链接（同设备免密）</button>';
-  h+='</div><p style="color:var(--dim);font-size:0.7em;margin-top:10px">三种方式任选 · 首次使用自动注册</p>';
-  h+='<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:10px">跳过 → 匿名访问</button></div>';
+  h+='</div><p style="color:var(--dim);font-size:0.7em;margin-top:10px">四种方式任选 · 首次使用自动注册</p>';
+  h+='<button class="btn btn-s" onclick="window._dreamQRLogin()" style="border-color:var(--gold);color:var(--gold);margin-top:6px">📱 扫码登录（手机确认）</button>';
+  h+='<button class="btn btn-s" onclick="window._dreamBiliLogin()" style="border-color:#fb7299;color:#fb7299;margin-top:4px">📺 B站扫码登录</button>';
+  h+='<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:4px;display:block;width:100%">跳过 → 匿名访问</button></div>';
   app.innerHTML=h;
 };
 
@@ -5500,7 +5551,7 @@ window._dreamSendCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
   if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
   try{
-    var {error}=await supabase.auth.signInWithOtp({email:email,options:{shouldCreateUser:true}});
+    var {error}=await supabase.auth.signInWithOtp({email:email,options:{shouldCreateUser:true,emailRedirectTo:'https://qy124208-svg.github.io/aotu-academy-100-days'}});
     if(error)throw error;
     document.getElementById('dreamCode').focus();
     alert('验证码已发送到 '+email+'（检查垃圾箱。如收到链接，点击链接即可自动登录）');
@@ -5518,6 +5569,154 @@ window._dreamVerifyCode=async function(){
     window._dreamUser=data.user;
     _dreamLoadPosts(document.getElementById('app'));
   }catch(e){alert('登录失败: '+e.message);}
+};
+
+// 📱 扫码登录 — PC端生成二维码 + 监听手机确认
+window._dreamQRLogin=function(){
+  var emailEl=document.getElementById('dreamEmail');
+  var email=emailEl?emailEl.value.trim():'';
+  // 生成随机token
+  var token='';for(var i=0;i<32;i++)token+='abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)];
+  var qrUrl='https://qy124208-svg.github.io/aotu-academy-100-days?qr_login='+token;
+
+  // 插一条pending记录
+  supabase.from('qr_sessions').insert({token:token,status:'pending'}).then(function(){});
+
+  // 显示二维码弹窗
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="max-width:400px;margin:40px auto;text-align:center;padding:20px">'
+    +'<h3 style="color:var(--gold)">📱 扫码登录</h3>'
+    +'<p style="color:var(--dim);font-size:0.85em">用手机相机扫二维码<br>手机浏览器打开后确认登录</p>'
+    +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(qrUrl)+'" style="background:#fff;padding:8px;border-radius:12px;margin:10px 0" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22220%22><rect fill=%22%23222%22 width=%22220%22 height=%22220%22/><text fill=%22%23e94560%22 x=%22110%22 y=%22110%22 text-anchor=%22middle%22 font-size=%2214%22>二维码加载失败</text></svg>\'">'
+    +'<p id="qrTimer" style="color:var(--dim);font-size:0.8em;margin:8px 0">⏳ 等待扫描…（5分钟后过期）</p>'
+    +'<div id="qrSpinner" style="margin:10px"><div style="border:3px solid var(--card);border-top:3px solid var(--gold);border-radius:50%;width:30px;height:30px;margin:0 auto;animation:spin 1s linear infinite"></div></div>'
+    +'<button class="btn btn-s" onclick="window._dreamLogin()" style="margin-top:10px">← 返回其他登录方式</button></div>'
+    +'<style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+
+  // 5分钟倒计时
+  var remain=300;
+  var timerEl=document.getElementById('qrTimer');
+  var countdown=setInterval(function(){
+    remain--;
+    if(remain<=0){clearInterval(countdown);timerEl.textContent='⏰ 二维码已过期，请刷新';return;}
+    var m=Math.floor(remain/60);var s=remain%60;
+    timerEl.textContent='⏳ 等待扫描…（'+m+':'+(s<10?'0':'')+s+'）';
+  },1000);
+
+  // 监听Realtime — 等手机确认
+  var qrChannel=supabase.channel('qr-'+token)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'qr_sessions',filter:'token=eq.'+token},function(payload){
+      if(payload.new&&payload.new.status==='confirmed'&&payload.new.access_token){
+        clearInterval(countdown);
+        supabase.removeChannel(qrChannel);
+        supabase.auth.setSession({access_token:payload.new.access_token,refresh_token:payload.new.refresh_token}).then(function(r){
+          if(r.data&&r.data.user){
+            window._dreamUser=r.data.user;
+            // 清理已用token
+            supabase.from('qr_sessions').delete().eq('token',token).then(function(){});
+            _dreamLoadPosts(document.getElementById('app'));
+          }
+        }).catch(function(e){
+          alert('登录失败: '+e.message);
+          window._dreamLogin();
+        });
+        // 清理过期session
+        supabase.from('qr_sessions').delete().lt('expires_at',new Date().toISOString()).then(function(){});
+      }
+    }).subscribe();
+};
+
+// 📺 B站扫码登录 — 调用Edge Function代理B站API
+window._dreamBiliLogin=function(){
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="max-width:400px;margin:40px auto;text-align:center;padding:20px">'
+    +'<h3 style="color:#fb7299">📺 B站扫码登录</h3>'
+    +'<p style="color:var(--dim);font-size:0.85em">用B站App扫下方二维码</p>'
+    +'<div id="biliQR" style="margin:10px 0">⏳ 加载中…</div>'
+    +'<p id="biliStatus" style="color:var(--dim);font-size:0.8em;margin:8px 0">等待扫描…</p>'
+    +'<button class="btn btn-s" onclick="window._dreamLogin()" style="margin-top:10px">← 返回</button></div>';
+  (async function(){
+    try{
+      // 1. 生成B站二维码
+      var genR=await fetch(SUPABASE_URL+'/functions/v1/bilibili-qr',{
+        method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({action:'generate'})
+      });
+      var genD=await genR.json();
+      if(!genR.ok||genD.error)throw new Error(genD.error||'二维码生成失败');
+      var qrcodeKey=genD.qrcode_key;
+      // 用qrcode JS生成二维码（B站URL扫码）或直接显示B站图片
+      document.getElementById('biliQR').innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(genD.qr_url)+'" style="background:#fff;padding:8px;border-radius:12px">';
+
+      // 2. 轮询状态
+      var statusEl=document.getElementById('biliStatus');
+      var pollCount=0;
+      var pollTimer=setInterval(async function(){
+        pollCount++;
+        if(pollCount>90){clearInterval(pollTimer);statusEl.textContent='⏰ 已过期，请刷新';return;}
+        try{
+          var pollR=await fetch(SUPABASE_URL+'/functions/v1/bilibili-qr',{
+            method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+            body:JSON.stringify({action:'poll',qrcode_key:qrcodeKey})
+          });
+          var pollD=await pollR.json();
+          if(pollD.status==='scanned'){
+            statusEl.textContent='📱 已扫码，请在B站App确认…';
+          }else if(pollD.status==='confirmed'){
+            clearInterval(pollTimer);
+            statusEl.textContent='✅ 登录成功！';
+            // 3. 创建/查找论坛账号
+            var biliUid=pollD.bili_uid;
+            var email='bili'+biliUid+'@bili.aotu';
+            var pwd='aotu_bili_'+biliUid;
+            var login=await supabase.auth.signInWithPassword({email:email,password:pwd});
+            if(login.error){
+              await supabase.auth.signUp({email:email,password:pwd});
+              login=await supabase.auth.signInWithPassword({email:email,password:pwd});
+            }
+            // 存B站Cookie
+            var cookie='SESSDATA='+pollD.sessdata+'; bili_jct='+pollD.bili_jct+'; DedeUserID='+biliUid+';';
+            await supabase.from('platform_accounts').upsert({
+              user_id:login.data.user.id,platform:'bilibili',cookie:cookie,
+              is_active:true,updated_at:new Date().toISOString()
+            },{onConflict:'user_id,platform'});
+            window._dreamUser=login.data.user;
+            window._dreamUser._nickname=pollD.nickname;
+            _dreamLoadPosts(document.getElementById('app'));
+          }else if(pollD.status==='expired'){
+            clearInterval(pollTimer);
+            statusEl.textContent='⏰ 二维码已过期，请刷新重试';
+          }else if(pollD.status==='error'){
+            clearInterval(pollTimer);
+            statusEl.textContent='❌ 登录失败: '+(pollD.message||'未知错误');
+          }
+        }catch(e2){}
+      },2000);
+    }catch(e){
+      app.innerHTML='<div style="text-align:center;padding:40px"><p style="color:#e94560">B站登录失败: '+e.message+'</p><button class="btn btn-s" onclick="window._dreamLogin()">← 返回</button></div>';
+    }
+  })();
+};
+
+// 📱 手机端 — 确认扫码登录（写入session到qr_sessions）
+window._dreamQRConfirm=async function(token){
+  try{
+    var {data}=await supabase.auth.getSession();
+    if(!data.session){alert('请先登录');return;}
+    var {error}=await supabase.from('qr_sessions').update({
+      status:'confirmed',
+      access_token:data.session.access_token,
+      refresh_token:data.session.refresh_token,
+      user_email:data.session.user.email
+    }).eq('token',token);
+    if(error)throw error;
+    var app=document.getElementById('app');
+    app.innerHTML='<div style="max-width:400px;margin:80px auto;text-align:center;padding:20px">'
+      +'<h2 style="color:#81c784">✅ 登录成功！</h2>'
+      +'<p style="color:var(--dim);margin:10px 0">电脑已自动登录好梦论坛</p>'
+      +'<p style="font-size:3em">🌙</p>'
+      +'<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:10px">进入论坛</button></div>';
+  }catch(e){alert('确认失败: '+e.message);}
 };
 
 // 退出登录

@@ -112,3 +112,20 @@ CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email);
 
 ALTER TABLE login_codes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can read login codes" ON login_codes FOR SELECT USING (true);
+
+-- 8. 扫码登录会话表
+CREATE TABLE IF NOT EXISTS qr_sessions (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  token TEXT UNIQUE NOT NULL,
+  status TEXT DEFAULT 'pending',
+  user_email TEXT,
+  access_token TEXT,
+  refresh_token TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '5 minutes')
+);
+
+CREATE INDEX IF NOT EXISTS idx_qr_sessions_token ON qr_sessions(token);
+
+ALTER TABLE qr_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can access qr_sessions" ON qr_sessions FOR ALL USING (true);
