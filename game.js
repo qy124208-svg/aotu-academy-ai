@@ -6161,23 +6161,38 @@ window._dreamDeletePost=async function(postId){
     window._dreamProfile();}catch(e){alert('删除失败');}
 };
 
-// 🔗 平台连接管理 - 非B站需付费
+// 🔗 平台连接管理 - 收费功能静默，aotu_pay_enabled='true'时开启
 window._dreamConnectPlatform=async function(platform){
   if(!window._dreamUser||!supabase){alert('请先登录');return;}
   var labels={bilibili:'B站',weibo:'微博',douyin:'抖音',xiaohongshu:'小红书',lofter:'Lofter'};
-  // 非B站 → 收费
-  if(platform!=='bilibili'&&!window._isAdmin()){
+  var payEnabled=localStorage.getItem('aotu_pay_enabled')==='true';
+  var priceMap={day:'0.1',day2:'0.5',week:'1',month:'3'};
+  var timeLabel=localStorage.getItem('aotu_time_filter')||'week';
+  var price=priceMap[timeLabel]||'1';
+
+  // 收费开关打开 + 非B站 + 非管理员 → 先弹登录码再弹收款
+  if(payEnabled&&platform!=='bilibili'&&!window._isAdmin()){
     var qr=localStorage.getItem('aotu_pay_qr')||'';
     if(!qr){alert('管理员暂未设置收款码');return;}
     var app=document.getElementById('app');
     app.innerHTML='<div style="max-width:420px;margin:40px auto;text-align:center;padding:20px">'
-      +'<h3 style="color:var(--gold)">💰 '+labels[platform]+' 爬虫付费</h3>'
-      +'<p style="color:var(--dim);font-size:0.85em">扫码支付后联系管理员开通</p>'
-      +'<img src="'+qr+'" style="max-width:280px;border-radius:12px;margin:10px auto;display:block">'
-      +'<p style="color:var(--dim);font-size:0.7em">支付完成后，管理员将为你激活此平台</p>'
-      +'<button class="btn btn-s" onclick="window._dreamProfile()" style="margin-top:10px">← 返回主页</button></div>';
+      +'<h3 style="color:var(--gold)">📱 '+labels[platform]+' 登录</h3>'
+      +'<p style="color:var(--dim);font-size:0.85em">请先在 '+labels[platform]+' App/网页 扫码登录</p>'
+      +'<p style="color:var(--dim);font-size:0.75em">登录后点击下方按钮获取Cookie</p>'
+      +'<div style="margin:15px 0;padding:10px;background:var(--card);border-radius:8px">'
+      +'<p style="color:var(--dim);font-size:0.8em">📋 获取Cookie方法：</p>'
+      +'<p style="color:var(--dim);font-size:0.7em">F12 → Application → Cookies → 全选复制</p></div>'
+      +'<button class="btn btn-p" onclick="window._dreamConnectPlatformCookie(\''+platform+'\')" style="padding:10px 24px">🔑 我已登录，输入Cookie</button>'
+      +'<div style="margin-top:20px;border-top:1px solid #333;padding-top:15px">'
+      +'<h4 style="color:#e94560">💰 付费解锁 · ¥'+price+'</h4>'
+      +'<p style="color:var(--dim);font-size:0.75em">当前时间档：'+timeLabel+' · 支付后永久有效</p>'
+      +'<img src="'+qr+'" style="max-width:250px;border-radius:12px;margin:8px auto;display:block">'
+      +'<p style="color:var(--dim);font-size:0.65em">扫码支付 → 截图发管理员 → 等待激活</p></div>'
+      +'<button class="btn btn-s" onclick="window._dreamProfile()" style="margin-top:10px">← 返回</button></div>';
     return;
   }
+
+  // 直接输入Cookie（免费模式 或 管理员 或 B站）
   var cookie=prompt(labels[platform]+' Cookie：\n登录'+labels[platform]+'后，在浏览器按F12→Application→Cookies→复制所有cookie值','');
   if(!cookie||!cookie.trim())return;
   try{
@@ -6189,7 +6204,21 @@ window._dreamConnectPlatform=async function(platform){
   }catch(e){alert('连接失败: '+e.message);}
 };
 
-// 💰 管理员上传收款码
+// 单独提取Cookie输入
+window._dreamConnectPlatformCookie=async function(platform){
+  var labels={bilibili:'B站',weibo:'微博',douyin:'抖音',xiaohongshu:'小红书',lofter:'Lofter'};
+  var cookie=prompt(labels[platform]+' Cookie：\n登录后F12→Application→Cookies→全选复制','');
+  if(!cookie||!cookie.trim())return;
+  try{
+    var existing=await supabase.from('platform_accounts').select('id').eq('user_id',window._dreamUser.id).eq('platform',platform).maybeSingle();
+    if(existing.data)await supabase.from('platform_accounts').update({cookie:cookie.trim(),is_active:true,updated_at:new Date().toISOString()}).eq('id',existing.data.id);
+    else await supabase.from('platform_accounts').insert({user_id:window._dreamUser.id,platform:platform,cookie:cookie.trim(),updated_at:new Date().toISOString()});
+    alert('✅ '+labels[platform]+' 已连接！');
+    _dreamCheckConnections(window._dreamUser.id);
+  }catch(e){alert('连接失败: '+e.message);}
+};
+
+// 💰 管理员功能 — 上传收款码 + 开关收费
 window._dreamUploadPayQR=function(){
   var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
   inp.onchange=function(e){
@@ -6219,6 +6248,16 @@ async function _dreamCheckConnections(uid){
   }catch(e){}
 }
 
+// 🔄 请求抓取动态
+window._dreamRequestCrawl=async function(){
+  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
+  try{
+    await supabase.from('crawl_queue').insert({requested_by:window._dreamUser.id,platform:'all'});
+    var el=document.getElementById('aotuFeeds');
+    if(el)el.innerHTML='<div style="color:var(--gold);text-align:center;padding:20px">⏳ 抓取请求已发送！<br><span style="font-size:0.75em;color:var(--dim)">请在本机运行：python aotu_crawler.py</span><br><button class="btn btn-xs" onclick="_dreamLoadFeeds()" style="margin-top:10px">🔃 刷新查看</button></div>';
+  }catch(e){alert('请求失败: '+e.message);}
+};
+
 // 📡 加载凹凸世界动态
 // 👥 管理员查看总用户数
 async function _dreamLoadUserCount(){
@@ -6246,7 +6285,7 @@ async function _dreamLoadFeeds(){
     var cutoffStr=cutoff.toISOString();
     var r=await supabase.from('aotu_feeds').select('*').gte('publish_time',cutoffStr).order('publish_time',{ascending:false}).limit(50);
     var feeds=r.data||[];
-    if(feeds.length===0){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">暂无动态<br><span style="font-size:0.7em">B站扫码自动抓取 · 或运行爬虫脚本</span><br><button class="btn btn-xs" onclick="_dreamLoadFeeds()" style="margin-top:8px">🔄 刷新</button></div>';return;}
+    if(feeds.length===0){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">暂无动态<br><span style="font-size:0.7em">连接平台后点击下方按钮抓取</span><br><button class="btn btn-p" onclick="_dreamRequestCrawl()" style="margin:8px 4px;font-size:0.85em">🔄 抓取动态</button><button class="btn btn-xs" onclick="_dreamLoadFeeds()" style="margin:8px 4px">🔃 刷新</button></div>';return;}
     var cats={'day':'📅 24h','day1':'📅 一天内','day2':'📆 48h','week':'📋 一周内','month':'🗓️ 一月内'};
     var catCounts={};
     feeds.forEach(function(f){catCounts[f.time_category]=(catCounts[f.time_category]||0)+1;});
@@ -6264,6 +6303,7 @@ async function _dreamLoadFeeds(){
       });
       h+='</details>';
     });
+    h+='<div style="text-align:center;margin-top:10px"><button class="btn btn-xs" onclick="_dreamRequestCrawl()">🔄 抓取最新动态</button> <button class="btn btn-xs" onclick="_dreamLoadFeeds()">🔃 刷新</button></div>';
     el.innerHTML=h;
   }catch(e){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">加载失败</div>';}
 }
