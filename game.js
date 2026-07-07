@@ -2416,6 +2416,11 @@ function rTitle(app){
         return'<span style="background:var(--card);border:1px solid #444;padding:4px 10px;border-radius:6px;font-size:0.7em">🏆 '+a.split('_').pop()+'</span>';
       }).join('')+'</div>'
     )+'</div>'+
+    '<div class="panel fadein" style="text-align:center;background:linear-gradient(135deg,#1a1a2e,#2d1a3e);border:2px solid var(--gold);border-radius:16px;padding:16px;margin-top:12px">'+
+      '<div style="font-size:1.5em">🌙</div>'+
+      '<div style="font-size:0.85em;color:var(--gold);margin:4px 0">好梦论坛</div>'+
+      '<div style="font-size:0.7em;color:var(--dim);margin-bottom:8px">B站扫码 · 每晚说梦话</div>'+
+      '<button class="btn btn-p pulse" onclick="window._openGoodDream()" style="width:100%;font-size:0.9em;padding:10px;background:linear-gradient(135deg,#6c5ce7,#4834d4);border:none;border-radius:10px">🌙 进入好梦论坛</button></div>'+
     '<div style="text-align:center;font-size:0.65em;color:var(--dim);margin:12px 0 20px">七创社《凹凸学园》同人作品 · 全性向 · 攻略&助攻双模式<br><span style="color:#444">v6.9.1 · Vec2星座星空 + 心魔幻境零GC修复</span></div>'+
     '</div>';
 
