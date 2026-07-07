@@ -9,14 +9,56 @@ SUPABASE_URL = "https://ircabforurlovrpbvbas.supabase.co"
 SUPABASE_KEY = "sb_publishable_qdMz_emErZvhUvLAT1hv-w_R2JL6jIY"
 
 AOTU_KEYWORDS = [
-    "凹凸世界", "凹凸学园", "AOTU", "aotu",
+    # 官方作品
+    "凹凸世界", "凹凸学园", "凹凸", "AOTU", "aotu",
+    # 角色全名
     "安迷修", "卡米尔", "格瑞", "埃米", "艾比",
     "雷狮", "帕洛斯", "佩利", "金", "凯莉",
     "安莉洁", "紫堂幻", "银爵", "祖玛", "鬼狐天冲",
     "嘉德罗斯", "雷蛰", "丹尼尔", "神近耀",
     "蒙特祖玛", "雷德", "秋", "小黑洞",
-    "格瑞尔", "瑞金", "雷安", "凯柠", "卡埃"
+    # CP名
+    "瑞金", "雷安", "凯柠", "卡埃", "嘉金", "佩帕", "祖雷",
+    # 粉丝常用称呼
+    "安哥", "雷总", "鬼狐", "螺丝", "卡卡", "小柠檬",
+    "格瑞大人", "呆毛", "骑士道", "雷狮海盗团",
+    # 角色英文/昵称
+    "Anmicius", "Kamil", "Gray", "Emi", "Abby",
+    "Raleigh", "Palos", "Peri", "King", "Kelly",
+    "Angelie", "Zitang", "Silver", "Zuma", "Kitsune",
+    # 作品相关
+    "七创社", "烈斩", "矢量", "冷热流", "星月刃",
+    "大罗神通棍", "雷神之锤", "重力球", "天使之弓",
+    "恶魔之爪", "冰界领主", "镜像空间", "斯巴达战阵"
 ]
+
+# 强关键词 — 出现在用户名/简介中几乎可以确定是凹凸圈
+STRONG_AOTU = [
+    "凹凸世界", "凹凸学园", "安迷修", "卡米尔", "格瑞", "埃米",
+    "雷狮", "嘉德罗斯", "凯莉", "鬼狐天冲", "紫堂幻",
+    "雷安", "凯柠", "瑞金", "卡埃", "骑士道", "七创社"
+]
+
+def is_aotu_related(text):
+    if not text: return False
+    text_lower = text.lower()
+    for kw in AOTU_KEYWORDS:
+        if kw.lower() in text_lower: return True
+    return False
+
+def is_strong_aotu(text):
+    """强关联 — 用户名/简介中有这些词的基本就是凹凸圈"""
+    if not text: return False
+    for kw in STRONG_AOTU:
+        if kw in text: return True
+    return False
+
+def verify_aotu_by_content(crawler_func, uid, cookie):
+    """二次验证：抽查用户最近3条作品，看是否有凹凸关键词"""
+    try:
+        posts = crawler_func(cookie, uid, max_pages=1)
+        return is_aotu_related(" ".join([p.get("title","")+p.get("content","") for p in posts[:3]]))
+    except: return False
 
 def time_category(publish_time):
     if not publish_time: return None
@@ -25,7 +67,7 @@ def time_category(publish_time):
         except: return None
     now = datetime.now(timezone.utc)
     delta = now - publish_time
-    if delta <= timedelta(days=1): return "day1"
+    if delta <= timedelta(days=1): return "day"
     if delta <= timedelta(days=2): return "day2"
     if delta <= timedelta(days=7): return "week"
     if delta <= timedelta(days=30): return "month"
@@ -49,8 +91,27 @@ def supabase_api(path, method="GET", data=None):
     return r.json() if r.text else None
 
 def insert_feed(feed):
-    try: supabase_api("aotu_feeds", "POST", feed); return True
+    """插入动态，自动去重（按URL）"""
+    try:
+        existing = supabase_api(f"aotu_feeds?url=eq.{requests.utils.quote(feed['url'])}&select=id")
+        if existing and len(existing) > 0: return False  # 已存在，跳过
+        supabase_api("aotu_feeds", "POST", feed); return True
     except: return False
+
+def clean_old_feeds():
+    """删除超过30天的旧动态，保留最近1000条"""
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        supabase_api(f"aotu_feeds?publish_time=lt.{cutoff}&order=publish_time.asc&limit=100", "DELETE")
+        # 保留最新1000条
+        all_feeds = supabase_api("aotu_feeds?select=id&order=publish_time.desc&limit=100000") or []
+        if len(all_feeds) > 1000:
+            to_delete = [f['id'] for f in all_feeds[1000:]]
+            for chunk in [to_delete[i:i+100] for i in range(0, len(to_delete), 100)]:
+                ids = ','.join(map(str, chunk))
+                try: supabase_api(f"aotu_feeds?id=in.({ids})", "DELETE")
+                except: pass
+    except: pass
 
 # ═══ B站爬虫 ═══
 class BilibiliCrawler:
@@ -83,6 +144,7 @@ class BilibiliCrawler:
         return users
 
     def get_user_videos(self, uid, max_videos=30):
+        """拉取用户最新作品（不过滤内容，全部返回）"""
         videos = []
         try:
             r = self.session.get(f"https://api.bilibili.com/x/space/wbi/arc/search?mid={uid}&ps={max_videos}&pn=1",
@@ -91,15 +153,13 @@ class BilibiliCrawler:
                 pub_time = datetime.fromtimestamp(v["created"], tz=timezone.utc)
                 tc = time_category(pub_time)
                 if not tc: continue
-                full_text = v.get("title","") + v.get("description","") + v.get("tag","")
-                if is_aotu_related(full_text):
-                    videos.append({"platform": "bilibili", "author_name": v["author"],
-                        "author_url": f"https://space.bilibili.com/{v['mid']}",
-                        "title": v["title"], "content": v.get("description", ""),
-                        "url": f"https://www.bilibili.com/video/{v['bvid']}",
-                        "cover_url": v.get("pic", ""), "publish_time": pub_time.isoformat(),
-                        "time_category": tc, "likes_count": v.get("play", 0),
-                        "comments_count": v.get("comment", 0)})
+                videos.append({"platform": "bilibili", "author_name": v["author"],
+                    "author_url": f"https://space.bilibili.com/{v['mid']}",
+                    "title": v["title"], "content": v.get("description", ""),
+                    "url": f"https://www.bilibili.com/video/{v['bvid']}",
+                    "cover_url": v.get("pic", ""), "publish_time": pub_time.isoformat(),
+                    "time_category": tc, "likes_count": v.get("play", 0),
+                    "comments_count": v.get("comment", 0)})
         except Exception as e: print(f"[B站] 视频获取失败 uid={uid}: {e}")
         return videos
 
@@ -176,7 +236,7 @@ def _weibo_get_following(cookie, uid, max_pages=5):
     return users
 
 def _weibo_get_posts(cookie, uid, max_pages=3):
-    """获取用户最新微博 — API: m.weibo.cn/api/container/getIndex"""
+    """获取用户最新微博（返回时间内所有帖子，不做内容筛选）"""
     posts = []
     for pg in range(1, max_pages + 1):
         try:
@@ -197,18 +257,16 @@ def _weibo_get_posts(cookie, uid, max_pages=3):
                 if not tc: continue
                 text = mblog.get('text', '') or ''
                 text_clean = re.sub(r'<[^>]+>', '', text)
-                full_text = text_clean + ' ' + ' '.join([t.get('text','') for t in (mblog.get('topic_struct',[]) or [])])
-                if is_aotu_related(full_text):
-                    pics = mblog.get('pics', [])
-                    posts.append({
-                        'platform': 'weibo', 'author_name': mblog.get('user', {}).get('screen_name', ''),
-                        'author_url': f"https://weibo.com/u/{uid}",
-                        'title': '', 'content': text_clean[:200],
-                        'url': f"https://m.weibo.cn/detail/{mblog['id']}" if mblog.get('id') else '',
-                        'cover_url': pics[0].get('url', '') if pics else '',
-                        'publish_time': pub_time.isoformat(), 'time_category': tc,
-                        'likes_count': mblog.get('attitudes_count', 0),
-                        'comments_count': mblog.get('comments_count', 0)})
+                pics = mblog.get('pics', [])
+                posts.append({'platform': 'weibo',
+                    'author_name': mblog.get('user', {}).get('screen_name', ''),
+                    'author_url': f"https://weibo.com/u/{uid}",
+                    'title': '', 'content': text_clean[:200],
+                    'url': f"https://m.weibo.cn/detail/{mblog['id']}" if mblog.get('id') else '',
+                    'cover_url': pics[0].get('url', '') if pics else '',
+                    'publish_time': pub_time.isoformat(), 'time_category': tc,
+                    'likes_count': mblog.get('attitudes_count', 0),
+                    'comments_count': mblog.get('comments_count', 0)})
             if len(cards) < 10: break
             time.sleep(0.3)
         except: break
@@ -228,15 +286,24 @@ def _crawl_weibo(cookie):
         # 获取关注列表
         followings = _weibo_get_following(cookie, my_uid)
         print(f"  📋 关注 {len(followings)} 人")
-        aotu_users = [u for u in followings if is_aotu_related(u['name'] + u['desc'])]
-        print(f"  🎯 凹凸相关 {len(aotu_users)} 人")
-        total = 0
-        for au in aotu_users:
-            posts = _weibo_get_posts(cookie, au['uid'])
-            for p in posts:
-                if insert_feed(p): total += 1
-            time.sleep(0.3)
-        print(f"  📢 微博完成! 新增 {total} 条")
+        print(f"  📋 关注 {len(followings)} 人")
+        print(f"  📥 Step1: 拉取作品...")
+        all_posts = []
+        for i, u in enumerate(followings):
+            try:
+                posts = _weibo_get_posts(cookie, u['uid'], max_pages=2)
+                all_posts.extend(posts)
+            except: pass
+            if (i+1) % 30 == 0: print(f"    拉取进度 {i+1}/{len(followings)} 已收集{len(all_posts)}篇")
+            time.sleep(0.15)
+        print(f"  📥 拉取完成! 共 {len(all_posts)} 篇作品")
+        print(f"  🔍 Step2: 筛选凹凸IP相关...")
+        kept = 0; removed = 0
+        for p in all_posts:
+            if is_aotu_related(p.get('title','') + p.get('content','')):
+                if insert_feed(p): kept += 1
+            else: removed += 1
+        print(f"  📢 微博完成! 保留{kept}篇 ✅  剔除{removed}篇 ❌")
     except Exception as e:
         print(f"  ❌ 微博爬取失败: {e}")
 
@@ -311,12 +378,18 @@ def _mark_expired(acc_id, reason):
     except: pass
 
 def run_crawl():
-    print(f"🚀 凹凸IP爬虫 v2.2 启动 {datetime.now()}")
+    print(f"🚀 凹凸IP爬虫 v2.3 启动 {datetime.now()}")
+    # 清理旧数据
+    clean_old_feeds()
+    # 读取时间筛选设置（默认week）
+    time_filter = sys.argv[1] if len(sys.argv) > 1 else "week"
+    print(f"⏱ 时间范围: {time_filter}")
     accounts = supabase_api("platform_accounts?is_active=eq.true&select=*")
     if not accounts:
         print("📭 无活跃账号")
         return
     total_new = 0
+    new_inserts = 0
     for acc in accounts:
         platform, cookie, acc_id = acc["platform"], acc["cookie"], acc["id"]
         # 🔑 检查Cookie新鲜度
@@ -335,12 +408,28 @@ def run_crawl():
                 if not uid: print("  ❌ 登录失效"); continue
                 followings = crawler.get_followings(uid)
                 print(f"  📋 关注 {len(followings)} 人")
-                aotu_users = [u for u in followings if is_aotu_related(u["name"] + u["sign"])]
-                print(f"  🎯 凹凸相关 {len(aotu_users)} 人")
-                for au in aotu_users:
-                    for v in crawler.get_user_videos(au["uid"]):
-                        if insert_feed(v): total_new += 1
-                    time.sleep(0.2)
+                # ── Step 1: 拉取所有人该时间段内的全部作品 ──
+                print(f"  📥 Step1: 拉取作品...")
+                all_posts = []
+                for i, u in enumerate(followings):
+                    try:
+                        posts = crawler.get_user_videos(u["uid"], max_videos=15)
+                        all_posts.extend(posts)
+                    except: pass
+                    if (i+1) % 50 == 0: print(f"    拉取进度 {i+1}/{len(followings)} 已收集{len(all_posts)}篇")
+                    time.sleep(0.12)
+                print(f"  📥 拉取完成! 共 {len(all_posts)} 篇作品")
+                # ── Step 2: 筛除与凹凸世界无关的内容 ──
+                print(f"  🔍 Step2: 筛选凹凸IP相关...")
+                kept = 0; removed = 0
+                for p in all_posts:
+                    text = (p.get("title","") + p.get("content","")).lower()
+                    if is_aotu_related(text):
+                        if insert_feed(p): kept += 1
+                    else:
+                        removed += 1
+                total_new += kept; new_inserts += kept
+                print(f"  📺 B站完成! 保留{kept}篇 ✅  剔除{removed}篇 ❌")
             elif platform == "xiaohongshu":
                 _crawl_xiaohongshu(cookie)
             elif platform == "weibo":
@@ -351,7 +440,7 @@ def run_crawl():
                 _crawl_lofter(cookie)
         except Exception as e:
             print(f"  ❌ {platform} 失败: {e}")
-    print(f"\n✅ 完成! 新增 {total_new} 条动态")
+    print(f"\n✅ 完成! 新增 {new_inserts} 条动态 (各平台共采集{total_new}条，去重后保留)")
 
 if __name__ == "__main__":
     run_crawl()

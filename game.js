@@ -6111,7 +6111,7 @@ window._dreamProfile=async function(){
       h+=' <span id="conn_'+pl.id+'" style="font-size:0.6em;color:var(--dim)">'+(pl.auto?'🟢':'⚪')+'</span></div>';
     });
     h+='<div style="margin:6px 0"><span style="font-size:0.7em;color:var(--dim)">抓取时间：</span>';
-    var timeOpts=[{v:'day',t:'近24小时'},{v:'week',t:'近一周'},{v:'month',t:'近一月'}];
+    var timeOpts=[{v:'day',t:'近24小时'},{v:'day2',t:'近48小时'},{v:'week',t:'近一周'},{v:'month',t:'近一月'}];
     timeOpts.forEach(function(o){
       var sel=(localStorage.getItem('aotu_time_filter')||'week')===o.v;
       h+='<button class="btn btn-xs" onclick="localStorage.setItem(\'aotu_time_filter\',\''+o.v+'\');window._dreamProfile()" style="font-size:0.65em;padding:2px 8px;margin:2px;'+(sel?'background:var(--gold);color:#000':'')+'">'+o.t+'</button>';
@@ -6161,10 +6161,23 @@ window._dreamDeletePost=async function(postId){
     window._dreamProfile();}catch(e){alert('删除失败');}
 };
 
-// 🔗 平台连接管理
+// 🔗 平台连接管理 - 非B站需付费
 window._dreamConnectPlatform=async function(platform){
   if(!window._dreamUser||!supabase){alert('请先登录');return;}
   var labels={bilibili:'B站',weibo:'微博',douyin:'抖音',xiaohongshu:'小红书',lofter:'Lofter'};
+  // 非B站 → 收费
+  if(platform!=='bilibili'&&!window._isAdmin()){
+    var qr=localStorage.getItem('aotu_pay_qr')||'';
+    if(!qr){alert('管理员暂未设置收款码');return;}
+    var app=document.getElementById('app');
+    app.innerHTML='<div style="max-width:420px;margin:40px auto;text-align:center;padding:20px">'
+      +'<h3 style="color:var(--gold)">💰 '+labels[platform]+' 爬虫付费</h3>'
+      +'<p style="color:var(--dim);font-size:0.85em">扫码支付后联系管理员开通</p>'
+      +'<img src="'+qr+'" style="max-width:280px;border-radius:12px;margin:10px auto;display:block">'
+      +'<p style="color:var(--dim);font-size:0.7em">支付完成后，管理员将为你激活此平台</p>'
+      +'<button class="btn btn-s" onclick="window._dreamProfile()" style="margin-top:10px">← 返回主页</button></div>';
+    return;
+  }
   var cookie=prompt(labels[platform]+' Cookie：\n登录'+labels[platform]+'后，在浏览器按F12→Application→Cookies→复制所有cookie值','');
   if(!cookie||!cookie.trim())return;
   try{
@@ -6174,6 +6187,23 @@ window._dreamConnectPlatform=async function(platform){
     alert('✅ '+labels[platform]+' 已连接！');
     _dreamCheckConnections(window._dreamUser.id);
   }catch(e){alert('连接失败: '+e.message);}
+};
+
+// 💰 管理员上传收款码
+window._dreamUploadPayQR=function(){
+  var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+  inp.onchange=function(e){
+    var f=e.target.files[0];if(!f)return;
+    if(f.size>200*1024){alert('图片需小于200KB');return;}
+    var r=new FileReader();
+    r.onload=function(ev){
+      try{localStorage.setItem('aotu_pay_qr',ev.target.result);}catch(e){alert('图片太大');return;}
+      alert('✅ 收款码已设置！');
+      window._dreamProfile();
+    };
+    r.readAsDataURL(f);
+  };
+  inp.click();
 };
 
 async function _dreamCheckConnections(uid){
@@ -6207,10 +6237,17 @@ async function _dreamLoadFeeds(){
   if(!supabase)return;
   var el=document.getElementById('aotuFeeds');if(!el)return;
   try{
-    var r=await supabase.from('aotu_feeds').select('*').order('publish_time',{ascending:false}).limit(50);
+    // 应用时间筛选
+    var timeFilter=localStorage.getItem('aotu_time_filter')||'week';
+    var cutoff=new Date();
+    if(timeFilter==='day')cutoff.setDate(cutoff.getDate()-1);
+    else if(timeFilter==='week')cutoff.setDate(cutoff.getDate()-7);
+    else cutoff.setDate(cutoff.getDate()-30);
+    var cutoffStr=cutoff.toISOString();
+    var r=await supabase.from('aotu_feeds').select('*').gte('publish_time',cutoffStr).order('publish_time',{ascending:false}).limit(50);
     var feeds=r.data||[];
-    if(feeds.length===0){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">暂无动态<br><span style="font-size:0.7em">连接社交账号后将自动抓取</span></div>';return;}
-    var cats={'day1':'📅 一天内','day2':'📆 两天内','week':'📋 一周内','month':'🗓️ 一月内'};
+    if(feeds.length===0){el.innerHTML='<div style="color:var(--dim);text-align:center;padding:15px">暂无动态<br><span style="font-size:0.7em">B站扫码自动抓取 · 或运行爬虫脚本</span><br><button class="btn btn-xs" onclick="_dreamLoadFeeds()" style="margin-top:8px">🔄 刷新</button></div>';return;}
+    var cats={'day':'📅 24h','day1':'📅 一天内','day2':'📆 48h','week':'📋 一周内','month':'🗓️ 一月内'};
     var catCounts={};
     feeds.forEach(function(f){catCounts[f.time_category]=(catCounts[f.time_category]||0)+1;});
     var h='';
