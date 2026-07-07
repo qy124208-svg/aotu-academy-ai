@@ -5495,42 +5495,27 @@ window._dreamPasswordLogin=async function(){
   }catch(e){alert('登录失败: '+e.message);}
 };
 
-// 📩 Resend发验证码（Edge Function服务端发送，Key不暴露）
+// 📩 发送验证码（Supabase 内置 email OTP，无需 Resend）
 window._dreamSendCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
   if(!email||!email.includes('@')){alert('请输入有效邮箱');return;}
   try{
-    // 调用Supabase Edge Function（服务端执行，Resend Key安全存储在环境变量中）
-    var r=await fetch(SUPABASE_URL+'/functions/v1/send-code',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({email:email})
-    });
-    var data=await r.json();
-    if(!r.ok)throw new Error(data.error||'发送失败');
+    var {error}=await supabase.auth.signInWithOtp({email:email,options:{shouldCreateUser:true}});
+    if(error)throw error;
     document.getElementById('dreamCode').focus();
-    alert('验证码已发送到 '+email+'（检查垃圾箱）');
+    alert('验证码已发送到 '+email+'（检查垃圾箱。如收到链接，点击链接即可自动登录）');
   }catch(e){alert('发送失败: '+e.message);}
 };
 
-// 🔢 验证码登录
+// 🔢 验证码登录（Supabase email OTP 验证）
 window._dreamVerifyCode=async function(){
   var email=document.getElementById('dreamEmail').value.trim();
   var code=document.getElementById('dreamCode').value.trim();
   if(!email||!code||code.length!==6){alert('请输入邮箱和6位验证码');return;}
   try{
-    var r=await supabase.from('login_codes').select('*').eq('email',email).eq('code',code).maybeSingle();
-    if(!r.data){alert('验证码错误或已过期');return;}
-    if(new Date(r.data.expires_at)<new Date()){alert('验证码已过期，请重新发送');return;}
-    // 验证通过，Supabase Auth登录
-    var login=await supabase.auth.signInWithPassword({email:email,password:'resend_'+code+'_aotu'});
-    if(login.error){
-      // 首次：注册
-      await supabase.auth.signUp({email:email,password:'resend_'+code+'_aotu'});
-      login=await supabase.auth.signInWithPassword({email:email,password:'resend_'+code+'_aotu'});
-    }
-    await supabase.from('login_codes').delete().eq('email',email);
-    window._dreamUser=login.data.user;
+    var {data,error}=await supabase.auth.verifyOtp({email:email,token:code,type:'email'});
+    if(error)throw error;
+    window._dreamUser=data.user;
     _dreamLoadPosts(document.getElementById('app'));
   }catch(e){alert('登录失败: '+e.message);}
 };
