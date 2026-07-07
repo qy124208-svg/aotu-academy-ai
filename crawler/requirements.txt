@@ -1,0 +1,6 @@
+requests
+execjs
+beautifulsoup4
+protobuf
+protobuf-to-dict
+loguru
