@@ -6081,9 +6081,23 @@ window._dreamProfile=async function(){
       });
       h+='</div>';
     }
-    // B站已自动连接，显示状态
-    h+='<div style="padding:8px 12px;margin:4px 0">📺 B站 <span id="conn_bilibili" style="font-size:0.7em">⚪</span></div>';
-    _dreamCheckConnections(u.id);
+    // 🔗 平台连接 + 爬虫时间
+    h+='<div class="panel" style="padding:12px;margin:8px 0">';
+    h+='<h3 style="color:var(--blue);font-size:0.9em">🔗 内容订阅</h3>';
+    h+='<p style="font-size:0.7em;color:var(--dim);margin:4px 0">B站扫码自动连接 · 其他平台即将支持</p>';
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">';
+    [{id:'bilibili',n:'B站',e:'📺',auto:true},{id:'weibo',n:'微博',e:'📢',auto:false},{id:'douyin',n:'抖音',e:'🎵',auto:false},{id:'xiaohongshu',n:'小红书',e:'📕',auto:false},{id:'lofter',n:'Lofter',e:'🎨',auto:false}].forEach(function(pl){
+      h+='<span style="font-size:0.8em">'+pl.e+' '+pl.n+(pl.auto?' <span style="color:var(--green);font-size:0.6em">扫码</span>':' <span style="color:var(--dim);font-size:0.6em">待开放</span>')+'</span>';
+    });
+    h+='</div>';
+    // 时间筛选
+    h+='<div style="margin:6px 0"><span style="font-size:0.7em;color:var(--dim)">抓取时间：</span>';
+    var timeOpts=[{v:'day',t:'近24小时'},{v:'week',t:'近一周'},{v:'month',t:'近一月'}];
+    timeOpts.forEach(function(o){
+      var sel=(localStorage.getItem('aotu_time_filter')||'week')===o.v;
+      h+='<button class="btn btn-xs" onclick="localStorage.setItem(\'aotu_time_filter\',\''+o.v+'\');window._dreamProfile()" style="font-size:0.65em;padding:2px 8px;margin:2px;'+(sel?'background:var(--gold);color:#000':'')+'">'+o.t+'</button>';
+    });
+    h+='</div></div>';
     // 📡 凹凸世界动态
     h+='<h3 style="color:var(--accent);font-size:0.9em;margin:10px 0">📡 凹凸世界动态</h3>';
     h+='<div id="aotuFeeds"><div style="color:var(--dim);text-align:center;padding:15px">加载中...</div></div>';
