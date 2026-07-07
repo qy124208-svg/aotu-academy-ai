@@ -1075,6 +1075,7 @@ function saveTo(slot){
 function repairAfterLoad(){
   // 恢复派生状态（JSON序列化后重建非持久化字段）
   if(!G.cpAff)G.cpAff={};
+  if(!G.disabledCPs||typeof G.disabledCPs.has!=='function')G.disabledCPs=new Set();
   if(!G.homeInfo||!G.homeInfo.host)G.homeInfo=getHomeInfo(G.homestay);
   G.dayType=calcDayType(G.day);
   G._eventCache={};
