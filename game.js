@@ -5505,28 +5505,18 @@ window._dreamUser=null; // Supabase Auth 用户
   }
 })();
 
-// 📧 邮箱登录/注册界面
+// 📧 邮箱登录/注册界面（精简版：仅B站扫码）
 window._dreamLogin=function(){
   var app=document.getElementById('app');
   var h='<div style="max-width:400px;margin:60px auto;padding:20px;text-align:center">';
   h+='<h2 style="color:var(--gold)">🌙 好梦 · 登录</h2>';
-  h+='<div class="panel" style="padding:20px">';
-  h+='<input id="dreamEmail" placeholder="你的邮箱" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);font-size:0.9em;margin-bottom:10px">';
-  // 密码登录
-  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
-  h+='<input id="dreamPass" type="password" placeholder="密码（首次自动注册）" style="flex:1;padding:8px 10px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.85em">';
-  h+='<button class="btn btn-p" onclick="window._dreamPasswordLogin()" style="padding:8px 14px;font-size:0.85em">🔐 登录</button></div>';
-  // 验证码
-  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
-  h+='<input id="dreamCode" placeholder="验证码" maxlength="6" style="width:80px;padding:8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.85em;text-align:center;letter-spacing:4px">';
-  h+='<button class="btn btn-s" onclick="window._dreamSendCode()" style="padding:8px 10px;font-size:0.75em;white-space:nowrap">📩 发验证码</button>';
-  h+='<button class="btn btn-p" onclick="window._dreamVerifyCode()" style="padding:8px 14px;font-size:0.85em">验证码登录</button></div>';
-  // 免密链接
-  h+='<button class="btn btn-s" onclick="window._dreamSendOTP()" style="width:100%;padding:8px;font-size:0.75em;margin-top:4px">📧 发送登录链接（同设备免密）</button>';
-  h+='</div><p style="color:var(--dim);font-size:0.7em;margin-top:10px">四种方式任选 · 首次使用自动注册</p>';
-  h+='<button class="btn btn-s" onclick="window._dreamQRLogin()" style="border-color:var(--gold);color:var(--gold);margin-top:6px">📱 扫码登录（手机确认）</button>';
-  h+='<button class="btn btn-s" onclick="window._dreamBiliLogin()" style="border-color:#fb7299;color:#fb7299;margin-top:4px">📺 B站扫码登录</button>';
-  h+='<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:4px;display:block;width:100%">跳过 → 匿名访问</button></div>';
+  h+='<div class="panel" style="padding:30px 20px">';
+  h+='<p style="font-size:3em;margin:0 0 10px">📺</p>';
+  h+='<p style="color:var(--text);font-size:0.95em;margin:5px 0">使用<strong style="color:#fb7299">B站 App</strong>扫码即可登录</p>';
+  h+='<p style="color:var(--dim);font-size:0.75em;margin:5px 0 15px">首次自动注册 · 同步B站头像昵称</p>';
+  h+='<button class="btn btn-p" onclick="window._dreamBiliLogin()" style="font-size:1em;padding:12px 30px;background:#fb7299;border-color:#fb7299;color:#fff">📺 B站扫码登录</button>';
+  h+='</div>';
+  h+='<button class="btn btn-s" onclick="window._openGoodDream()" style="margin-top:10px">跳过 → 匿名访问</button></div>';
   app.innerHTML=h;
 };
 
