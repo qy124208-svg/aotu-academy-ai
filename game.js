@@ -4656,8 +4656,8 @@ function spawnEnemy(n){
 }
 
 // ✨ 战斗输入 - 使用 engine/input.js Keyboard + Mouse
-function battleKeyDown(e){if(typeof Keyboard!=='undefined')Keyboard._onKeyDown(e);else{battleLegacyKeys[e.key.toLowerCase()]=true;}e.preventDefault();}
-function battleKeyUp(e){if(typeof Keyboard!=='undefined')Keyboard._onKeyUp(e);else{battleLegacyKeys[e.key.toLowerCase()]=false;}e.preventDefault();}
+function battleKeyDown(e){if(!e||!e.key)return;if(typeof Keyboard!=='undefined')Keyboard._onKeyDown(e);else{battleLegacyKeys[e.key.toLowerCase()]=true;}e.preventDefault();}
+function battleKeyUp(e){if(!e||!e.key)return;if(typeof Keyboard!=='undefined')Keyboard._onKeyUp(e);else{battleLegacyKeys[e.key.toLowerCase()]=false;}e.preventDefault();}
 const battleLegacyKeys={}; // 回退兼容
 function battleMouseMove(e){
   if(!player)return;
@@ -7376,6 +7376,7 @@ function acEnd(){
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
   if(e.ctrlKey||e.metaKey)return;
+  if(!e.key)return;
   switch(e.key.toLowerCase()){
     case 'a':if(G.phase==='play'){e.preventDefault();window._nav('aff');}break;
     case 'c':if(G.phase==='play'){e.preventDefault();window._nav('cpview');}break;
