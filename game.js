@@ -5866,7 +5866,7 @@ function _dreamRender(app){
     h+='<button class="btn btn-xs" onclick="window._dreamLogin()" style="font-size:0.65em;color:var(--gold)">📧 登录</button>';
   }h+='</p>';
   // 发布框
-  h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/YouTube链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
+  h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/抖音链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
   h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
   h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">';
   h+='<input id="dreamName" placeholder="昵称" maxlength="10" style="width:100px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em" value="'+_getSavedName()+'">';
@@ -5943,8 +5943,9 @@ function _dreamFormatContent(text){
   text=_escapeHtml(text);
   // B站链接 → 嵌入播放器
   text=text.replace(/(https?:\/\/)?(www\.)?bilibili\.com\/video\/(BV[a-zA-Z0-9]+)\/?/g,'<div style="margin:6px 0"><iframe src="https://player.bilibili.com/player.html?bvid=$3&autoplay=0" style="width:100%;height:200px;border:none;border-radius:8px" allowfullscreen></iframe></div>');
-  // YouTube链接 → 嵌入播放器
-  text=text.replace(/(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/g,'<div style="margin:6px 0"><iframe src="https://www.youtube.com/embed/$4" style="width:100%;height:200px;border:none;border-radius:8px" allowfullscreen></iframe></div>');
+  // 抖音链接 → 嵌入播放器
+  text=text.replace(/(https?:\/\/)?(www\.)?douyin\.com\/video\/(\d+)\S*/g,'<div style="margin:6px 0"><iframe src="https://open.douyin.com/platform/oauth/embed?vid=$3" style="width:100%;height:300px;border:none;border-radius:8px" allowfullscreen></iframe></div>');
+  text=text.replace(/(https?:\/\/)?v\.douyin\.com\/(\S+)/g,'<div style="margin:6px 0;padding:10px;background:var(--card);border-radius:8px;text-align:center"><a href="$0" target="_blank" style="color:#ff2442;font-size:0.9em">🎵 打开抖音视频</a></div>');
   // 换行转<br>
   text=text.replace(/\n/g,'<br>');
   return text;
