@@ -6280,31 +6280,45 @@ window._dreamRequestCrawl=async function(){
 
 // ═══ 📺 B站关注动态 — 按需获取+用户分组+下钻查看 ═══
 
-// 主入口：调 Edge Function → 加载动画 → 显示用户列表
+// 主入口：调 Edge Function → 无Cookie弹QR → 有Cookie直接获取
 window._dreamBiliStartCrawl=async function(){
   if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
   var area=document.getElementById('biliFeedArea');
   if(!area)return;
-  area.innerHTML='<div style="text-align:center;padding:20px;color:var(--blue)"><div style="font-size:2em;animation:pulse 1s infinite">📡</div><div style="margin-top:8px">正在获取B站关注动态...</div><div style="font-size:0.65em;color:var(--dim);margin-top:4px">可能需要10-30秒，请耐心等待</div></div>';
-
   var timeRange=localStorage.getItem('aotu_bili_time')||'week';
+  area.innerHTML='<div style="text-align:center;padding:20px;color:var(--blue)"><div style="font-size:2em;animation:pulse 1s infinite">📡</div><div style="margin-top:8px">正在获取B站关注动态...</div></div>';
+
   try{
     var r=await fetch(SUPABASE_URL+'/functions/v1/bilibili-feed',{
       method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
       body:JSON.stringify({action:'follow_feed',user_id:window._dreamUser.id,time_range:timeRange})
     }).then(function(res){return res.json();});
-    if(r.error){
-      area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">❌ '+_escapeHtml(r.message||r.error)+'</div>';
+
+    // 需要扫码登录
+    if(r.need_login){
+      area.innerHTML='<div style="text-align:center;padding:10px"><p style="color:var(--blue);margin:4px 0">📱 请用B站App扫码</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(r.qr_url)+'" style="width:180px;height:180px;border-radius:8px"><p style="font-size:0.65em;color:var(--dim);margin:4px 0">扫描后在手机上确认登录</p></div>';
+      // 轮询扫码状态
+      var qrKey=r.qrcode_key;
+      for(var i=0;i<60;i++){
+        await new Promise(function(resolve){setTimeout(resolve,2000);});
+        var pollR=await fetch(SUPABASE_URL+'/functions/v1/bilibili-feed',{
+          method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+          body:JSON.stringify({action:'poll_qr',qrcode_key:qrKey,user_id:window._dreamUser.id,time_range:timeRange})
+        }).then(function(res){return res.json();});
+        if(pollR.users){window._biliFeedCache=pollR;window._dreamBiliShowUsers(pollR.users);return;}
+        if(pollR.qr_status==='expired'){area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⏰ 二维码已过期<br><button class="btn btn-s" onclick="window._dreamBiliStartCrawl()" style="margin-top:8px">🔄 重新获取</button></div>';return;}
+        if(pollR.qr_status==='scanned'){area.innerHTML='<div style="text-align:center;padding:15px;color:var(--blue)">📱 已扫码！<br><span style="font-size:0.75em;color:var(--dim)">请在手机上确认登录...</span></div>';}
+      }
+      area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⏰ 扫码超时<br><button class="btn btn-s" onclick="window._dreamBiliStartCrawl()" style="margin-top:8px">🔄 重试</button></div>';
       return;
     }
-    if(!r.users||r.users.length===0){
-      area.innerHTML='<div style="text-align:center;padding:15px;color:var(--dim)">📭 该时间范围内关注列表暂无更新</div>';
-      return;
-    }
+
+    if(r.error){area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">❌ '+_escapeHtml(r.message||r.error)+'</div>';return;}
+    if(!r.users||r.users.length===0){area.innerHTML='<div style="text-align:center;padding:15px;color:var(--dim)">📭 该时间范围内关注列表暂无更新</div>';return;}
     window._biliFeedCache=r;
     window._dreamBiliShowUsers(r.users);
   }catch(e){
-    area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⚠️ 获取失败：'+_escapeHtml(e.message)+'<br><span style="font-size:0.65em;color:var(--dim)">请确认B站已扫码连接且Edge Function已部署</span></div>';
+    area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⚠️ 获取失败：'+_escapeHtml(e.message)+'</div>';
   }
 };
 
