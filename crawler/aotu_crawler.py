@@ -403,11 +403,11 @@ def run_crawl():
             print(f"  ⚠️ Cookie即将过期({hours:.0f}h)，建议重新登录")
         try:
             if platform == "bilibili":
-                crawler = BilibiliCrawler(cookie)
-                uid = crawler.get_my_uid()
-                if not uid: print("  ❌ 登录失效"); continue
-                followings = crawler.get_followings(uid)
-                print(f"  📋 关注 {len(followings)} 人")
+                # 🔄 B站已改为前端按需获取 (Edge Function bilibili-feed)
+                # 如需恢复自动爬取，注释掉下面这行
+                print("  ⏭ B站已改为前端按需获取，跳过自动爬取")
+                continue
+                # crawler = BilibiliCrawler(cookie)  # 旧代码保留备用
                 # ── Step 1: 拉取所有人该时间段内的全部作品 ──
                 print(f"  📥 Step1: 拉取作品...")
                 all_posts = []

@@ -6128,9 +6128,21 @@ window._dreamProfile=async function(){
     });
     h+='</div></div>';
     _dreamCheckConnections(u.id);
-    // 📡 凹凸世界动态
-    h+='<h3 style="color:var(--accent);font-size:0.9em;margin:10px 0">📡 凹凸世界动态</h3>';
-    h+='<div id="aotuFeeds"><div style="color:var(--dim);text-align:center;padding:15px">加载中...</div></div>';
+    // 📺 B站关注动态 — 按需获取，按用户分组
+    h+='<div class="panel" style="padding:12px;margin:8px 0;border:1px solid var(--blue)">';
+    h+='<h3 style="color:var(--blue);font-size:0.9em;margin:0 0 8px 0">📺 B站关注动态</h3>';
+    h+='<p style="font-size:0.65em;color:var(--dim);margin:4px 0">获取B站关注列表的近期更新 · 按用户分组查看</p>';
+    h+='<div style="margin:6px 0"><span style="font-size:0.7em;color:var(--dim)">时间范围：</span>';
+    var biliTimeOpts=[{v:'day',t:'24h'},{v:'day2',t:'48h'},{v:'week',t:'一周'},{v:'month',t:'一月'}];
+    var curBiliTime=localStorage.getItem('aotu_bili_time')||'week';
+    biliTimeOpts.forEach(function(o){
+      var sel=curBiliTime===o.v;
+      h+='<button class="btn btn-xs" onclick="localStorage.setItem(\'aotu_bili_time\',\''+o.v+'\');window._dreamProfile()" style="font-size:0.65em;padding:2px 10px;margin:2px;'+(sel?'background:var(--blue);color:#fff':'')+'">'+o.t+'</button>';
+    });
+    h+='</div>';
+    h+='<button class="btn btn-p" onclick="window._dreamBiliStartCrawl()" style="font-size:0.85em;padding:8px 20px;width:100%">📡 获取动态</button>';
+    h+='<div id="biliFeedArea" style="margin-top:8px"></div>';
+    h+='</div>';
     // 我的帖子
     h+='<h3 style="color:var(--gold);font-size:0.9em;margin:10px 0">📝 我的帖子</h3>';
     if(!posts.data||posts.data.length===0)h+='<div style="color:var(--dim);text-align:center;padding:20px">还没有发过帖</div>';
@@ -6143,8 +6155,6 @@ window._dreamProfile=async function(){
     });
     h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button></div>';
     app.innerHTML=h;
-    // 异步加载动态
-    _dreamLoadFeeds();
   }catch(e){app.innerHTML='<div style="text-align:center;padding:40px"><p style="color:#e94560">加载失败</p></div>';}
 };
 
@@ -6266,6 +6276,101 @@ window._dreamRequestCrawl=async function(){
     var el=document.getElementById('aotuFeeds');
     if(el)el.innerHTML='<div style="color:var(--gold);text-align:center;padding:20px">⏳ 抓取请求已发送！<br><span style="font-size:0.75em;color:var(--dim)">请在本机运行：python aotu_crawler.py</span><br><button class="btn btn-xs" onclick="_dreamLoadFeeds()" style="margin-top:10px">🔃 刷新查看</button></div>';
   }catch(e){alert('请求失败: '+e.message);}
+};
+
+// ═══ 📺 B站关注动态 — 按需获取+用户分组+下钻查看 ═══
+
+// 主入口：调 Edge Function → 加载动画 → 显示用户列表
+window._dreamBiliStartCrawl=async function(){
+  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
+  var area=document.getElementById('biliFeedArea');
+  if(!area)return;
+  area.innerHTML='<div style="text-align:center;padding:20px;color:var(--blue)"><div style="font-size:2em;animation:pulse 1s infinite">📡</div><div style="margin-top:8px">正在获取B站关注动态...</div><div style="font-size:0.65em;color:var(--dim);margin-top:4px">可能需要10-30秒，请耐心等待</div></div>';
+
+  var timeRange=localStorage.getItem('aotu_bili_time')||'week';
+  try{
+    var r=await supabase.functions.invoke('bilibili-feed',{
+      body:{action:'follow_feed',user_id:window._dreamUser.id,time_range:timeRange}
+    });
+    if(r.error){
+      area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">❌ '+_escapeHtml(r.error.message||r.error)+'</div>';
+      return;
+    }
+    var data=r.data;
+    if(!data||!data.users||data.users.length===0){
+      area.innerHTML='<div style="text-align:center;padding:15px;color:var(--dim)">📭 该时间范围内关注列表暂无更新</div>';
+      return;
+    }
+    window._biliFeedCache=data;
+    window._dreamBiliShowUsers(data.users);
+  }catch(e){
+    area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⚠️ 获取失败：'+_escapeHtml(e.message)+'<br><span style="font-size:0.65em;color:var(--dim)">请确认B站已扫码连接且Edge Function已部署</span></div>';
+  }
+};
+
+// 用户卡片列表 — 头像+名称+更新条数，点击下钻
+window._dreamBiliShowUsers=function(users){
+  var area=document.getElementById('biliFeedArea');
+  if(!area)return;
+  var total=users.reduce(function(s,u){return s+u.posts.length;},0);
+  var h='<div style="font-size:0.7em;color:var(--dim);margin-bottom:8px">📺 '+users.length+' 位用户 · '+total+' 条更新</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+  users.forEach(function(u){
+    var faceHTML=u.face?'<img src="'+u.face+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'<div style="width:40px;height:40px;border-radius:50%;background:#333;text-align:center;line-height:40px;font-size:1.2em">👤</div>';
+    h+='<div onclick="window._dreamBiliShowUserPosts(\''+u.uid+'\')" style="cursor:pointer;background:var(--card);border:1px solid #444;border-radius:10px;padding:10px;text-align:center;min-width:80px;transition:all 0.15s;flex:1" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'#444\'">';
+    h+=faceHTML;
+    h+='<div style="font-size:0.7em;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">'+_escapeHtml(u.name)+'</div>';
+    h+='<div style="font-size:0.6em;color:var(--blue)">'+u.posts.length+' 条</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  area.innerHTML=h;
+};
+
+// 单用户详情页 — 该时间段内所有内容
+window._dreamBiliShowUserPosts=function(uid){
+  var cache=window._biliFeedCache;
+  if(!cache){return;}
+  var user=cache.users.find(function(u){return u.uid===uid;});
+  if(!user)return;
+  var app=document.getElementById('app');
+  var h='<div style="max-width:700px;margin:0 auto;padding:15px">';
+  h+='<button class="btn btn-s" onclick="window._dreamBiliBackToList()" style="margin-bottom:12px">← 返回列表</button>';
+  // 用户信息头部
+  var faceHTML=user.face?'<img src="'+user.face+'" style="width:60px;height:60px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'';
+  h+='<div style="text-align:center;margin:10px 0">'+faceHTML+'<h2 style="color:var(--text);margin:8px 0">'+_escapeHtml(user.name)+'</h2>';
+  h+='<div style="color:var(--dim);font-size:0.8em">'+user.posts.length+' 条更新</div></div>';
+  // 内容列表
+  user.posts.forEach(function(p){
+    h+='<a href="'+p.link+'" target="_blank" style="text-decoration:none;color:inherit">';
+    h+='<div class="panel" style="padding:10px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;transition:all 0.15s" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'#444\'">';
+    if(p.cover){
+      h+='<img src="'+p.cover+'" style="width:80px;height:50px;border-radius:6px;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer">';
+    }
+    h+='<div style="flex:1;min-width:0">';
+    h+='<span style="font-size:0.6em;color:var(--blue)">'+p.type+'</span> ';
+    h+='<span style="font-size:0.6em;color:var(--dim)">'+_timeAgo(p.pub_time)+'</span>';
+    h+='<div style="font-size:0.8em;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.title||'(无标题)')+'</div>';
+    h+='</div></div></a>';
+  });
+  h+='<button class="btn btn-s" onclick="window._dreamBiliBackToList()" style="margin-top:10px">← 返回列表</button>';
+  h+='</div>';
+  app.innerHTML=h;
+};
+
+// 从用户详情返回用户列表
+window._dreamBiliBackToList=function(){
+  var cache=window._biliFeedCache;
+  if(cache&&cache.users){
+    window._dreamProfile();
+    // 恢复列表显示
+    setTimeout(function(){
+      var area=document.getElementById('biliFeedArea');
+      if(area)window._dreamBiliShowUsers(cache.users);
+    },100);
+  }else{
+    window._dreamProfile();
+  }
 };
 
 // 📡 加载凹凸世界动态
