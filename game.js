@@ -6289,20 +6289,20 @@ window._dreamBiliStartCrawl=async function(){
 
   var timeRange=localStorage.getItem('aotu_bili_time')||'week';
   try{
-    var r=await supabase.functions.invoke('bilibili-feed',{
-      body:{action:'follow_feed',user_id:window._dreamUser.id,time_range:timeRange}
-    });
+    var r=await fetch(SUPABASE_URL+'/functions/v1/bilibili-feed',{
+      method:'POST',headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'follow_feed',user_id:window._dreamUser.id,time_range:timeRange})
+    }).then(function(res){return res.json();});
     if(r.error){
-      area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">❌ '+_escapeHtml(r.error.message||r.error)+'</div>';
+      area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">❌ '+_escapeHtml(r.message||r.error)+'</div>';
       return;
     }
-    var data=r.data;
-    if(!data||!data.users||data.users.length===0){
+    if(!r.users||r.users.length===0){
       area.innerHTML='<div style="text-align:center;padding:15px;color:var(--dim)">📭 该时间范围内关注列表暂无更新</div>';
       return;
     }
-    window._biliFeedCache=data;
-    window._dreamBiliShowUsers(data.users);
+    window._biliFeedCache=r;
+    window._dreamBiliShowUsers(r.users);
   }catch(e){
     area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⚠️ 获取失败：'+_escapeHtml(e.message)+'<br><span style="font-size:0.65em;color:var(--dim)">请确认B站已扫码连接且Edge Function已部署</span></div>';
   }
