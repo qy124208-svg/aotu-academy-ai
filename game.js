@@ -6635,7 +6635,10 @@ function acPrepRender(app){
   h+='<button class="btn btn-s" onclick="window._acReroll()" style="background:#1a1a2e;border:1px solid #58a6ff">🔄 重选棋子 (-10)</button>';
   h+='<button class="btn btn-s" onclick="window._acBoost()" style="background:#1a1a2e;border:1px solid #bc8cff">💪 强化棋子 (-20)</button>';
   h+='<button class="btn btn-p pulse" onclick="window._acStart()" style="font-size:1.1em;'+(allPlaced?'':'opacity:0.5')+'">⚔️ 开战 ('+placed+'+'+enemyPlaced+'/10)</button>';
-  h+='</div></div>';
+  h+='</div>';
+  // ⏭ 跳过整个事件
+  h+='<div style="text-align:center;margin:6px 0"><button class="btn btn-s" onclick="window._adv()" style="background:transparent;border:1px solid #555;color:var(--dim);font-size:0.75em;padding:6px 18px">⏭ 跳过此事件</button></div>';
+  h+='</div>';
   if(window._acLastMsg)h+='<div style="text-align:center;color:var(--dim);font-size:0.7em;margin:4px 0">'+window._acLastMsg+'</div>';
   app.innerHTML=h;
 }
@@ -6648,35 +6651,16 @@ window._acEnemyPlaceSlot=function(si){var slots=window._acEnemySlots||[];var sel
 window._acEnemyAutoDeploy=function(){
   var enemy=window._acEnemy||[];
   if(enemy.length<5){window._acLastMsg='需要选择5名敌方角色';acPrepRender(document.getElementById('app'));return;}
-  // 角色专属最佳位置（严格按定位）
-  // 前排(row0-1): 坦克/战士/刺客 — 后排(row2-3): 射手/辅助/召唤
   var ENEMY_POS={
-    // 🛡️ 坦克 — 前排中央吸引火力
-    anmixiu:{row:0,col:2},    // 盾卫：最前线嘲讽
-    yinjue:{row:0,col:3},     // 光环坦：前排反伤光环覆盖全员
-    aimi:{row:1,col:2},       // 半坦：前排反伤
-    // ⚔️ 战士/强袭 — 前排输出+控制
-    jiadeluosi:{row:1,col:3}, // 强袭：前排全体眩晕
-    gerui:{row:1,col:2},      // 战士：前排整列控制
-    // 🗡️ 刺客/影刃 — 前排侧翼快速切入
-    kamier:{row:0,col:3},     // 刺客：前排侧翼单体爆发
-    peili:{row:0,col:2},      // 影刃：前排重力减益+偷强化
-    // 🏹 射手 — 后排安全输出
-    aibi:{row:3,col:2},       // 成长射：后排12箭随机
-    jin:{row:3,col:3},        // 收割射：后排单体收割
-    kaili:{row:2,col:3},      // 暴击射：后排整列暴击
-    leishi:{row:2,col:2},     // 双系：中排十字吸怒
-    // ✨ 辅助 — 后排保护队友
-    anlijie:{row:3,col:2},    // 辅助：后排冰冻+冰晶护盾
-    zuma:{row:3,col:3},       // 治愈：后排全体治疗
-    // 👾 召唤 — 后排安全铺场
-    zitanghuan:{row:2,col:2}, // 召唤：中排召唤斯巴达
-    paluosi:{row:2,col:3},    // 召唤：中排暗影分身
-    guihu:{row:3,col:2}       // 暗灵：后排降怒镜像
+    anmixiu:{row:0,col:2},yinjue:{row:0,col:3},aimi:{row:1,col:2},
+    jiadeluosi:{row:1,col:3},gerui:{row:1,col:2},
+    kamier:{row:0,col:3},peili:{row:0,col:2},
+    aibi:{row:3,col:2},jin:{row:3,col:3},kaili:{row:2,col:3},leishi:{row:2,col:2},
+    anlijie:{row:3,col:2},zuma:{row:3,col:3},
+    zitanghuan:{row:2,col:2},paluosi:{row:2,col:3},guihu:{row:3,col:2}
   };
   var slots=[null,null,null,null,null,null,null,null];
   var usedSlots={};
-  // 按定位排序: 近战>远程>辅助
   var roleOrder={melee:0,tank:0,warrior:1,assassin:2,ranged:3,support:4,summon:5};
   var sorted=enemy.slice().sort(function(a,b){
     var archA=AC_ARCHETYPES[a]||{range:1,role:'melee'};
@@ -6693,10 +6677,17 @@ window._acEnemyAutoDeploy=function(){
     }
     var slotKey=pos.row+','+pos.col;
     if(usedSlots[slotKey]){
-      var adj=[[0,1],[0,-1],[1,0],[-1,0]];
+      var adj=[[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+      var found=false;
       for(var i=0;i<adj.length;i++){
         var nr=pos.row+adj[i][0],nc=pos.col+adj[i][1];
-        if(nr>=0&&nr<4&&nc>=2&&nc<4&&!usedSlots[nr+','+nc]){pos={row:nr,col:nc};slotKey=nr+','+nc;break;}
+        if(nr>=0&&nr<4&&nc>=2&&nc<4&&!usedSlots[nr+','+nc]){pos={row:nr,col:nc};slotKey=nr+','+nc;found=true;break;}
+      }
+      if(!found){
+        for(var si=0;si<8;si++){
+          var checkCol=(si%2)+2,checkRow=Math.floor(si/2);
+          if(!usedSlots[checkRow+','+checkCol]){pos={row:checkRow,col:checkCol};slotKey=checkRow+','+checkCol;found=true;break;}
+        }
       }
     }
     usedSlots[slotKey]=true;
@@ -6704,9 +6695,14 @@ window._acEnemyAutoDeploy=function(){
     slots[si]=id;
   });
   window._acEnemySlots=slots;
+  var finalPlaced=slots.filter(function(s){return s!==null;}).length;
+  if(finalPlaced<5){
+    window._acLastMsg='⚠️ 自动部署失败，仅放置'+finalPlaced+'/5名敌人，请手动调整';
+    acPrepRender(document.getElementById('app'));return;
+  }
   window._acLastMsg='✅ 敌方已自动部署';
-  // 直接启动战斗
-  setTimeout(function(){window._acStart();},100);
+  acPrepRender(document.getElementById('app'));
+  setTimeout(function(){window._acStart();},150);
 };
 window._acPickArtifact=function(){
   var karma=loadKarma();if(window._acArtifact){window._acLastMsg='已有道具: '+window._acArtifact.n;acPrepRender(document.getElementById('app'));return;}
@@ -6721,9 +6717,10 @@ window._acDoArtifact=function(id){var a=AC_ARTIFACTS.find(function(x){return x.i
 window._acReroll=function(){var k=loadKarma();if(k<10){window._acLastMsg='因果值不足 (需10)';acPrepRender(document.getElementById('app'));return;}spendKarma(10);var ranked=Object.keys(CH).filter(function(x){return CH[x]&&CH[x].c!=='教师';}).sort(function(a,b){return(G.aff[b]||0)-(G.aff[a]||0);});var pool=window._acPool;var i=Math.floor(Math.random()*pool.length);var top=ranked.slice(0,12);var newId=top[Math.floor(Math.random()*top.length)];for(var retry=0;pool.indexOf(newId)>=0&&retry<100;retry++)newId=top[Math.floor(Math.random()*top.length)];pool[i]=newId;window._acLastMsg='重选了 '+CH[newId].n;acPrepRender(document.getElementById('app'));};
 window._acBoost=function(){var k=loadKarma();if(k<20){window._acLastMsg='因果值不足 (需20)';acPrepRender(document.getElementById('app'));return;}if(window._acBoosted){window._acLastMsg='已强化过: '+CH[window._acBoosted].n;acPrepRender(document.getElementById('app'));return;}var p=window._acPicked||[];if(p.length===0)return;spendKarma(20);window._acBoosted=p[0];window._acLastMsg='已强化: '+CH[p[0]].n+' +30%';acPrepRender(document.getElementById('app'));};
 window._acStart=function(){
-  var picked=window._acPicked||[],slots=window._acSlots||[],enemySlots=window._acEnemySlots||[];if(picked.length!==5)return;
+  var picked=window._acPicked||[],slots=window._acSlots||[],enemySlots=window._acEnemySlots||[];
+  if(picked.length!==5){window._acLastMsg='⚠️ 请先选择5名角色';acPrepRender(document.getElementById('app'));return;}
   var placed=slots.filter(function(s){return s!==null;}).length;var eplaced=enemySlots.filter(function(s){return s!==null;}).length;
-  if(placed!==5||eplaced!==5)return;
+  if(placed!==5||eplaced!==5){window._acLastMsg='⚠️ 双方需各放置5名角色 (我方:'+placed+' 敌方:'+eplaced+')';acPrepRender(document.getElementById('app'));return;}
   var dpr=window.devicePixelRatio||1,app=document.getElementById('app');
 
   acState={over:false,winner:null,speedMul:1,battleTime:0,_cpBondTimer:8,_lucky:false,_opener:false,_revive:false,_healBurst:false,_healUsed:false,_screenFlash:0,_flashColor:'#fff',_perfQ:1.0,_lastFrameT:0,_deathChain:0,_ultLock:0,_frameCount:0,_ended:false};
