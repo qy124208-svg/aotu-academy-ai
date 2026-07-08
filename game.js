@@ -6308,6 +6308,7 @@ window._dreamBiliStartCrawl=async function(){
         if(pollR.users){window._biliFeedCache=pollR;window._dreamBiliShowUsers(pollR.users);return;}
         if(pollR.qr_status==='expired'){area.innerHTML='<div style="text-align:center;padding:15px;color:#f0c040">⏰ 二维码已过期，正在刷新...</div>';window._dreamBiliStartCrawl();return;}
         if(pollR.qr_status==='scanned'){area.innerHTML='<div style="text-align:center;padding:15px;color:var(--blue)">📱 已扫码！<br><span style="font-size:0.75em;color:var(--dim)">请在手机上确认登录...</span></div>';}
+        if(pollR.qr_status==='error'){area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">❌ 登录失败: '+_escapeHtml(pollR.message||'')+'<br><span style="font-size:0.6em;color:var(--dim)">'+_escapeHtml(pollR.debug||'')+'</span><br><button class="btn btn-xs" onclick="window._dreamBiliStartCrawl()" style="margin-top:8px">🔄 重试</button></div>';return;}
       }
       area.innerHTML='<div style="text-align:center;padding:15px;color:#e94560">⏰ 扫码超时<br><button class="btn btn-s" onclick="window._dreamBiliStartCrawl()" style="margin-top:8px">🔄 重试</button></div>';
       return;
