@@ -921,6 +921,11 @@ function saveKarma(v){try{localStorage.setItem('aotu4_karma',String(v));console.
 function spendKarma(v){var k=loadKarma();if(k>=v){saveKarma(k-v);return true;}return false;}
 function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
 
+// ─── 因果值防刷：每轮回只能领取一次 ───
+function _loadClaimedCycles(){try{var v=localStorage.getItem('aotu4_kc');return v?JSON.parse(v):[];}catch(e){return[];}}
+function _isKarmaClaimed(cycleId){return _loadClaimedCycles().indexOf(cycleId)>=0;}
+function _markKarmaClaimed(cycleId){var a=_loadClaimedCycles();if(a.indexOf(cycleId)<0){a.push(cycleId);if(a.length>50)a=a.slice(-30);localStorage.setItem('aotu4_kc',JSON.stringify(a));}}
+
 // ─── 轮回结算：计算本轮回获得的因果值 ───
 function calcKarmaEarned(){
   let karma=0;
@@ -1011,6 +1016,7 @@ function initG(){
   G.homeInfo=getHomeInfo(G.homestay); G.sideQuests={}; G.completedSQ=[]; G.lowSprDays=0; G.sprWarned=false; G.dailyEvents=0; G.schoolStreak=0;
   G.witch_active=false; G.witch_day=0; G.witch_hero=null;
   G.witch_corruption=0; G.witch_shards=[]; G.witch_echoes_seen=[]; G.witch_countdown=10;
+  G._cycleId='cy_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); // 轮回唯一ID — 防因果值刷取
   G.karma=loadKarma();applyKarmaPassive(); G._ksSpr=false; G._ksEnergy=false; G._ksHome=false; G._tBonus=false; G._bonusToday=false;
   ['_tAngel','_tJournal','_tSeventh','_tWatch','_tStuco','_tSocial','_tEarly','_tNight','_tBento','_tRun','_tWeather','_tJoke','_tLucky','_tLib','_tRooftop','_tChill'].forEach(k=>G[k]=false);
 }
@@ -1079,6 +1085,8 @@ function repairAfterLoad(){
   if(!G.homeInfo||!G.homeInfo.host)G.homeInfo=getHomeInfo(G.homestay);
   G.dayType=calcDayType(G.day);
   G._eventCache={};
+  // 老存档没有_cycleId则生成一个（读档时已存在则不覆盖）
+  if(!G._cycleId)G._cycleId='cy_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
   // 不调用applyKarmaPassive() — 属性已在存档中，重复调用会叠加
   G._karmaTier=getKarmaTier(G.karma||0);
 }
@@ -4390,10 +4398,12 @@ function rEnd(app){
   try{localStorage.setItem('aotu4_ach',JSON.stringify(G.achievements));}catch(e){}
   // ─── 溃离魔女结局（最高优先）───
   if(G.flags['witch_transformation']||G.flags['witch_massacre_complete']){renderWitchEnding(app);return;}
-  // 轮回结算：计算并保存因果值
-  const karmaEarned=calcKarmaEarned();
-  G.karma=loadKarma()+karmaEarned;
-  saveKarma(G.karma);
+  // 轮回结算：防刷 — 每轮回只能领取一次因果值
+  var alreadyClaimed=_isKarmaClaimed(G._cycleId);
+  var karmaEarned=alreadyClaimed?0:calcKarmaEarned();
+  G.karma=alreadyClaimed?loadKarma():loadKarma()+karmaEarned;
+  if(!alreadyClaimed){saveKarma(G.karma);_markKarmaClaimed(G._cycleId);}
+  var karmaMsg=alreadyClaimed?'<span style="color:#e94560">⚠️ 本轮回已领取过因果值，不可重复获取</span>':'因果値 <strong style="font-size:1.3em">+'+karmaEarned+'</strong>';
   // 精神崩溃强制结局
   if(G.day>G.maxDay&&G.lowSprDays>=2&&!G.flags['forced_end_done']){
     G.flags['forced_end_done']=true;
@@ -4401,7 +4411,7 @@ function rEnd(app){
 <div class="endbox fadein"><div class="endicon">🧘💔</div><h2 style="color:var(--accent)">精神之海 · 干涸</h2><p class="endtext">你没有撑到一百天。\n\n转校生——离开了。\n\n走廊还是那个走廊。教室还是那个教室。\n\n只是少了一个人。\n\n有人问起——然后沉默。\n有人把一张空桌子收拾干净。\n有人往你的鞋柜里放了一封信——虽然没有人会打开。\n\n也许下一次——\n试着照顾一下自己。</p>
 <div style="margin:25px 0"><button class="btn btn-p pulse" onclick="window._newLoop()" style="font-size:1.1em;padding:12px 36px">🔄 重新开始——这一次，好好照顾自己</button></div>
 <button class="btn btn-s" onclick="render('title')">🏠 回到标题</button>
-<div style="margin-top:16px;font-size:0.8em;color:var(--dim)">🏆 成就：${G.achievements.length} · 📸 记忆：${G.memories.length}/${Object.keys(CP).length} · 📓 日记：${G.journal.length}条</div><div style="background:linear-gradient(135deg,#1a1a3e,#2d1a1e);border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:10px;text-align:center"><div style="font-size:0.7em;color:var(--dim)">✦ 轮回结算 ✦</div><div style="font-size:1.1em;color:var(--gold);margin:4px 0">因果値 <strong style="font-size:1.3em">+${karmaEarned}</strong></div><div style="font-size:0.65em;color:var(--dim)">累计因果値：${G.karma} · 可在标题画面消费</div></div></div>`;
+<div style="margin-top:16px;font-size:0.8em;color:var(--dim)">🏆 成就：${G.achievements.length} · 📸 记忆：${G.memories.length}/${Object.keys(CP).length} · 📓 日记：${G.journal.length}条</div><div style="background:linear-gradient(135deg,#1a1a3e,#2d1a1e);border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:10px;text-align:center"><div style="font-size:0.7em;color:var(--dim)">✦ 轮回结算 ✦</div><div style="font-size:1.1em;color:var(--gold);margin:4px 0">${karmaMsg}</div><div style="font-size:0.65em;color:var(--dim)">累计因果値：${G.karma} · 可在标题画面消费</div></div></div>`;
     return;
   }
   const cpR=[];for(const[k,cp]of Object.entries(CP)){const a=cpAvg(k);if(a>=80)cpR.push({k,cp,type:"he",a});else if(a>=45)cpR.push({k,cp,type:"ne",a});}cpR.sort((a,b)=>b.a-a.a);
@@ -4435,7 +4445,7 @@ function rEnd(app){
 <div class="endbox fadein"><div class="endicon">${emoji}</div><h2 style="color:${et==='cp_he'?'var(--accent)':'var(--gold)'}">${title}</h2><p class="endtext">${text}</p>
 <div style="margin:25px 0"><button class="btn btn-p pulse" onclick="window._newLoop()" style="font-size:1.1em;padding:12px 36px">🔄 重新开始一百天</button></div>
 <button class="btn btn-s" onclick="render('title')">🏠 回到标题</button>
-<div style="margin-top:16px;font-size:0.8em;color:var(--dim)">🏆 成就：${G.achievements.length} · 📸 记忆：${G.memories.length}/${Object.keys(CP).length} · 📓 日记：${G.journal.length}条</div><div style="background:linear-gradient(135deg,#1a1a3e,#2d1a1e);border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:10px;text-align:center"><div style="font-size:0.7em;color:var(--dim)">✦ 轮回结算 ✦</div><div style="font-size:1.1em;color:var(--gold);margin:4px 0">因果値 <strong style="font-size:1.3em">+${karmaEarned}</strong></div><div style="font-size:0.65em;color:var(--dim)">累计因果値：${G.karma} · 可在标题画面消费</div></div></div>`;
+<div style="margin-top:16px;font-size:0.8em;color:var(--dim)">🏆 成就：${G.achievements.length} · 📸 记忆：${G.memories.length}/${Object.keys(CP).length} · 📓 日记：${G.journal.length}条</div><div style="background:linear-gradient(135deg,#1a1a3e,#2d1a1e);border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:10px;text-align:center"><div style="font-size:0.7em;color:var(--dim)">✦ 轮回结算 ✦</div><div style="font-size:1.1em;color:var(--gold);margin:4px 0">${karmaMsg}</div><div style="font-size:0.65em;color:var(--dim)">累计因果値：${G.karma} · 可在标题画面消费</div></div></div>`;
 }
 window._newLoop=function(){startNew();};
 
