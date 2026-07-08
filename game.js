@@ -6376,16 +6376,24 @@ window._dreamBiliShowUserPosts=function(uid){
 // 从用户详情返回用户列表
 window._dreamBiliBackToList=function(){
   var cache=window._biliFeedCache;
-  if(cache&&cache.users){
-    window._dreamProfile();
-    // 恢复列表显示
-    setTimeout(function(){
-      var area=document.getElementById('biliFeedArea');
-      if(area)window._dreamBiliShowUsers(cache.users);
-    },100);
-  }else{
-    window._dreamProfile();
-  }
+  if(!cache||!cache.users){window._dreamProfile();return;}
+  // 直接渲染列表 — 不走_dreamProfile()避免异步时序问题
+  var app=document.getElementById('app');
+  var total=cache.users.reduce(function(s,u){return s+u.posts.length;},0);
+  var h='<div style="max-width:700px;margin:0 auto;padding:15px">';
+  h+='<h2 style="color:var(--blue);text-align:center;margin:10px 0">📺 B站关注动态</h2>';
+  h+='<div style="text-align:center;color:var(--dim);font-size:0.8em;margin-bottom:12px">'+cache.users.length+' 位用户 · '+cache.total_posts+' 条更新</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">';
+  cache.users.forEach(function(u){
+    var faceHTML=u.face?'<img src="'+u.face.replace(/^http:/,'https:')+'" style="width:48px;height:48px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'<div style="width:48px;height:48px;border-radius:50%;background:#333;text-align:center;line-height:48px;font-size:1.4em">👤</div>';
+    h+='<div onclick="window._dreamBiliShowUserPosts(\''+u.uid+'\')" style="cursor:pointer;background:var(--card);border:1px solid #444;border-radius:12px;padding:12px;text-align:center;min-width:90px;transition:all 0.15s;flex:0 0 auto" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'#444\'">';
+    h+=faceHTML+'<div style="font-size:0.75em;margin-top:6px;max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escapeHtml(u.name)+'</div>';
+    h+='<div style="font-size:0.65em;color:var(--blue)">'+u.posts.length+' 条</div></div>';
+  });
+  h+='</div>';
+  h+='<div style="text-align:center;margin-top:15px"><button class="btn btn-s" onclick="window._dreamProfile()">← 返回主页</button></div>';
+  h+='</div>';
+  app.innerHTML=h;
 };
 
 // 📡 加载凹凸世界动态
