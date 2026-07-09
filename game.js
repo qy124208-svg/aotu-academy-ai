@@ -5652,12 +5652,18 @@ window._dreamQRLogin=function(){
     }).subscribe();
 };
 
+// 📱 移动端检测 — 手机/平板优先跳转B站App授权而非扫码
+function _isMobileDevice(){
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(navigator.userAgent) ||
+    ('ontouchstart' in window && window.innerWidth < 1024);
+}
+
 // 📺 B站扫码登录 — 调用Edge Function代理B站API
 window._dreamBiliLogin=function(){
   var app=document.getElementById('app');
   app.innerHTML='<div style="max-width:400px;margin:40px auto;text-align:center;padding:20px">'
     +'<h3 style="color:#fb7299">📺 B站扫码登录</h3>'
-    +'<p style="color:var(--dim);font-size:0.85em">用B站App扫下方二维码</p>'
+    +(_isMobileDevice()?'<p style="color:var(--blue);font-size:0.85em">检测到移动设备，将跳转B站App授权</p>':'<p style="color:var(--dim);font-size:0.85em">用B站App扫下方二维码</p>')
     +'<div id="biliQR" style="margin:10px 0">⏳ 加载中…</div>'
     +'<p id="biliStatus" style="color:var(--dim);font-size:0.8em;margin:8px 0">等待扫描…</p>'
     +'<button class="btn btn-s" onclick="window._dreamLogin()" style="margin-top:10px">← 返回</button></div>';
@@ -5671,8 +5677,24 @@ window._dreamBiliLogin=function(){
       var genD=await genR.json();
       if(!genR.ok||genD.error)throw new Error(genD.error||'二维码生成失败');
       var qrcodeKey=genD.qrcode_key;
-      // 用qrcode JS生成二维码（B站URL扫码）或直接显示B站图片
-      document.getElementById('biliQR').innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(genD.qr_url)+'" style="background:#fff;padding:8px;border-radius:12px">';
+      var qrImgSrc='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(genD.qr_url);
+      // 📱 移动端 → 跳转B站App授权（不扫码）
+      if(_isMobileDevice()){
+        document.getElementById('biliQR').innerHTML=
+          '<div style="padding:15px;background:#222;border-radius:12px;margin:8px 0">'+
+          '<div style="font-size:2em;margin-bottom:8px">📱</div>'+
+          '<p style="color:var(--blue);font-size:0.9em;margin:4px 0">正在跳转B站App…</p>'+
+          '<p style="color:var(--dim);font-size:0.7em;margin:4px 0">请在App中确认登录授权</p>'+
+          '<button class="btn btn-p" onclick="window.open(\''+genD.qr_url+'\',\'_blank\')" style="margin-top:10px;font-size:0.85em">🔄 未自动跳转？点此手动打开</button>'+
+          '<details style="margin-top:10px"><summary style="font-size:0.65em;color:var(--dim);cursor:pointer">📷 扫码备用</summary>'+
+          '<img src="'+qrImgSrc+'" style="width:160px;background:#fff;padding:6px;border-radius:8px;margin-top:6px"></details>'+
+          '</div>';
+        // 自动跳转B站App（移动端qr_url会唤起App或打开H5确认页）
+        window.open(genD.qr_url,'_blank');
+      } else {
+        // 🖥 桌面端 → 显示二维码
+        document.getElementById('biliQR').innerHTML='<img src="'+qrImgSrc+'" style="background:#fff;padding:8px;border-radius:12px">';
+      }
 
       // 2. 轮询状态
       var statusEl=document.getElementById('biliStatus');
@@ -6296,7 +6318,22 @@ window._dreamBiliStartCrawl=async function(){
 
     // 需要扫码登录
     if(r.need_login){
-      area.innerHTML='<div style="text-align:center;padding:10px"><p style="color:var(--blue);margin:4px 0">📱 请用B站App扫码</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(r.qr_url)+'" style="width:180px;height:180px;border-radius:8px"><p style="font-size:0.65em;color:var(--dim);margin:4px 0">扫描后在手机上确认登录</p></div>';
+      var qrImgSrc2='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(r.qr_url);
+      if(_isMobileDevice()){
+        // 📱 移动端 → 跳转B站App授权
+        area.innerHTML='<div style="text-align:center;padding:10px">'+
+          '<div style="padding:12px;background:#222;border-radius:10px">'+
+          '<div style="font-size:2em">📱</div>'+
+          '<p style="color:var(--blue);margin:6px 0">正在跳转B站App授权…</p>'+
+          '<p style="font-size:0.7em;color:var(--dim)">请在App中确认登录</p>'+
+          '<button class="btn btn-p" onclick="window.open(\''+r.qr_url+'\',\'_blank\')" style="margin-top:8px;font-size:0.8em">🔄 手动打开B站App</button>'+
+          '<details style="margin-top:8px"><summary style="font-size:0.65em;color:var(--dim);cursor:pointer">📷 扫码备用</summary>'+
+          '<img src="'+qrImgSrc2+'" style="width:140px;background:#fff;padding:4px;border-radius:6px;margin-top:4px"></details>'+
+          '</div></div>';
+        window.open(r.qr_url,'_blank');
+      } else {
+        area.innerHTML='<div style="text-align:center;padding:10px"><p style="color:var(--blue);margin:4px 0">📱 请用B站App扫码</p><img src="'+qrImgSrc2+'" style="width:180px;height:180px;border-radius:8px"><p style="font-size:0.65em;color:var(--dim);margin:4px 0">扫描后在手机上确认登录</p></div>';
+      }
       // 轮询扫码状态
       var qrKey=r.qrcode_key;
       for(var i=0;i<60;i++){
