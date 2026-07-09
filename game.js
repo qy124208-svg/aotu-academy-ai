@@ -6331,7 +6331,7 @@ window._dreamBiliShowUsers=function(users){
   var h='<div style="font-size:0.7em;color:var(--dim);margin-bottom:8px">📺 '+users.length+' 位用户 · '+total+' 条更新</div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
   users.forEach(function(u){
-    var faceHTML=u.face?'<img src="'+u.face+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'<div style="width:40px;height:40px;border-radius:50%;background:#333;text-align:center;line-height:40px;font-size:1.2em">👤</div>';
+    var faceHTML=u.face?'<img src="'+u.face.replace(/^http:/,'https:')+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'<div style="width:40px;height:40px;border-radius:50%;background:#333;text-align:center;line-height:40px;font-size:1.2em">👤</div>';
     h+='<div onclick="window._dreamBiliShowUserPosts(\''+u.uid+'\')" style="cursor:pointer;background:var(--card);border:1px solid #444;border-radius:10px;padding:10px;text-align:center;min-width:80px;transition:all 0.15s;flex:1" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'#444\'">';
     h+=faceHTML;
     h+='<div style="font-size:0.7em;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">'+_escapeHtml(u.name)+'</div>';
@@ -6352,7 +6352,7 @@ window._dreamBiliShowUserPosts=function(uid){
   var h='<div style="max-width:700px;margin:0 auto;padding:15px">';
   h+='<button class="btn btn-s" onclick="window._dreamBiliBackToList()" style="margin-bottom:12px">← 返回列表</button>';
   // 用户信息头部
-  var faceHTML=user.face?'<img src="'+user.face+'" style="width:60px;height:60px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'';
+  var faceHTML=user.face?'<img src="'+user.face.replace(/^http:/,'https:')+'" style="width:60px;height:60px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'';
   h+='<div style="text-align:center;margin:10px 0">'+faceHTML+'<h2 style="color:var(--text);margin:8px 0">'+_escapeHtml(user.name)+'</h2>';
   h+='<div style="color:var(--dim);font-size:0.8em">'+user.posts.length+' 条更新</div></div>';
   // 内容列表
@@ -6360,7 +6360,7 @@ window._dreamBiliShowUserPosts=function(uid){
     h+='<a href="'+p.link+'" target="_blank" style="text-decoration:none;color:inherit">';
     h+='<div class="panel" style="padding:10px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;transition:all 0.15s" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'#444\'">';
     if(p.cover){
-      h+='<img src="'+p.cover+'" style="width:80px;height:50px;border-radius:6px;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer">';
+      h+='<img src="'+p.cover.replace(/^http:/,'https:')+'" style="width:80px;height:50px;border-radius:6px;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer">';
     }
     h+='<div style="flex:1;min-width:0">';
     h+='<span style="font-size:0.6em;color:var(--blue)">'+p.type+'</span> ';
