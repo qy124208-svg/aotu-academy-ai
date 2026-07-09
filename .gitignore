@@ -6,3 +6,6 @@ deploy/
 leian_cases.txt
 凹凸转学记*.md
 nul
+# Edge Function 含Supabase密钥，通过Dashboard手动部署
+bilibili-feed-crawl.ts
+bilibili-qr-clean.ts

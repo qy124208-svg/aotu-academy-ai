@@ -6140,7 +6140,7 @@ window._dreamProfile=async function(){
       h+='<button class="btn btn-xs" onclick="localStorage.setItem(\'aotu_bili_time\',\''+o.v+'\');window._dreamProfile()" style="font-size:0.65em;padding:2px 10px;margin:2px;'+(sel?'background:var(--blue);color:#fff':'')+'">'+o.t+'</button>';
     });
     h+='</div>';
-    h+='<button class="btn btn-p" onclick="window._dreamBiliStartCrawl()" style="font-size:0.85em;padding:8px 20px;width:100%">📡 获取动态</button>';
+    h+='<button class="btn btn-p" onclick="window._dreamBiliDeepCrawl()" style="font-size:0.85em;padding:8px 20px;width:100%">📡 获取动态</button>';
     h+='<div id="biliFeedArea" style="margin-top:8px"></div>';
     h+='</div>';
     // 我的帖子
@@ -6395,6 +6395,110 @@ window._dreamBiliBackToList=function(){
   h+='</div>';
   app.innerHTML=h;
 };
+
+// ═══ 🔍 B站深度爬取 — 获取所有关注用户的全部动态 ═══
+
+// 深度爬取入口
+window._dreamBiliDeepCrawl = async function(){
+  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
+  var area = document.getElementById('biliFeedArea');
+  if(!area)return;
+  var timeRange = localStorage.getItem('aotu_bili_time')||'week';
+
+  // 初始化累积容器 + 取消标志
+  window._biliDeepAcc = {users:[],total_posts:0, userMap:{}};
+  window._biliDeepStop = false;
+
+  area.innerHTML = '<div style="text-align:center;padding:15px">'+
+    '<div id="biliDeepStatus" style="color:var(--blue);font-size:1em;margin:8px 0">🔍 准备深度爬取...</div>'+
+    '<div id="biliDeepProgress" style="font-size:0.7em;color:var(--dim);margin:4px 0">正在获取关注列表...</div>'+
+    '<div id="biliDeepBar" style="width:100%;height:6px;background:#333;border-radius:3px;margin:10px 0;overflow:hidden">'+
+      '<div id="biliDeepBarFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--gold));border-radius:3px;transition:width 0.3s"></div>'+
+    '</div>'+
+    '<button class="btn btn-xs" onclick="window._biliDeepStop=true;window._dreamProfile()" style="margin-top:8px;color:#e94560">⏹ 取消</button>'+
+    '</div>';
+
+  await _dreamBiliDeepIterate(timeRange, null, Date.now());
+};
+
+// 递归延续调用Edge Function
+async function _dreamBiliDeepIterate(timeRange, cursor, startTime){
+  if(window._biliDeepStop)return;
+
+  var statusEl = document.getElementById('biliDeepStatus');
+  var progressEl = document.getElementById('biliDeepProgress');
+  var barFill = document.getElementById('biliDeepBarFill');
+
+  try{
+    var body = {action:'deep_crawl', user_id:window._dreamUser.id, time_range:timeRange};
+    if(cursor) body.cursor = cursor;
+
+    var r = await fetch(SUPABASE_URL+'/functions/v1/bilibili-feed',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    }).then(function(res){return res.json();});
+
+    // 需要登录
+    if(r.need_login){
+      var area = document.getElementById('biliFeedArea');
+      if(area) area.innerHTML = '<div style="text-align:center;padding:10px"><p style="color:var(--blue);margin:4px 0">📱 深度爬取需要登录B站，请先扫码</p></div>';
+      window._dreamBiliStartCrawl(); // 复用好现有的QR流程
+      return;
+    }
+
+    if(r.error){
+      if(statusEl) statusEl.innerHTML = '<span style="color:#e94560">❌ '+_escapeHtml(r.message||r.error)+'</span>';
+      return;
+    }
+
+    // 合并结果：按uid去重合并posts
+    var accum = window._biliDeepAcc;
+    if(r.users && r.users.length > 0){
+      r.users.forEach(function(u){
+        if(accum.userMap[u.uid]){
+          accum.userMap[u.uid].posts = accum.userMap[u.uid].posts.concat(u.posts);
+        } else {
+          accum.userMap[u.uid] = u;
+          accum.users.push(u);
+        }
+      });
+      accum.total_posts += r.total_posts || 0;
+    }
+
+    // 更新进度
+    var pct = r.progress && r.progress.total > 0 ? Math.round(r.progress.processed / r.progress.total * 100) : 0;
+    if(progressEl){
+      progressEl.textContent = '已处理 ' + (r.progress?r.progress.processed:'?') +
+        ' / ' + (r.progress?r.progress.total:'?') + ' 位用户 | ' +
+        accum.users.length + ' 位有更新 · ' + accum.total_posts + ' 条动态';
+    }
+    if(barFill) barFill.style.width = pct + '%';
+
+    if(r.done){
+      // 完成！
+      if(statusEl) statusEl.innerHTML = '✅ 深度爬取完成！共 ' + accum.users.length + ' 位用户 · ' + accum.total_posts + ' 条动态';
+      if(barFill) barFill.style.width = '100%';
+      // 按发帖数排序 + 写入缓存
+      accum.users.sort(function(a,b){return b.posts.length - a.posts.length;});
+      window._biliFeedCache = {users:accum.users, total_posts:accum.total_posts, time_range:timeRange, deep_crawl:true};
+      // 短暂延迟后显示结果
+      await new Promise(function(resolve){setTimeout(resolve, 800);});
+      if(!window._biliDeepStop) window._dreamBiliShowUsers(accum.users);
+    } else {
+      // 继续下一批
+      var elapsed = Math.round((Date.now() - startTime) / 1000);
+      if(statusEl) statusEl.innerHTML = '🔍 深度爬取中... ' + pct + '%';
+      if(progressEl) progressEl.textContent += ' | ⏱ 已用 '+elapsed+'s';
+      // 短暂延迟让前端有机会取消
+      await new Promise(function(resolve){setTimeout(resolve, 300);});
+      await _dreamBiliDeepIterate(timeRange, r.next_cursor, startTime);
+    }
+  } catch(e){
+    if(statusEl) statusEl.innerHTML = '<span style="color:#e94560">⚠️ 爬取出错：'+_escapeHtml(e.message)+
+      '</span><br><button class="btn btn-xs" onclick="window._dreamBiliDeepCrawl()" style="margin-top:8px">🔄 重试</button>';
+  }
+}
 
 // 📡 加载凹凸世界动态
 // 👥 管理员查看总用户数
