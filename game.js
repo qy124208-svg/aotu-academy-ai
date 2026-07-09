@@ -5914,8 +5914,7 @@ function _dreamRender(app){
   }else{
     h+='<button class="btn btn-p pulse" onclick="window._dreamLogin()" style="font-size:1em;padding:10px 24px;background:linear-gradient(135deg,#fb7299,#e94560);border:none;border-radius:10px;color:#fff;font-weight:bold">📺 B站扫码登录</button> ';
   }h+='</p>';
-  // 发布框 — 未登录不能发
-  if(window._dreamUser){
+  // 发布框 — 所有人可发
   h+='<div class="panel" style="margin:10px 0"><textarea id="dreamInput" placeholder="💭 写下今晚的梦...\n\n📎 粘贴B站/抖音链接即可嵌入视频\n📷 点击下方按钮上传图片" maxlength="500" style="width:100%;padding:10px;border:1px solid #333;border-radius:8px;background:var(--card);color:var(--text);resize:none;height:70px;font-family:inherit;font-size:0.9em"></textarea>';
   h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
   h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">';
@@ -5923,11 +5922,6 @@ function _dreamRender(app){
   h+='<button class="btn btn-s" onclick="document.getElementById(\'dreamImage\').click()" style="font-size:0.75em;padding:5px 8px">📷 图片</button>';
   h+='<span id="dreamImgLabel" style="font-size:0.65em;color:var(--dim)"></span>';
   h+='<button class="btn btn-p" onclick="window._dreamPost()" style="font-size:0.8em;padding:6px 14px;margin-left:auto">✨ 发布</button></div></div>';
-  }else{
-  h+='<div class="panel" style="margin:10px 0;text-align:center;padding:16px;background:linear-gradient(135deg,rgba(251,114,153,0.1),rgba(233,69,96,0.1))">';
-  h+='<p style="color:var(--dim);font-size:0.85em;margin:0">🔒 登录后可发帖、评论、点赞</p>';
-  h+='<button class="btn btn-p pulse" onclick="window._dreamLogin()" style="font-size:1.1em;padding:12px 32px;margin-top:10px;background:linear-gradient(135deg,#fb7299,#e94560);border:none;border-radius:12px;color:#fff;font-weight:bold">📺 B站扫码登录</button></div>';
-  }
   // 留言列表
   if(!state.posts||state.posts.length===0){h+='<div style="text-align:center;color:var(--dim);padding:30px">💤 还没有人留言…来做第一个说梦话的人吧！</div>';}
   else{
@@ -6006,10 +6000,9 @@ function _dreamFormatContent(text){
   return text;
 }
 
-// 点赞/取消
+// 点赞/取消 — 所有人可用
 window._dreamLike=async function(dreamId){
   if(!supabase)return;
-  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
   var fp=window._dreamFp;
   try{
     var exist=await supabase.from('dream_likes').select('id').eq('dream_id',dreamId).eq('user_fingerprint',fp).maybeSingle();
@@ -6058,10 +6051,9 @@ function _dreamRenderComments(app){
   app.innerHTML=h;
 }
 
-// 发布评论
+// 发布评论 — 所有人可用
 window._dreamPostComment=async function(dreamId){
   if(!supabase)return;
-  if(!window._dreamUser){alert('请先登录');window._dreamLogin();return;}
   var content=document.getElementById('commentInput').value.trim();
   if(!content)return;
   var id=_dreamGetIdentity();
@@ -6687,9 +6679,8 @@ window._dreamStartChat=function(userId){
   window._dreamChat(userId);
 };
 
-// 🚩 举报
+// 🚩 举报 — 所有人可用
 window._dreamReport=async function(postId){
-  if(!window._dreamUser){alert('请先登录');return;}
   var reason=prompt('举报原因：','违规内容');
   if(!reason)return;
   try{await supabase.from('reports').insert({dream_id:postId,reported_by:window._dreamUser.id,reason:reason});alert('已提交举报，管理员会处理');}catch(e){alert('举报失败');}
