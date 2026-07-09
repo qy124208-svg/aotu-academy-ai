@@ -6365,7 +6365,8 @@ window._dreamBiliShowUsers=function(users){
   var area=document.getElementById('biliFeedArea');
   if(!area)return;
   var total=users.reduce(function(s,u){return s+u.posts.length;},0);
-  var h='<div style="font-size:0.7em;color:var(--dim);margin-bottom:8px">📺 '+users.length+' 位用户 · '+total+' 条更新</div>';
+  var cache=window._biliFeedCache;var timeLabel=cache&&cache.time_range?{day:'近24h',day2:'近48h',week:'近一周',month:'近一月'}[cache.time_range]||'':'';
+  var h='<div style="font-size:0.7em;color:var(--dim);margin-bottom:8px">📺 '+users.length+' 位用户 · '+total+' 条更新'+(timeLabel?' · <span style="color:var(--blue)">'+timeLabel+'</span>':'')+'</div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
   users.forEach(function(u){
     var faceHTML=u.face?'<img src="'+u.face.replace(/^http:/,'https:')+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">':'<div style="width:40px;height:40px;border-radius:50%;background:#333;text-align:center;line-height:40px;font-size:1.2em">👤</div>';
@@ -6514,7 +6515,8 @@ async function _dreamBiliDeepIterate(timeRange, cursor, startTime){
 
     if(r.done){
       // 完成！
-      if(statusEl) statusEl.innerHTML = '✅ 深度爬取完成！共 ' + accum.users.length + ' 位用户 · ' + accum.total_posts + ' 条动态';
+      var timeLabel = {day:'近24h', day2:'近48h', week:'近一周', month:'近一月'}[timeRange] || timeRange;
+      if(statusEl) statusEl.innerHTML = '✅ 深度爬取完成！('+timeLabel+') 共 ' + accum.users.length + ' 位用户 · ' + accum.total_posts + ' 条动态';
       if(barFill) barFill.style.width = '100%';
       // 按发帖数排序 + 写入缓存
       accum.users.sort(function(a,b){return b.posts.length - a.posts.length;});
