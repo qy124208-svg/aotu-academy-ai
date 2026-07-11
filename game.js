@@ -7060,6 +7060,730 @@ _dreamLoadPosts=async function(app){
   }catch(e){app.innerHTML='<div style="text-align:center;padding:40px"><h3>🌙 好梦论坛</h3><p style="color:#e94560">加载失败: '+e.message+'</p><button class="btn btn-s" onclick="window._openGoodDream()">重试</button></div>';}
 };
 
+// ═══ 🐾 桌宠引擎 v1.0 ═══
+// 基于 auto-shimeji(动画) + Ark-Pets(行为AI) + VPet(养成) 融合设计
+// 图片可自定义导入，JSON配置驱动
+
+// 默认桌宠配置模板 — 用户导入自己的PNG后覆盖
+var PET_DEFAULT_CONFIG = {
+  name: '默认桌宠', scale: 1.0, anchorX: 64, anchorY: 128,
+  gravity: 0.5, friction: 0.9, speed: 2, bounce: 0.4,
+  // 马尔可夫行为矩阵 — 6状态权重 [Idle,Sit,Sleep,MoveL,MoveR,Special]
+  markov: [
+    [40,20,10,10,10,10], // Idle → ?
+    [30,40,20,10,10,10], // Sit → ?
+    [20,20,60, 0, 0, 0], // Sleep → ?
+    [40,10, 0,20,20,10], // MoveL → ?
+    [40,10, 0,20,20,10], // MoveR → ?
+    [50,20,10,10,10, 0]  // Special → ?
+  ],
+  // 动画配置 — 对应shimeji命名规范 (shimeN.png)
+  animations: {
+    Idle:    {type:'stay',   frames:['shime1.png','shime1b.png'], durations:[200,2,48]},
+    Walk:    {type:'move',   frames:['shime1.png','shime2.png','shime1.png','shime3.png'], durations:[6,6,6,6], velocity:-2},
+    Run:     {type:'move',   frames:['shime1.png','shime2.png','shime1.png','shime3.png'], durations:[2,2,2,2], velocity:-4},
+    Sit:     {type:'stay',   frames:['shime11.png','shime11b.png'], durations:[200,2,48]},
+    Sleep:   {type:'stay',   frames:['shime18.png','shime21.png'], durations:[200,2,48]},
+    Falling: {type:'fall',   frames:['shime4.png','shime4b.png'], durations:[2,2]},
+    Dragged: {type:'drag',   frames:['shime5.png'], durations:[5]},
+    Special: {type:'animate',frames:['shime38.png','shime39.png','shime40.png','shime41.png'], durations:[40,40,40,2]}
+  },
+  // CP羁绊动画 — 两个指定角色靠近时触发
+  cpBond: {
+    partner: '', // CP角色名
+    range: 150,  // 触发距离(px)
+    anim: {type:'animate', frames:['shime15.png','shime27.png','shime16.png','shime28.png','shime17.png','shime29.png'], durations:[5,5,5,5,5,5]}
+  }
+};
+
+// 🐾 桌宠实例类
+function PetSprite(config, imgBasePath){
+  var pet = this;
+  this.config = JSON.parse(JSON.stringify(config));
+  this.imgBase = imgBasePath || '';
+  this.x = Math.random() * (window.innerWidth - 200) + 100;
+  this.y = window.innerHeight - 300;
+  this.vx = 0; this.vy = 0;
+  this.scale = config.scale || 1.0;
+  this.facingRight = true;
+  this.anchorX = config.anchorX || 64;
+  this.anchorY = config.anchorY || 128;
+  // 状态机
+  this.state = 'Idle'; // Idle,Sit,Sleep,MoveL,MoveR,Special,Falling,Dragged
+  this.stateTimer = 0; this.stateDuration = 300 + Math.random() * 500;
+  this.animFrame = 0; this.animTimer = 0;
+  this.isDragging = false; this.dragOffX = 0; this.dragOffY = 0;
+  this.onFloor = false;
+  // CP羁绊
+  this.cpPartner = null; this.cpActive = false; this.cpAnimFrame = 0; this.cpAnimTimer = 0;
+
+  // 图片缓存
+  this.images = {};
+
+  this.loadImage = function(name){
+    if(pet.images[name] !== undefined) return;
+    var img = new Image();
+    img.src = pet.imgBase + '/' + name;
+    pet.images[name] = img;
+  };
+
+  // 预加载所有动画帧
+  this.preload = function(){
+    var anims = pet.config.animations;
+    for(var k in anims){
+      var frames = anims[k].frames;
+      for(var i = 0; i < frames.length; i++){ pet.loadImage(frames[i]); }
+    }
+    if(pet.config.cpBond && pet.config.cpBond.anim){
+      var cpf = pet.config.cpBond.anim.frames;
+      for(var j = 0; j < cpf.length; j++){ pet.loadImage(cpf[j]); }
+    }
+  };
+
+  // 马尔可夫转移 — 随机选择下一个状态
+  this.markovNext = function(){
+    var row = pet.config.markov;
+    var states = ['Idle','Sit','Sleep','MoveL','MoveR','Special'];
+    var idx = states.indexOf(pet.state);
+    if(idx < 0) idx = 0;
+    var weights = row[idx];
+    var total = 0;
+    for(var i = 0; i < weights.length; i++) total += weights[i];
+    var r = Math.random() * total;
+    var acc = 0;
+    for(var j = 0; j < weights.length; j++){ acc += weights[j]; if(r <= acc) return states[j]; }
+    return 'Idle';
+  };
+
+  // 获取当前动画配置
+  this.getAnim = function(){
+    var s = pet.state;
+    if(s === 'MoveL' || s === 'MoveR') s = (Math.abs(pet.vx) > 3 ? 'Run' : 'Walk');
+    if(s === 'Falling') s = 'Falling';
+    if(s === 'Dragged') s = 'Dragged';
+    return pet.config.animations[s] || pet.config.animations['Idle'];
+  };
+
+  // 物理更新
+  this.update = function(dt){
+    if(pet.isDragging) return;
+    // 重力
+    pet.vy += pet.config.gravity * dt * 60;
+    pet.vx *= pet.config.friction;
+    // 移动
+    if(pet.state === 'MoveL') pet.vx = -pet.config.speed;
+    if(pet.state === 'MoveR') pet.vx = pet.config.speed;
+    // 位置更新
+    pet.x += pet.vx * dt * 60;
+    pet.y += pet.vy * dt * 60;
+    // 地面碰撞
+    var groundY = window.innerHeight - 50;
+    if(pet.y >= groundY){
+      pet.y = groundY;
+      if(pet.vy > 2) pet.vy = -pet.vy * pet.config.bounce;
+      else { pet.vy = 0; pet.onFloor = true; }
+      if(pet.state === 'Falling') pet.state = 'Idle';
+    } else { pet.onFloor = false; }
+    // 墙壁反弹
+    if(pet.x < 50){ pet.x = 50; pet.vx = Math.abs(pet.vx) * 0.5; pet.facingRight = true; }
+    if(pet.x > window.innerWidth - 50){ pet.x = window.innerWidth - 50; pet.vx = -Math.abs(pet.vx) * 0.5; pet.facingRight = false; }
+    // 如果在地面上且没有水平速度，可能触发状态切换
+    if(pet.onFloor && Math.abs(pet.vx) < 0.5){
+      pet.vx = 0;
+      pet.stateTimer += dt;
+      if(pet.stateTimer >= pet.stateDuration){
+        pet.stateTimer = 0;
+        pet.stateDuration = 300 + Math.random() * 700;
+        pet.state = pet.markovNext();
+      }
+    }
+  };
+
+  // 渲染
+  this.render = function(ctx, scale){
+    var s = scale || pet.scale;
+    var anim = pet.getAnim();
+    if(!anim) return;
+    var frames = anim.frames;
+    // 动画帧更新
+    pet.animTimer++;
+    var totalDur = 0;
+    for(var i = 0; i <= pet.animFrame; i++) totalDur += (anim.durations[i] || 5);
+    if(pet.animTimer >= totalDur){
+      pet.animFrame = (pet.animFrame + 1) % frames.length;
+      if(pet.animFrame === 0) pet.animTimer = 0;
+    }
+    var img = pet.images[frames[pet.animFrame]];
+    if(!img || !img.complete) return;
+    var ax = pet.anchorX; var ay = pet.anchorY;
+    ctx.save();
+    ctx.translate(pet.x, pet.y);
+    if(!pet.facingRight){ ctx.scale(-1, 1); ctx.translate(-ax*2*s, 0); }
+    ctx.drawImage(img, -ax*s, -ay*s, ax*2*s, ay*2*s);
+    ctx.restore();
+  };
+
+  // 检查点击
+  this.hitTest = function(mx, my){
+    var s = pet.scale;
+    return mx >= pet.x - pet.anchorX*s && mx <= pet.x + pet.anchorX*s &&
+           my >= pet.y - pet.anchorY*s && my <= pet.y;
+  };
+
+  this.preload();
+}
+
+// 🐾 桌宠管理器 — 管理所有桌宠实例
+var _petManager = {
+  pets: [], canvas: null, ctx: null, animId: null, lastTime: 0,
+
+  init: function(){
+    if(_petManager.canvas) return;
+    var cv = document.createElement('canvas');
+    cv.id = 'petCanvas';
+    cv.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none';
+    document.body.appendChild(cv);
+    _petManager.canvas = cv;
+    _petManager.ctx = cv.getContext('2d');
+    cv.width = window.innerWidth; cv.height = window.innerHeight;
+    window.addEventListener('resize', function(){ cv.width = window.innerWidth; cv.height = window.innerHeight; });
+
+    // 鼠标交互
+    cv.style.pointerEvents = 'auto';
+    cv.addEventListener('mousedown', _petManager.onMouseDown);
+    window.addEventListener('mousemove', _petManager.onMouseMove);
+    window.addEventListener('mouseup', _petManager.onMouseUp);
+    // 触摸
+    cv.addEventListener('touchstart', function(e){ var t = e.touches[0]; _petManager.onMouseDown({clientX:t.clientX, clientY:t.clientY}); });
+    window.addEventListener('touchmove', function(e){ var t = e.touches[0]; _petManager.onMouseMove({clientX:t.clientX, clientY:t.clientY}); });
+    window.addEventListener('touchend', _petManager.onMouseUp);
+
+    _petManager.lastTime = performance.now();
+    _petManager.loop();
+  },
+
+  // 添加桌宠
+  add: function(config, imgBasePath){
+    var pet = new PetSprite(config, imgBasePath);
+    _petManager.pets.push(pet);
+    if(!_petManager.canvas) _petManager.init();
+    // 检测CP羁绊
+    _petManager.checkCPBond(pet);
+    return pet;
+  },
+
+  // CP羁绊检测
+  checkCPBond: function(newPet){
+    if(!newPet.config.cpBond || !newPet.config.cpBond.partner) return;
+    for(var i = 0; i < _petManager.pets.length; i++){
+      var other = _petManager.pets[i];
+      if(other === newPet) continue;
+      if(other.config.name === newPet.config.cpBond.partner){
+        newPet.cpPartner = other;
+        other.cpPartner = newPet;
+      }
+    }
+  },
+
+  // 鼠标事件
+  dragTarget: null,
+  onMouseDown: function(e){
+    var mx = e.clientX, my = e.clientY;
+    // 从上层开始检测
+    for(var i = _petManager.pets.length - 1; i >= 0; i--){
+      var pet = _petManager.pets[i];
+      if(pet.hitTest(mx, my)){
+        _petManager.dragTarget = pet;
+        pet.isDragging = true;
+        pet.dragOffX = pet.x - mx;
+        pet.dragOffY = pet.y - my;
+        pet.state = 'Dragged';
+        break;
+      }
+    }
+  },
+  onMouseMove: function(e){
+    if(!_petManager.dragTarget) return;
+    var pet = _petManager.dragTarget;
+    pet.x = e.clientX + pet.dragOffX;
+    pet.y = e.clientY + pet.dragOffY;
+    pet.vy = 0;
+  },
+  onMouseUp: function(){
+    if(_petManager.dragTarget){
+      _petManager.dragTarget.isDragging = false;
+      _petManager.dragTarget.state = 'Falling';
+      _petManager.dragTarget.vy = 2;
+    }
+    _petManager.dragTarget = null;
+  },
+
+  // 主循环
+  loop: function(){
+    var now = performance.now();
+    var dt = Math.min((now - _petManager.lastTime) / 1000, 0.1);
+    _petManager.lastTime = now;
+
+    var ctx = _petManager.ctx;
+    var cv = _petManager.canvas;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    for(var i = 0; i < _petManager.pets.length; i++){
+      var pet = _petManager.pets[i];
+      pet.update(dt);
+
+      // CP羁绊：检测距离
+      if(pet.cpPartner && !pet.isDragging && !pet.cpPartner.isDragging){
+        var dx = pet.x - pet.cpPartner.x;
+        var dy = pet.y - pet.cpPartner.y;
+        var dist = Math.sqrt(dx*dx + dy*dy);
+        var range = pet.config.cpBond.range || 150;
+        if(dist < range && pet.onFloor && pet.cpPartner.onFloor){
+          // 靠近触发羁绊动画
+          if(!pet.cpActive){
+            pet.cpActive = true; pet.cpPartner.cpActive = true;
+            pet.cpAnimFrame = 0; pet.cpPartner.cpAnimFrame = 0;
+            pet.state = 'Idle'; pet.cpPartner.state = 'Idle';
+            pet.vx = 0; pet.cpPartner.vx = 0;
+          }
+          pet.cpAnimTimer++;
+          pet.cpPartner.cpAnimTimer++;
+          // 羁绊动画持续5秒
+          if(pet.cpAnimTimer > 300){
+            pet.cpActive = false; pet.cpPartner.cpActive = false;
+            pet.cpAnimTimer = 0; pet.cpPartner.cpAnimTimer = 0;
+          }
+        } else {
+          pet.cpActive = false; pet.cpPartner.cpActive = false;
+        }
+      }
+
+      // 渲染CP羁绊动画
+      if(pet.cpActive && pet.config.cpBond && pet.config.cpBond.anim){
+        var cpa = pet.config.cpBond.anim;
+        var cpIdx = Math.floor(pet.cpAnimTimer / 40) % cpa.frames.length;
+        var cpImg = pet.images[cpa.frames[cpIdx]];
+        if(cpImg && cpImg.complete){
+          ctx.save();
+          ctx.globalAlpha = 0.6;
+          var midX = (pet.x + pet.cpPartner.x) / 2;
+          var midY = Math.min(pet.y, pet.cpPartner.y) - 80;
+          if(!pet.facingRight){ ctx.scale(-1,1); ctx.translate(-pet.anchorX*2*pet.scale, 0); }
+          ctx.drawImage(cpImg, midX - pet.anchorX*pet.scale, midY - pet.anchorY*pet.scale, pet.anchorX*2*pet.scale, pet.anchorY*2*pet.scale);
+          ctx.restore();
+        }
+      }
+
+      pet.render(ctx);
+    }
+    _petManager.animId = requestAnimationFrame(_petManager.loop);
+  },
+
+  // 清除所有桌宠
+  clear: function(){
+    if(_petManager.animId) cancelAnimationFrame(_petManager.animId);
+    if(_petManager.canvas){ _petManager.canvas.remove(); _petManager.canvas = null; }
+    _petManager.pets = [];
+  }
+};
+
+// 全局API — 导入自定义桌宠
+// 使用方式: window._addPet({name:'雷狮', animations:{...}, ...}, '/img/Leishi')
+window._addPet = function(config, imgPath){
+  var cfg = JSON.parse(JSON.stringify(PET_DEFAULT_CONFIG));
+  if(config) Object.assign(cfg, config);
+  if(config && config.animations){
+    cfg.animations = JSON.parse(JSON.stringify(PET_DEFAULT_CONFIG.animations));
+    for(var k in config.animations){ cfg.animations[k] = config.animations[k]; }
+  }
+  if(config && config.markov) cfg.markov = config.markov;
+  if(config && config.cpBond) cfg.cpBond = config.cpBond;
+  return _petManager.add(cfg, imgPath);
+};
+window._clearPets = function(){ _petManager.clear(); };
+window._getPets = function(){ return _petManager.pets; };
+
+// ═══ 📜 Galgame剧本引擎 v1.0 ═══
+// 基于 LingChat YAML剧本 + ZcChat 立绘系统 融合设计
+// JSON驱动，支持16种事件类型 + 选择分支 + 立绘表情 + 存档
+
+var _scriptEngine = {
+  story: null,        // 当前剧本
+  chapter: null,      // 当前章节
+  eventIdx: 0,        // 当前事件索引
+  vars: {},           // 全局变量
+  characters: {},     // 角色立绘映射 {name: {emotion: imgSrc}}
+  bgImage: null,      // 当前背景
+  bgm: null,          // 当前BGM
+  isRunning: false,
+  waitForChoice: false,
+  choiceCallback: null,
+
+  // 加载剧本
+  load: function(storyJSON){
+    _scriptEngine.story = storyJSON;
+    _scriptEngine.vars = storyJSON.variables || {};
+    _scriptEngine.characters = storyJSON.characters || {};
+    _scriptEngine.eventIdx = 0;
+    _scriptEngine.isRunning = true;
+    _scriptEngine.waitForChoice = false;
+  },
+
+  // 开始章节
+  startChapter: function(chapterName){
+    var ch = _scriptEngine.story.chapters[chapterName];
+    if(!ch){ console.warn('Chapter not found:', chapterName); return; }
+    _scriptEngine.chapter = ch;
+    _scriptEngine.eventIdx = 0;
+    _scriptEngine._next();
+  },
+
+  // 处理下一个事件
+  _next: function(){
+    if(!_scriptEngine.chapter || !_scriptEngine.isRunning) return;
+    if(_scriptEngine.waitForChoice) return;
+    var events = _scriptEngine.chapter.events;
+    if(_scriptEngine.eventIdx >= events.length){
+      _scriptEngine._endChapter();
+      return;
+    }
+    var ev = events[_scriptEngine.eventIdx];
+    _scriptEngine.eventIdx++;
+    _scriptEngine._execEvent(ev);
+  },
+
+  // 执行单个事件
+  _execEvent: function(ev){
+    if(!ev) return;
+    // 条件检查
+    if(ev.condition && !_scriptEngine._evalCond(ev.condition)){
+      _scriptEngine._next(); // 跳过
+      return;
+    }
+    var type = ev.type;
+    switch(type){
+      case 'dialog': _scriptEngine._doDialog(ev); break;
+      case 'narration': _scriptEngine._doNarration(ev); break;
+      case 'choice': _scriptEngine._doChoice(ev); break;
+      case 'background': _scriptEngine._doBackground(ev); break;
+      case 'music': _scriptEngine._doMusic(ev); break;
+      case 'sound': _scriptEngine._doSound(ev); break;
+      case 'sprite': _scriptEngine._doSprite(ev); break;       // 修改立绘
+      case 'present': _scriptEngine._doPresent(ev); break;     // 展示CG
+      case 'wait': _scriptEngine._doWait(ev); break;           // 等待
+      case 'jump': _scriptEngine._doJump(ev); break;           // 跳转章节
+      case 'set': _scriptEngine._doSet(ev); break;             // 设置变量
+      case 'input': _scriptEngine._doInput(ev); break;         // 玩家输入
+      case 'ai_dialog': _scriptEngine._doAIDialog(ev); break;  // AI对话
+      case 'effect': _scriptEngine._doEffect(ev); break;       // 背景特效
+      case 'ambient': _scriptEngine._doAmbient(ev); break;     // 环境音
+      default: _scriptEngine._next();
+    }
+  },
+
+  // --- 事件处理器 ---
+  _doDialog: function(ev){
+    var name = ev.character || '';
+    var emotion = ev.emotion || 'normal';
+    var text = ev.text || '';
+    // 切换立绘表情
+    if(name && emotion) _scriptEngine._updateSprite(name, emotion);
+    // 显示对话框
+    _scriptEngine._showDialog(name, text, function(){ _scriptEngine._next(); });
+  },
+
+  _doNarration: function(ev){
+    _scriptEngine._showDialog('', ev.text || '', function(){ _scriptEngine._next(); }, true);
+  },
+
+  _doChoice: function(ev){
+    _scriptEngine.waitForChoice = true;
+    var options = ev.options || [];
+    _scriptEngine._showChoices(options, ev.text || '', function(idx){
+      _scriptEngine.waitForChoice = false;
+      var opt = options[idx];
+      if(opt && opt.jump) _scriptEngine.startChapter(opt.jump);
+      else if(opt && opt.set) _scriptEngine._doSet({variables: opt.set});
+      else _scriptEngine._next();
+    });
+  },
+
+  _doBackground: function(ev){
+    _scriptEngine.bgImage = ev.image || '';
+    _scriptEngine._renderUI();
+    _scriptEngine._next();
+  },
+
+  _doMusic: function(ev){
+    _scriptEngine.bgm = ev.file || '';
+    _scriptEngine._next();
+  },
+
+  _doSound: function(ev){
+    // 播放音效（预留）
+    _scriptEngine._next();
+  },
+
+  _doSprite: function(ev){
+    var name = ev.character;
+    var emotion = ev.emotion || 'normal';
+    if(name && _scriptEngine.characters[name]){
+      _scriptEngine.characters[name].currentEmotion = emotion;
+    }
+    _scriptEngine._renderUI();
+    _scriptEngine._next();
+  },
+
+  _doPresent: function(ev){
+    // 展示CG图片
+    _scriptEngine._showCG(ev.image || '', ev.duration || 3000, function(){
+      _scriptEngine._next();
+    });
+  },
+
+  _doWait: function(ev){
+    var ms = ev.duration || 1000;
+    setTimeout(function(){ _scriptEngine._next(); }, ms);
+  },
+
+  _doJump: function(ev){
+    if(ev.chapter) _scriptEngine.startChapter(ev.chapter);
+  },
+
+  _doSet: function(ev){
+    var vars = ev.variables || {};
+    for(var k in vars){ _scriptEngine.vars[k] = vars[k]; }
+    _scriptEngine._next();
+  },
+
+  _doInput: function(ev){
+    _scriptEngine.waitForChoice = true;
+    var promptText = ev.prompt || '请输入...';
+    var val = prompt(promptText);
+    if(ev.variable) _scriptEngine.vars[ev.variable] = val || '';
+    _scriptEngine.waitForChoice = false;
+    _scriptEngine._next();
+  },
+
+  _doAIDialog: function(ev){
+    // AI对话（预留接口，后续接入LLM）
+    _scriptEngine._showDialog(ev.character || '', ev.text || '(AI对话中...)', function(){
+      _scriptEngine._next();
+    });
+  },
+
+  _doEffect: function(ev){
+    // 背景特效：shake/fade/flash（预留）
+    _scriptEngine._next();
+  },
+
+  _doAmbient: function(ev){
+    // 环境音（预留）
+    _scriptEngine._next();
+  },
+
+  // --- 条件求值 ---
+  _evalCond: function(cond){
+    if(!cond) return true;
+    try{
+      for(var k in cond){
+        var expected = cond[k];
+        var actual = _scriptEngine.vars[k];
+        if(typeof expected === 'boolean'){ if(!!actual !== expected) return false; }
+        else if(actual != expected) return false;
+      }
+      return true;
+    }catch(e){ return true; }
+  },
+
+  // --- UI渲染 ---
+  _overlay: null,
+  _dialogBox: null,
+
+  _showDialog: function(name, text, callback, isNarration){
+    _scriptEngine._renderUI();
+    // 复用引擎Dialog或显示在自定义UI
+    var displayName = name ? name : '';
+    var fullText = displayName ? '【' + displayName + '】\n' + text : text;
+    if(typeof Dialog !== 'undefined'){
+      Dialog.show('', fullText, [{text:'继续', type:'primary', callback:callback}], true);
+    } else {
+      if(confirm(fullText)) callback();
+    }
+  },
+
+  _showChoices: function(options, promptText, callback){
+    var btns = options.map(function(opt, i){
+      return {text: opt.text, type: 'primary', callback: function(){ callback(i); }};
+    });
+    if(typeof Dialog !== 'undefined'){
+      Dialog.show('', promptText || '请选择', btns, true);
+    } else {
+      var choice = prompt(promptText + '\n' + options.map(function(o,i){ return (i+1)+'. '+o.text; }).join('\n'));
+      var idx = parseInt(choice) - 1;
+      if(idx >= 0 && idx < options.length) callback(idx);
+      else callback(0);
+    }
+  },
+
+  _showCG: function(imgSrc, duration, callback){
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:10001;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = '<img src="'+imgSrc+'" style="max-width:90vw;max-height:90vh;border-radius:8px;animation:fadeIn 0.5s">';
+    overlay.onclick = function(){ overlay.remove(); callback(); };
+    document.body.appendChild(overlay);
+    if(duration > 0) setTimeout(function(){ if(overlay.parentNode) overlay.remove(); callback(); }, duration);
+  },
+
+  _updateSprite: function(name, emotion){
+    if(_scriptEngine.characters[name]){
+      _scriptEngine.characters[name].currentEmotion = emotion;
+    }
+    _scriptEngine._renderUI();
+  },
+
+  _renderUI: function(){
+    _scriptEngine._renderSprites();
+  },
+
+  _renderSprites: function(){
+    // 渲染立绘到 app 容器
+    var container = document.getElementById('scriptSprites');
+    if(!container){
+      container = document.createElement('div');
+      container.id = 'scriptSprites';
+      container.style.cssText = 'position:fixed;bottom:0;left:50%;transform:translateX(-50%);display:flex;gap:20px;z-index:100;pointer-events:none';
+      document.body.appendChild(container);
+    }
+    var h = '';
+    for(var name in _scriptEngine.characters){
+      var ch = _scriptEngine.characters[name];
+      var emotion = ch.currentEmotion || 'normal';
+      var imgSrc = ch[emotion] || ch['normal'] || '';
+      if(imgSrc){
+        h += '<div style="text-align:center"><img src="'+imgSrc+'" style="max-height:60vh;animation:fadeIn 0.5s" onerror="this.style.display=\'none\'"><div style="font-size:0.7em;color:var(--dim);margin-top:2px">'+name+'</div></div>';
+      }
+    }
+    container.innerHTML = h;
+  },
+
+  _endChapter: function(){
+    var next = _scriptEngine.chapter.next;
+    if(next){
+      _scriptEngine.startChapter(next);
+    } else {
+      _scriptEngine.isRunning = false;
+      // 清理立绘
+      var container = document.getElementById('scriptSprites');
+      if(container) container.innerHTML = '';
+    }
+  }
+};
+
+// 全局API
+window._startStory = function(storyJSON, chapterName){
+  _scriptEngine.load(storyJSON);
+  _scriptEngine.startChapter(chapterName || 'start');
+};
+window._stopStory = function(){
+  _scriptEngine.isRunning = false;
+  var c = document.getElementById('scriptSprites'); if(c) c.remove();
+};
+
+// ═══ 🤖 AI对话增强 v1.0 ═══
+// 情绪→立绘联动 + 对话记忆 + 流式输出接口
+
+var _aiChat = {
+  // 角色情绪配置 — 20种情绪 → 立绘文件名
+  emotions: {
+    normal:'正常.png', happy:'高兴.png', sad:'悲伤.png', angry:'生气.png',
+    surprise:'惊讶.png', shy:'害羞.png', proud:'得意.png', worried:'担心.png',
+    blush:'脸红.png', panic:'慌张.png', serious:'认真.png', tired:'疲惫.png',
+    thinking:'思考.png', excited:'兴奋.png', disappointed:'失望.png',
+    tsundere:'傲娇.png', gentle:'温柔.png', mischievous:'恶作剧.png',
+    pain:'痛苦.png', laugh:'大笑.png'
+  },
+
+  // 对话记忆 — 最近50轮
+  memory: [],
+  maxMemory: 50,
+
+  // 情绪关键词匹配
+  detectEmotion: function(text){
+    var map = {
+      'happy': /(笑|开心|高兴|哈哈|嘿嘿|嘻嘻|愉快)/,
+      'sad': /(哭|难过|伤心|悲伤|呜呜|泪)/,
+      'angry': /(生气|愤怒|哼|混蛋|可恶|讨厌)/,
+      'surprise': /(啊|什么|居然|竟然|天哪|哇)/,
+      'shy': /(害羞|不好意思|脸红|扭捏)/,
+      'blush': /(脸红|讨厌啦|才不是)/,
+      'thinking': /(嗯|让我想想|思考|考虑)/,
+      'excited': /(太棒了|好耶|冲啊|加油)/,
+      'worried': /(担心|怎么办|会不会|万一)/,
+      'serious': /(认真|严肃|重要|听我说)/,
+      'gentle': /(温柔|没关系|慢慢来|乖)/,
+      'tsundere': /(哼|才不|笨蛋|随便你)/
+    };
+    for(var emo in map){
+      if(map[emo].test(text)) return emo;
+    }
+    return 'normal';
+  },
+
+  // 添加记忆
+  remember: function(role, text){
+    _aiChat.memory.push({role:role, text:text, time:Date.now()});
+    if(_aiChat.memory.length > _aiChat.maxMemory) _aiChat.memory.shift();
+  },
+
+  // 获取上下文（最近N轮对话）
+  getContext: function(n){
+    n = n || 10;
+    return _aiChat.memory.slice(-n).map(function(m){
+      return m.role + ': ' + m.text;
+    }).join('\n');
+  },
+
+  // 解析AI回复 — 支持【情绪】标签
+  parseReply: function(rawText){
+    var match = rawText.match(/^【(.+?)】/);
+    var emotion = match ? match[1] : 'normal';
+    var text = rawText.replace(/^【.+?】/, '').trim();
+    // 验证情绪
+    if(!_aiChat.emotions[emotion]) emotion = _aiChat.detectEmotion(text);
+    return {emotion: emotion, text: text};
+  },
+
+  // 更新角色立绘（联动游戏角色系统）
+  updateSprite: function(characterName, emotion){
+    if(_scriptEngine.characters[characterName]){
+      _scriptEngine.characters[characterName].currentEmotion = emotion;
+      _scriptEngine._renderUI();
+    }
+  },
+
+  // 流式输出模拟 — 逐字显示
+  typewriter: function(text, onChar, onDone, speed){
+    speed = speed || 50;
+    var i = 0;
+    var timer = setInterval(function(){
+      if(i < text.length){ onChar(text[i]); i++; }
+      else{ clearInterval(timer); if(onDone) onDone(); }
+    }, speed);
+    return {stop: function(){ clearInterval(timer); if(onDone) onDone(); }};
+  }
+};
+
+// 全局API
+window._aiSpeak = function(characterName, rawReply){
+  var parsed = _aiChat.parseReply(rawReply);
+  _aiChat.remember(characterName, parsed.text);
+  _aiChat.updateSprite(characterName, parsed.emotion);
+  return parsed; // {emotion, text}
+};
+window._aiGetContext = function(){ return _aiChat.getContext(); };
+window._aiRemember = function(role, text){ _aiChat.remember(role, text); };
+
 // 🏆 成就计算
 function _dreamCalcBadges(posts,totalLikes){
   var badges=[];
