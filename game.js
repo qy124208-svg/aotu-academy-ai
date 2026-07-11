@@ -2466,6 +2466,48 @@ function rTitle(app){
   if(_titleParticles)_titleParticles.length=0;
   _titleCanvas=null;
   try{_startTitleParticles();}catch(e){console.warn('星空背景启动失败:',e);}
+
+  // 📢 公告弹窗检测
+  setTimeout(async function(){
+    try{
+      var skip=localStorage.getItem('aotu_ann_skip');
+      if(skip==='all')return;
+      var readIds=JSON.parse(localStorage.getItem('aotu_ann_read')||'[]');
+      var r=await supabase.from('announcements').select('*').eq('is_active',true).order('created_at',{ascending:false}).limit(1);
+      if(r.data&&r.data.length>0){
+        var ann=r.data[0];
+        if(readIds.indexOf(ann.id)===-1){
+          _showAnnouncement(ann);
+        }
+      }
+    }catch(e){}
+  },500);
+}
+
+// 📢 公告弹窗
+function _showAnnouncement(ann){
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s';
+  overlay.onclick=function(e){if(e.target===overlay)_closeAnn(overlay,ann.id);};
+  overlay.innerHTML='<div class="panel" style="max-width:500px;width:90%;max-height:70vh;overflow-y:auto;border:2px solid var(--gold);border-radius:14px;padding:24px;text-align:center;animation:fadeIn 0.3s">'+
+    '<div style="font-size:1.1em;color:var(--gold);font-weight:bold;margin-bottom:4px">📢 '+_escapeHtml(ann.title||'')+'</div>'+
+    '<div style="font-size:0.65em;color:var(--dim);margin-bottom:14px">'+_timeAgo(ann.created_at)+'</div>'+
+    '<div style="text-align:left;white-space:pre-wrap;color:var(--text);line-height:1.9;font-size:0.9em;max-height:40vh;overflow-y:auto">'+_escapeHtml(ann.content||'')+'</div>'+
+    '<div style="margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'+
+      '<button class="btn btn-p" style="font-size:0.85em;padding:8px 24px">✕ 关闭</button>'+
+      '<button class="btn btn-xs" style="color:var(--dim);font-size:0.7em">📢 不再显示公告</button>'+
+    '</div></div>';
+  document.body.appendChild(overlay);
+  var btns=overlay.querySelectorAll('button');
+  btns[0].onclick=function(){_closeAnn(overlay,ann.id);};
+  btns[1].onclick=function(){try{localStorage.setItem('aotu_ann_skip','all');}catch(e){}_closeAnn(overlay,ann.id);};
+}
+function _closeAnn(overlay,annId){
+  try{
+    var readIds=JSON.parse(localStorage.getItem('aotu_ann_read')||'[]');
+    if(readIds.indexOf(annId)===-1){readIds.push(annId);localStorage.setItem('aotu_ann_read',JSON.stringify(readIds));}
+  }catch(e){}
+  overlay.remove();
 }
 
 // 非标题画面时自动停止星空
@@ -5983,7 +6025,7 @@ function _dreamRender(app){
   h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
   var id=_dreamGetIdentity();
   h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
-  if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';}
+  if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';h+='<button class="btn btn-xs" onclick="window._dreamAnnounceEditor()" style="font-size:0.65em;color:var(--gold)">📢 公告</button> ';}
   else{h+='<button class="btn btn-xs" onclick="window._dreamAdminLogin()" style="font-size:0.65em;color:var(--dim)">🔑</button> ';}
   // 🔢 管理员显示总用户数
   if(window._isAdmin()){
@@ -6823,6 +6865,75 @@ window._dreamAdminDelete=async function(dreamId,reportId){
 window._dreamAdminDismiss=async function(reportId){
   try{await supabase.from('reports').update({status:'dismissed'}).eq('id',reportId);
     window._dreamAdminPanel();}catch(e){alert('操作失败');}
+};
+
+// 📢 公告管理编辑器（管理员专用）
+window._dreamAnnounceEditor=async function(){
+  if(!window._isAdmin())return;
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="text-align:center;padding:20px"><h3>📢 加载公告管理...</h3></div>';
+  try{
+    var r=await supabase.from('announcements').select('*').order('created_at',{ascending:false}).limit(50);
+    var data=r.data||[];
+    var h='<div style="max-width:700px;margin:0 auto;padding:10px">';
+    h+='<button class="btn btn-s" onclick="_dreamLoadPosts(document.getElementById(\'app\'))">← 返回论坛</button>';
+    h+='<h3 style="color:var(--gold);margin:10px 0">📢 公告管理</h3>';
+
+    // 新建表单
+    h+='<div class="panel" style="padding:14px;margin:10px 0;border:2px solid var(--gold)">';
+    h+='<h4 style="color:var(--accent);margin:0 0 10px">✏️ 新建公告</h4>';
+    h+='<input id="annTitle" placeholder="公告标题" maxlength="60" style="width:100%;padding:8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.85em;margin-bottom:6px;font-family:inherit">';
+    h+='<textarea id="annContent" placeholder="公告内容（支持换行）" maxlength="2000" style="width:100%;padding:8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);resize:vertical;height:80px;font-family:inherit;font-size:0.85em"></textarea>';
+    h+='<div style="display:flex;gap:8px;align-items:center;margin-top:8px">';
+    h+='<label style="font-size:0.75em;color:var(--dim)"><input type="checkbox" id="annActive" checked> 发布后立即显示</label>';
+    h+='<button class="btn btn-p" onclick="window._adminAnnCreate()" style="margin-left:auto;font-size:0.8em;padding:6px 16px">✨ 发布</button>';
+    h+='</div></div>';
+
+    // 已有公告列表
+    if(data.length===0){
+      h+='<p style="text-align:center;color:var(--dim);padding:20px">暂无公告</p>';
+    }else{
+      data.forEach(function(a){
+        h+='<div class="panel" style="padding:12px;margin:8px 0;'+(a.is_active?'border-left:4px solid var(--gold)':'opacity:0.5')+'">';
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">';
+        h+='<b style="font-size:0.9em;color:'+(a.is_active?'var(--gold)':'var(--dim)')+'">📢 '+_escapeHtml(a.title)+'</b>';
+        h+='<span style="font-size:0.65em;color:var(--dim)">'+_timeAgo(a.created_at)+'</span>';
+        h+='</div>';
+        h+='<div style="font-size:0.8em;color:var(--dim);margin:6px 0;max-height:50px;overflow:hidden">'+_escapeHtml(a.content).slice(0,120)+'</div>';
+        h+='<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">';
+        h+='<button class="btn btn-xs" onclick="window._adminAnnToggle('+a.id+','+!a.is_active+')">'+(a.is_active?'👁️ 隐藏':'👁️ 显示')+'</button> ';
+        h+='<button class="btn btn-xs" onclick="window._adminAnnEdit('+a.id+')">✏️ 编辑</button> ';
+        h+='<button class="btn btn-xs" onclick="window._adminAnnDelete('+a.id+')" style="background:#e94560;color:#fff">🗑️ 删除</button>';
+        h+='</div></div>';
+      });
+    }
+    h+='</div>';
+    app.innerHTML=h;
+  }catch(e){app.innerHTML='<p style="color:#e94560;text-align:center;padding:40px">加载失败: '+_escapeHtml(e.message)+'</p>';}
+};
+
+// 公告CRUD辅助
+window._adminAnnCreate=async function(){
+  var title=document.getElementById('annTitle').value.trim();
+  var content=document.getElementById('annContent').value.trim();
+  var isActive=document.getElementById('annActive').checked;
+  if(!title||!content){alert('标题和内容不能为空');return;}
+  try{
+    await supabase.from('announcements').insert({title:title,content:content,is_active:isActive});
+    window._dreamAnnounceEditor();
+  }catch(e){alert('发布失败: '+e.message);}
+};
+window._adminAnnToggle=async function(id,newState){
+  try{await supabase.from('announcements').update({is_active:newState}).eq('id',id);window._dreamAnnounceEditor();}catch(e){alert('操作失败');}
+};
+window._adminAnnDelete=async function(id){
+  if(!confirm('确定永久删除这条公告？'))return;
+  try{await supabase.from('announcements').delete().eq('id',id);window._dreamAnnounceEditor();}catch(e){alert('删除失败');}
+};
+window._adminAnnEdit=async function(id){
+  var newTitle=prompt('修改标题：');if(newTitle===null)return;
+  var newContent=prompt('修改内容：');if(newContent===null)return;
+  try{await supabase.from('announcements').update({title:newTitle.trim(),content:newContent.trim(),updated_at:new Date().toISOString()}).eq('id',id);window._dreamAnnounceEditor();}catch(e){alert('更新失败');}
 };
 
 // 🏆 成就计算
