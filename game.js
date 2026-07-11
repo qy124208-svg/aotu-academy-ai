@@ -6022,9 +6022,18 @@ function _dreamRender(app){
   if(state.viewing){_dreamRenderComments(app);return;}
   var h='<div style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;background:radial-gradient(2px 2px at 20% 30%,rgba(255,255,255,0.4),transparent),radial-gradient(2px 2px at 40% 70%,rgba(255,255,255,0.3),transparent),radial-gradient(1px 1px at 60% 20%,rgba(255,255,255,0.5),transparent),radial-gradient(2px 2px at 80% 50%,rgba(255,255,255,0.3),transparent),radial-gradient(1px 1px at 10% 60%,rgba(255,255,255,0.4),transparent),radial-gradient(2px 2px at 70% 80%,rgba(255,255,255,0.3),transparent),radial-gradient(1px 1px at 30% 40%,rgba(255,255,255,0.5),transparent),radial-gradient(2px 2px at 50% 10%,rgba(255,255,255,0.2),transparent)"></div>';
   h+='<div style="max-width:700px;margin:0 auto;padding:10px;position:relative;z-index:1">';
-  h+='<h2 style="text-align:center;color:var(--gold)">🌙 好梦 · 每晚休息</h2>';
+  h+='<h2 style="text-align:center;color:var(--gold);margin-bottom:4px">🌙 好梦 · 每晚休息</h2>';
+  // 搜索框
+  h+='<div style="text-align:center;margin:4px 0 8px"><input id="dreamSearchInput" placeholder="🔍 搜索帖子..." style="width:60%;max-width:300px;padding:6px 10px;border:1px solid #333;border-radius:20px;background:var(--card);color:var(--text);font-size:0.8em;font-family:inherit" onkeydown="if(event.key===\'Enter\')window._dreamSearch()" value="'+(state.search||'')+'"><button class="btn btn-xs" onclick="window._dreamSearch()" style="margin-left:4px;border-radius:20px">搜索</button></div>';
+  // 分类标签
+  var curCat=state.category||'all';
+  h+='<div style="text-align:center;margin:6px 0 10px">';
+  DREAM_CATS.forEach(function(c){
+    h+='<button class="btn btn-xs" onclick="window._dreamSetCat(\''+c.v+'\')" style="margin:2px;font-size:0.7em;padding:3px 10px;border-radius:14px;'+(curCat===c.v?'background:var(--gold);color:#0d1117;font-weight:bold':'')+'">'+c.e+' '+c.t+'</button>';
+  });
+  h+='</div>';
   var id=_dreamGetIdentity();
-  h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条梦话 · 第'+(state.page+1)+'页 · ';
+  h+='<p style="text-align:center;color:var(--dim);font-size:0.75em">'+state.total+' 条'+(curCat!=='all'?' '+DREAM_CATS.find(function(c){return c.v===curCat;}).t:'')+' · 第'+(state.page+1)+'页 · ';
   if(window._isAdmin()){h+='<button class="btn btn-xs" onclick="window._dreamAdminPanel()" style="font-size:0.65em;color:#e94560">🛡️ 管理</button> ';h+='<button class="btn btn-xs" onclick="window._dreamAnnounceEditor()" style="font-size:0.65em;color:var(--gold)">📢 公告</button> ';}
   else{h+='<button class="btn btn-xs" onclick="window._dreamAdminLogin()" style="font-size:0.65em;color:var(--dim)">🔑</button> ';}
   // 🔢 管理员显示总用户数
@@ -6050,6 +6059,9 @@ function _dreamRender(app){
   h+='<input type="file" id="dreamImage" accept="image/*" style="display:none" onchange="window._dreamImagePicked()">';
   h+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">';
   h+='<input id="dreamName" placeholder="昵称" maxlength="10" style="width:100px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em" value="'+_getSavedName()+'">';
+  h+='<select id="dreamCat" style="padding:5px 6px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.75em;font-family:inherit">';
+  DREAM_CATS.forEach(function(c){if(c.v!=='all')h+='<option value="'+c.v+'">'+c.e+' '+c.t+'</option>';});
+  h+='</select>';
   h+='<button class="btn btn-s" onclick="document.getElementById(\'dreamImage\').click()" style="font-size:0.75em;padding:5px 8px">📷 图片</button>';
   h+='<span id="dreamImgLabel" style="font-size:0.65em;color:var(--dim)"></span>';
   h+='<button class="btn btn-p" onclick="window._dreamPost()" style="font-size:0.8em;padding:6px 14px;margin-left:auto">✨ 发布</button></div></div>';
@@ -6061,11 +6073,13 @@ function _dreamRender(app){
       h+='<div class="panel" style="margin:8px 0;padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
       h+='<span style="font-size:0.85em"><b style="color:'+(p.author_color||'#888')+'">'+(p.author_emoji||'😶')+' '+(p.author_name||'匿名')+'</b></span>';
       h+='<span style="font-size:0.65em;color:var(--dim)">'+ago+'</span></div>';
-      h+='<div style="font-size:0.9em;line-height:1.5;margin:6px 0;color:var(--text)">'+_dreamFormatContent(p.content)+'</div>';
+      h+='<div style="font-size:0.9em;line-height:1.5;margin:6px 0;color:var(--text)">'+(p.category&&p.category!=='闲聊'?'<span style="font-size:0.65em;background:var(--card);color:var(--gold);padding:1px 6px;border-radius:8px;margin-right:4px">'+p.category+'</span>':'')+_dreamFormatContent(p.content)+'</div>';
       if(p.image_url)h+='<div style="margin:6px 0"><img src="'+p.image_url+'" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #333" loading="lazy"></div>';
-      h+='<div style="display:flex;gap:12px;font-size:0.75em;color:var(--dim);margin-top:6px">';
+      h+='<div style="display:flex;gap:12px;font-size:0.75em;color:var(--dim);margin-top:6px;flex-wrap:wrap">';
       h+='<span onclick="window._dreamLike('+p.id+')" style="cursor:pointer;user-select:none">❤️ '+p.likes_count+'</span>';
       h+='<span onclick="window._dreamView('+p.id+')" style="cursor:pointer;user-select:none">💬 '+p.comments_count+'</span>';
+      h+='<span onclick="event.stopPropagation();window._dreamFavorite('+p.id+')" style="cursor:pointer;user-select:none" id="favBtn'+p.id+'">⭐</span>';
+      if(p.user_id&&window._dreamUser&&p.user_id!==window._dreamUser.id)h+='<span onclick="event.stopPropagation();window._dreamFollow(\''+p.user_id+'\')" style="cursor:pointer;user-select:none;color:var(--blue);font-size:0.7em">👤 +关注</span>';
       if(p.user_id&&window._dreamUser)h+='<span onclick="event.stopPropagation();window._dreamStartChat(\''+p.user_id+'\')" style="cursor:pointer;user-select:none;color:var(--blue)">📩 私信</span>';
       h+='<span onclick="event.stopPropagation();window._dreamReport('+p.id+')" style="cursor:pointer;user-select:none;color:var(--dim);font-size:0.6em">🚩</span>';
       h+='</div></div>';
@@ -6090,7 +6104,9 @@ window._dreamPost=async function(){
   var state=window._dreamState;
   var imgUrl=state._pendingImage||null;
   try{
-    var row={author_name:name,content:content,author_emoji:id.emoji,author_color:id.color,image_url:imgUrl};
+    var catEl=document.getElementById('dreamCat');
+    var category=catEl?catEl.value:'闲聊';
+    var row={author_name:name,content:content,author_emoji:id.emoji,author_color:id.color,image_url:imgUrl,category:category};
     if(id.user_id)row.user_id=id.user_id;
     var r=await supabase.from('dreams').insert(row).select().single();
     if(r.error)throw r.error;
@@ -6173,26 +6189,59 @@ function _dreamRenderComments(app){
   if(p.image_url)h+='<div style="margin:6px 0"><img src="'+p.image_url+'" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #333" loading="lazy"></div>';
   h+='</div>';
   h+='<div style="font-size:0.8em;color:var(--gold);margin:8px 0">💬 评论 ('+state.comments.length+')</div>';
-  // 评论列表
+  // 评论列表 — 支持嵌套回复
   if(state.comments.length===0)h+='<div style="color:var(--dim);text-align:center;padding:15px">还没有评论</div>';
-  else{state.comments.forEach(function(c){h+='<div style="background:var(--card);border-radius:8px;padding:8px 10px;margin:4px 0"><span style="font-size:0.75em;color:'+(c.author_color||'#888')+'">'+(c.author_emoji||'')+' '+(c.author_name||'匿名')+'</span> <span style="font-size:0.6em;color:var(--dim)">'+_timeAgo(c.created_at)+'</span><div style="font-size:0.8em;margin-top:3px">'+_escapeHtml(c.content)+'</div></div>';});}
+  else{
+    var parents=state.comments.filter(function(c){return !c.parent_id||c.parent_id===0;});
+    var children=state.comments.filter(function(c){return c.parent_id&&c.parent_id!==0;});
+    parents.forEach(function(c){
+      h+='<div style="background:var(--card);border-radius:8px;padding:8px 10px;margin:4px 0">';
+      h+='<span style="font-size:0.75em;color:'+(c.author_color||'#888')+'">'+(c.author_emoji||'')+' '+(c.author_name||'匿名')+'</span> <span style="font-size:0.6em;color:var(--dim)">'+_timeAgo(c.created_at)+'</span>';
+      h+='<div style="font-size:0.8em;margin-top:3px">'+_escapeHtml(c.content)+'</div>';
+      h+='<span onclick="window._dreamReplyTo('+p.id+','+c.id+',\''+(c.author_name||'匿名')+'\')" style="font-size:0.6em;color:var(--blue);cursor:pointer">💬 回复</span>';
+      // 子评论
+      children.filter(function(ch){return ch.parent_id===c.id;}).forEach(function(ch){
+        h+='<div style="margin-left:20px;margin-top:4px;padding:6px 8px;background:rgba(255,255,255,0.03);border-left:2px solid var(--blue);border-radius:0 6px 6px 0;font-size:0.75em">';
+        h+='<span style="color:'+(ch.author_color||'#888')+'">'+(ch.author_emoji||'')+' '+_escapeHtml(ch.author_name||'匿名')+'</span> <span style="font-size:0.65em;color:var(--dim)">'+_timeAgo(ch.created_at)+'</span>';
+        h+='<div style="margin-top:2px">'+_escapeHtml(ch.content)+'</div>';
+        h+='<span onclick="window._dreamReplyTo('+p.id+','+c.id+',\''+(ch.author_name||'匿名')+'\')" style="font-size:0.6em;color:var(--blue);cursor:pointer">💬 回复</span>';
+        h+='</div>';
+      });
+      h+='</div>';
+    });
+  }
   // 发布评论
-  h+='<div style="display:flex;gap:6px;margin-top:10px"><input id="commentInput" placeholder="写下评论..." maxlength="300" style="flex:1;padding:6px 10px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em"><input id="commentName" placeholder="昵称" maxlength="10" style="width:80px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.75em" value="'+_getSavedName()+'"><button class="btn btn-p" onclick="window._dreamPostComment('+p.id+')" style="font-size:0.75em;padding:5px 10px">发送</button></div>';
+  h+='<div id="replyHint" style="font-size:0.65em;color:var(--gold);margin:2px 0"></div>';
+  h+='<div style="display:flex;gap:6px;margin-top:6px"><input id="commentInput" placeholder="写下评论..." maxlength="300" style="flex:1;padding:6px 10px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.8em"><input id="commentName" placeholder="昵称" maxlength="10" style="width:80px;padding:5px 8px;border:1px solid #333;border-radius:6px;background:var(--card);color:var(--text);font-size:0.75em" value="'+_getSavedName()+'"><button class="btn btn-p" onclick="window._dreamPostComment('+p.id+')" style="font-size:0.75em;padding:5px 10px">发送</button></div>';
   h+='</div>';
   app.innerHTML=h;
 }
 
 // 发布评论 — 所有人可用
+// 💬 回复评论（设置回复目标）
+window._dreamReplyTo=function(dreamId,parentId,authorName){
+  window._dreamState._replyTo={dreamId:dreamId,parentId:parentId};
+  document.getElementById('commentInput').placeholder='回复 @'+authorName+'...';
+  document.getElementById('commentInput').focus();
+  document.getElementById('replyHint').textContent='↳ 正在回复 @'+authorName+'  ';
+};
+
 window._dreamPostComment=async function(dreamId){
   if(!supabase)return;
   var content=document.getElementById('commentInput').value.trim();
   if(!content)return;
   var id=_dreamGetIdentity();
   var name=document.getElementById('commentName').value.trim()||id.name||'匿名学生';
+  var state=window._dreamState;
+  var parentId=state._replyTo?state._replyTo.parentId:0;
   try{
-    var row={dream_id:dreamId,author_name:name,content:content,author_emoji:id.emoji,author_color:id.color};
+    var row={dream_id:dreamId,author_name:name,content:content,author_emoji:id.emoji,author_color:id.color,parent_id:parentId};
     if(id.user_id)row.user_id=id.user_id;
     await supabase.from('dream_comments').insert(row);
+    state._replyTo=null;
+    document.getElementById('commentInput').value='';
+    document.getElementById('commentInput').placeholder='写下评论...';
+    document.getElementById('replyHint').textContent='';
     // 通知帖主
     var dr=await supabase.from('dreams').select('user_id').eq('id',dreamId).single();
     if(dr.data&&dr.data.user_id&&window._dreamUser&&dr.data.user_id!==window._dreamUser.id)_dreamNotify(dr.data.user_id,'comment',(window._dreamUser.email||'用户').split('@')[0]+' 评论了你的帖子',"window._dreamView("+dreamId+")");
@@ -6934,6 +6983,81 @@ window._adminAnnEdit=async function(id){
   var newTitle=prompt('修改标题：');if(newTitle===null)return;
   var newContent=prompt('修改内容：');if(newContent===null)return;
   try{await supabase.from('announcements').update({title:newTitle.trim(),content:newContent.trim(),updated_at:new Date().toISOString()}).eq('id',id);window._dreamAnnounceEditor();}catch(e){alert('更新失败');}
+};
+
+// ═══ v6.21 论坛增强 ═══
+
+// 帖子分类
+var DREAM_CATS = [{v:'all',t:'全部',e:'🌙'},{v:'闲聊',t:'闲聊',e:'💬'},{v:'提问',t:'提问',e:'❓'},{v:'分享',t:'分享',e:'📺'},{v:'创作',t:'创作',e:'🎨'}];
+window._dreamSetCat=function(cat){
+  window._dreamState.category=cat==='all'?null:cat;
+  window._dreamState.page=0;
+  _dreamLoadPosts(document.getElementById('app'));
+};
+
+// 🔍 搜索
+window._dreamSearch=function(){
+  var kw=document.getElementById('dreamSearchInput').value.trim();
+  if(!kw){_dreamLoadPosts(document.getElementById('app'));return;}
+  window._dreamState.search=kw;
+  window._dreamState.page=0;
+  _dreamLoadPosts(document.getElementById('app'));
+};
+
+// ⭐ 收藏
+window._dreamFavorite=async function(dreamId){
+  var uid=(window._dreamUser||{}).id||_dreamGetIdentity().fingerprint||'anon';
+  try{
+    var exist=await supabase.from('dream_favorites').select('id').eq('user_id',uid).eq('dream_id',dreamId).maybeSingle();
+    if(exist.data){await supabase.from('dream_favorites').delete().eq('id',exist.data.id);}
+    else{await supabase.from('dream_favorites').insert({user_id:uid,dream_id:dreamId});}
+    _dreamLoadPosts(document.getElementById('app'));
+  }catch(e){}
+};
+window._dreamIsFav=async function(dreamId,cb){
+  var uid=(window._dreamUser||{}).id||_dreamGetIdentity().fingerprint||'anon';
+  try{var r=await supabase.from('dream_favorites').select('id').eq('user_id',uid).eq('dream_id',dreamId).maybeSingle();cb(!!r.data);}catch(e){cb(false);}
+};
+
+// 👤 关注
+window._dreamFollow=async function(targetUid){
+  var uid=(window._dreamUser||{}).id;if(!uid){alert('请先登录');return;}
+  try{
+    var exist=await supabase.from('user_follows').select('id').eq('follower_id',uid).eq('followee_id',targetUid).maybeSingle();
+    if(exist.data){await supabase.from('user_follows').delete().eq('id',exist.data.id);}
+    else{await supabase.from('user_follows').insert({follower_id:uid,followee_id:targetUid});}
+    _dreamLoadPosts(document.getElementById('app'));
+  }catch(e){}
+};
+window._dreamIsFollowing=async function(targetUid,cb){
+  var uid=(window._dreamUser||{}).id;if(!uid||!targetUid){cb(false);return;}
+  try{var r=await supabase.from('user_follows').select('id').eq('follower_id',uid).eq('followee_id',targetUid).maybeSingle();cb(!!r.data);}catch(e){cb(false);}
+};
+
+// 🔥 本周热议（按评论数+点赞数排序）
+window._dreamLoadHot=async function(){
+  var cutoff=new Date(Date.now()-7*86400000).toISOString();
+  try{
+    var r=await supabase.from('dreams').select('*').eq('is_deleted',false).gte('created_at',cutoff).order('comments_count',{ascending:false}).limit(10);
+    return r.data||[];
+  }catch(e){return[];}
+};
+
+// 📝 加载带分类和搜索的帖子
+var _origDreamLoadPosts=_dreamLoadPosts;
+_dreamLoadPosts=async function(app){
+  if(!supabase){app.innerHTML='<div style="text-align:center;padding:40px"><h3>🌙 好梦论坛</h3><p style="color:var(--dim)">论坛功能需要配置 Supabase</p><button class="btn btn-s" onclick="window._goBack()">返回</button></div>';return;}
+  app.innerHTML='<div style="text-align:center;padding:20px"><h3>🌙 正在加载好梦...</h3></div>';
+  var state=window._dreamState;
+  try{
+    var q=supabase.from('dreams').select('*',{count:'exact'}).eq('is_deleted',false);
+    if(state.category)q=q.eq('category',state.category);
+    if(state.search)q=q.or('content.ilike.%'+state.search+'%,title.ilike.%'+state.search+'%');
+    var r=await q.order('created_at',{ascending:false}).range(state.page*state.pageSize,(state.page+1)*state.pageSize-1);
+    if(r.error)throw r.error;
+    state.posts=r.data||[];state.total=r.count||0;
+    _dreamRender(app);
+  }catch(e){app.innerHTML='<div style="text-align:center;padding:40px"><h3>🌙 好梦论坛</h3><p style="color:#e94560">加载失败: '+e.message+'</p><button class="btn btn-s" onclick="window._openGoodDream()">重试</button></div>';}
 };
 
 // 🏆 成就计算
