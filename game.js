@@ -5667,7 +5667,8 @@ function _openBiliAppUrl(qr_url, qrcode_key, type){
   // 保存QR信息到sessionStorage — 页面跳转后返回时恢复轮询
   try { sessionStorage.setItem('_biliPending', JSON.stringify({k: qrcode_key, t: Date.now(), type: type||'login'})); } catch(e) {}
   // 直接用B站返回的真实URL — 不自己拼intent://，避免域名/路径过时
-  window.location.href = qr_url;
+  // 用 assign() 而非 href= 赋值，部分浏览器对 onclick 中的 href 赋值有限制
+  window.location.assign(qr_url);
 }
 
 // 页面从bfcache恢复时检查是否有待处理的B站登录
