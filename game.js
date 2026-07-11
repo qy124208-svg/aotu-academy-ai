@@ -5659,29 +5659,15 @@ function _isMobileDevice(){
 }
 
 // 📱 移动端安全唤起B站App
-// Android: <a>点击 intent:// URL — 触发intent解析器，不离开页面，轮询不中断 ✅
-// iOS: Universal Link — Safari处理良好，App已安装则不跳转
-// App未安装 → fallback到扫码备用（二维码始终可见）
+// 统一使用 window.location.href = qr_url（真实的B站URL）
+// Android: App Link → App已安装则OS拦截唤起，浏览器不跳转
+// iOS: Universal Link → 同样OS拦截
+// App未安装 → 跳转B站H5确认页，用户确认后返回，pageshow恢复轮询
 function _openBiliAppUrl(qr_url, qrcode_key, type){
-  // 保存QR信息到sessionStorage — 万一跳转了，返回时恢复轮询
+  // 保存QR信息到sessionStorage — 页面跳转后返回时恢复轮询
   try { sessionStorage.setItem('_biliPending', JSON.stringify({k: qrcode_key, t: Date.now(), type: type||'login'})); } catch(e) {}
-
-  if(/Android/i.test(navigator.userAgent)){
-    // Android: 用 <a> 点击 intent:// URL — 不离开页面！
-    // window.location.href 会跳转导致轮询中断，<a>.click() 只触发intent不跳转
-    var path = '/h5-app/passport/login/scan?navhide=1&qrcode_key=' + encodeURIComponent(qrcode_key);
-    var intentUrl = 'intent://passport.bilibili.com' + path +
-      '#Intent;scheme=https;package=tv.danmaku.bili;end';
-    var a = document.createElement('a');
-    a.href = intentUrl;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){ if(a.parentNode) a.parentNode.removeChild(a); }, 200);
-  } else {
-    // iOS: Universal Link — Safari不会跳转，直接唤起App
-    window.location.href = qr_url;
-  }
+  // 直接用B站返回的真实URL — 不自己拼intent://，避免域名/路径过时
+  window.location.href = qr_url;
 }
 
 // 页面从bfcache恢复时检查是否有待处理的B站登录
