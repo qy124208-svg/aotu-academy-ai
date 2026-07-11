@@ -2499,8 +2499,8 @@ function _showAnnouncement(ann){
     '</div></div>';
   document.body.appendChild(overlay);
   var btns=overlay.querySelectorAll('button');
-  btns[0].onclick=function(){_closeAnn(overlay,ann.id);};
-  btns[1].onclick=function(){try{localStorage.setItem('aotu_ann_skip','all');}catch(e){}_closeAnn(overlay,ann.id);};
+  btns[0].onclick=function(){_closeAnn(overlay,ann.id);};            // ✕ 关闭 → 标记已读
+  btns[1].onclick=function(){overlay.remove();};                      // 不再显示 → 仅关闭，不记录
 }
 function _closeAnn(overlay,annId){
   try{
