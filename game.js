@@ -5658,6 +5658,92 @@ function _isMobileDevice(){
     ('ontouchstart' in window && window.innerWidth < 1024);
 }
 
+// 📱 移动端安全唤起B站App
+// 使用 HTTPS URL 导航 — 触发 Universal Link (iOS) / App Link (Android)
+// App已安装 → OS拦截URL直接唤起App，浏览器不跳转，轮询不中断 ✅
+// App未安装 → 跳转B站H5确认页，用户确认后返回，pageshow恢复轮询 ✅
+function _openBiliAppUrl(qr_url, qrcode_key, type){
+  // 保存QR信息到sessionStorage — 页面跳转后返回时恢复轮询
+  try { sessionStorage.setItem('_biliPending', JSON.stringify({k: qrcode_key, t: Date.now(), type: type||'login'})); } catch(e) {}
+  window.location.href = qr_url;
+}
+
+// 页面从bfcache恢复时检查是否有待处理的B站登录
+window.addEventListener('pageshow', function(e){
+  if(!e.persisted) return; // 不是从bfcache恢复，跳过
+  try {
+    var raw = sessionStorage.getItem('_biliPending');
+    if(!raw) return;
+    var d = JSON.parse(raw);
+    if(Date.now() - d.t > 180000){ sessionStorage.removeItem('_biliPending'); return; } // 超过3分钟过期
+    sessionStorage.removeItem('_biliPending');
+    _resumeBiliPoll(d.k, d.type);
+  } catch(ex) {}
+});
+
+// 页面恢复后重新轮询QR状态
+function _resumeBiliPoll(qrcode_key, type){
+  var app = document.getElementById('app');
+  if(!app) return;
+  // 简化UI：恢复登录界面骨架
+  app.innerHTML = '<div style="max-width:400px;margin:40px auto;text-align:center;padding:20px">'
+    + '<h3 style="color:#fb7299">📺 B站扫码登录</h3>'
+    + '<p style="color:var(--dim);font-size:0.85em">检测到你已返回，正在检查登录状态…</p>'
+    + '<div id="biliQR" style="margin:10px 0">⏳</div>'
+    + '<p id="biliStatus" style="color:var(--dim);font-size:0.8em;margin:8px 0">重新连接中…</p>'
+    + '<button class="btn btn-s" onclick="window._dreamLogin()" style="margin-top:10px">← 返回</button></div>';
+  var statusEl = document.getElementById('biliStatus');
+  var pollCount = 0;
+  var pollTimer = setInterval(async function(){
+    pollCount++;
+    if(pollCount > 60){ clearInterval(pollTimer); if(statusEl) statusEl.textContent = '⏰ 登录检查超时，请重试'; return; }
+    try {
+      if(type === 'crawl'){
+        // 爬取流程：调 bilibili-feed poll_qr
+        var r = await fetch(SUPABASE_URL+'/functions/v1/bilibili-feed', {
+          method:'POST', headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+          body:JSON.stringify({action:'poll_qr', qrcode_key: qrcode_key, user_id: (window._dreamUser||{}).id||'', time_range: localStorage.getItem('aotu_bili_time')||'week'})
+        }).then(function(res){return res.json();});
+        if(r.users){ clearInterval(pollTimer); window._biliFeedCache = r; window._dreamBiliShowUsers(r.users); return; }
+        if(r.qr_status === 'expired'){ clearInterval(pollTimer); if(statusEl) statusEl.textContent = '⏰ 二维码已过期，请刷新重试'; return; }
+        if(r.qr_status === 'scanned'){ if(statusEl) statusEl.textContent = '📱 已扫码，请在B站App确认…'; }
+        if(r.qr_status === 'error'){ clearInterval(pollTimer); if(statusEl) statusEl.textContent = '❌ 登录失败，请重试'; return; }
+      } else {
+        // 论坛登录流程：调 bilibili-qr poll
+        var pollR = await fetch(SUPABASE_URL+'/functions/v1/bilibili-qr', {
+          method:'POST', headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+          body:JSON.stringify({action:'poll', qrcode_key: qrcode_key})
+        });
+        var pollD = await pollR.json();
+        if(pollD.status === 'scanned'){ if(statusEl) statusEl.textContent = '📱 已扫码，请在B站App确认…'; }
+        else if(pollD.status === 'confirmed'){
+          clearInterval(pollTimer); if(statusEl) statusEl.textContent = '✅ 登录成功！';
+          var sess = await supabase.auth.setSession({ access_token: pollD.access_token, refresh_token: pollD.refresh_token });
+          if(sess.error) throw sess.error;
+          window._dreamUser = sess.data.user;
+          window._dreamUser._nickname = pollD.nickname || '';
+          window._dreamUser._uid = pollD.bili_uid || '';
+          if(pollD.bili_uid){
+            try {
+              var cardR = await fetch(SUPABASE_URL+'/functions/v1/bilibili-qr', {
+                method:'POST', headers:{'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+                body:JSON.stringify({action:'card', uid: pollD.bili_uid})
+              });
+              var cardD = await cardR.json();
+              if(cardD.face) window._dreamUser._face = cardD.face;
+              if(cardD.nickname && (!window._dreamUser._nickname || window._dreamUser._nickname === 'B站用户')) window._dreamUser._nickname = cardD.nickname;
+            } catch(e) {}
+          }
+          if(!window._dreamUser._face) window._dreamUser._face = '';
+          try { localStorage.setItem('aotu_session', JSON.stringify({ access_token: pollD.access_token, refresh_token: pollD.refresh_token, nickname: window._dreamUser._nickname, face: window._dreamUser._face, bili_uid: pollD.bili_uid })); } catch(e) {}
+          _dreamLoadPosts(app);
+        } else if(pollD.status === 'expired'){ clearInterval(pollTimer); if(statusEl) statusEl.textContent = '⏰ 二维码已过期，请刷新重试'; }
+        else if(pollD.status === 'error'){ clearInterval(pollTimer); if(statusEl) statusEl.textContent = '❌ 登录失败: ' + (pollD.message || '未知错误'); }
+      }
+    } catch(e2) {}
+  }, 2000);
+}
+
 // 📺 B站扫码登录 — 调用Edge Function代理B站API
 window._dreamBiliLogin=function(){
   var app=document.getElementById('app');
@@ -5678,19 +5764,19 @@ window._dreamBiliLogin=function(){
       if(!genR.ok||genD.error)throw new Error(genD.error||'二维码生成失败');
       var qrcodeKey=genD.qrcode_key;
       var qrImgSrc='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(genD.qr_url);
-      // 📱 移动端 → 跳转B站App授权（不扫码）
+      // 存到 window 让 onclick 内联代码能访问（内联onclick在全局作用域执行）
+      window._biliLoginQR = { qr_url: genD.qr_url, key: qrcodeKey };
+      // 📱 移动端 → 显示二维码+跳转B站App按钮（不自动跳转，避免浏览器误下载）
       if(_isMobileDevice()){
         document.getElementById('biliQR').innerHTML=
           '<div style="padding:15px;background:#222;border-radius:12px;margin:8px 0">'+
           '<div style="font-size:2em;margin-bottom:8px">📱</div>'+
-          '<p style="color:var(--blue);font-size:0.9em;margin:4px 0">正在跳转B站App…</p>'+
-          '<p style="color:var(--dim);font-size:0.7em;margin:4px 0">请在App中确认登录授权</p>'+
-          '<button class="btn btn-p" onclick="window.open(\''+genD.qr_url+'\',\'_blank\')" style="margin-top:10px;font-size:0.85em">🔄 未自动跳转？点此手动打开</button>'+
+          '<p style="color:var(--blue);font-size:0.9em;margin:4px 0">检测到移动设备</p>'+
+          '<p style="color:var(--dim);font-size:0.7em;margin:4px 0">点击下方按钮跳转B站App授权</p>'+
+          '<button class="btn btn-p" onclick="if(window._biliLoginQR)_openBiliAppUrl(window._biliLoginQR.qr_url,window._biliLoginQR.key,\'login\')" style="margin:10px 4px;font-size:0.85em">📱 打开B站App登录</button>'+
           '<details style="margin-top:10px"><summary style="font-size:0.65em;color:var(--dim);cursor:pointer">📷 扫码备用</summary>'+
           '<img src="'+qrImgSrc+'" style="width:160px;background:#fff;padding:6px;border-radius:8px;margin-top:6px"></details>'+
           '</div>';
-        // 自动跳转B站App（移动端qr_url会唤起App或打开H5确认页）
-        window.open(genD.qr_url,'_blank');
       } else {
         // 🖥 桌面端 → 显示二维码
         document.getElementById('biliQR').innerHTML='<img src="'+qrImgSrc+'" style="background:#fff;padding:8px;border-radius:12px">';
@@ -6311,18 +6397,19 @@ window._dreamBiliStartCrawl=async function(){
     // 需要扫码登录
     if(r.need_login){
       var qrImgSrc2='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(r.qr_url);
+      // 存到 window 让 onclick 内联代码能访问（内联onclick在全局作用域执行）
+      window._biliCrawlQR = { qr_url: r.qr_url, key: r.qrcode_key };
       if(_isMobileDevice()){
-        // 📱 移动端 → 跳转B站App授权
+        // 📱 移动端 → 显示按钮唤起B站App（不自动跳转，避免浏览器误下载文件）
         area.innerHTML='<div style="text-align:center;padding:10px">'+
           '<div style="padding:12px;background:#222;border-radius:10px">'+
           '<div style="font-size:2em">📱</div>'+
-          '<p style="color:var(--blue);margin:6px 0">正在跳转B站App授权…</p>'+
-          '<p style="font-size:0.7em;color:var(--dim)">请在App中确认登录</p>'+
-          '<button class="btn btn-p" onclick="window.open(\''+r.qr_url+'\',\'_blank\')" style="margin-top:8px;font-size:0.8em">🔄 手动打开B站App</button>'+
+          '<p style="color:var(--blue);margin:6px 0">检测到移动设备</p>'+
+          '<p style="font-size:0.7em;color:var(--dim)">点击下方按钮跳转B站App授权</p>'+
+          '<button class="btn btn-p" onclick="if(window._biliCrawlQR)_openBiliAppUrl(window._biliCrawlQR.qr_url,window._biliCrawlQR.key,\'crawl\')" style="margin-top:8px;font-size:0.8em">📱 打开B站App登录</button>'+
           '<details style="margin-top:8px"><summary style="font-size:0.65em;color:var(--dim);cursor:pointer">📷 扫码备用</summary>'+
           '<img src="'+qrImgSrc2+'" style="width:140px;background:#fff;padding:4px;border-radius:6px;margin-top:4px"></details>'+
           '</div></div>';
-        window.open(r.qr_url,'_blank');
       } else {
         area.innerHTML='<div style="text-align:center;padding:10px"><p style="color:var(--blue);margin:4px 0">📱 请用B站App扫码</p><img src="'+qrImgSrc2+'" style="width:180px;height:180px;border-radius:8px"><p style="font-size:0.65em;color:var(--dim);margin:4px 0">扫描后在手机上确认登录</p></div>';
       }
