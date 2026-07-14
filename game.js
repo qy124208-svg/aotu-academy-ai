@@ -7403,6 +7403,9 @@ window._addPet = function(config, imgPath){
 window._clearPets = function(){ _petManager.clear(); };
 window._getPets = function(){ return _petManager.pets; };
 
+// 🐾 激活安迷修桌宠 — 透明底PNG已就绪
+window._addPet({name:'安迷修', anchorX:100, anchorY:200, scale:1.0}, 'img/anmicius');
+
 // ═══ 📜 Galgame剧本引擎 v1.0 ═══
 // 基于 LingChat YAML剧本 + ZcChat 立绘系统 融合设计
 // JSON驱动，支持16种事件类型 + 选择分支 + 立绘表情 + 存档
