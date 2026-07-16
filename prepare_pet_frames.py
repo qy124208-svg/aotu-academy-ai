@@ -125,14 +125,23 @@ def main():
     cache = {}
     for out_name, src_name, anchor in FRAME_MAP:
         if src_name not in cache:
-            im = Image.open(os.path.join(SRC_DIR, src_name))
-            if has_real_alpha(im):
-                im = im.convert("RGBA")
-                method = "自带alpha"
+            rembg_path = os.path.join(SRC_DIR, "rembg透明底", src_name)
+            if os.path.exists(rembg_path):
+                # rembg(isnet-anime)抠图结果：语义分割能处理腿间/腋下死角
+                im = Image.open(rembg_path).convert("RGBA")
+                a = np.array(im.getchannel("A"))
+                a = np.where(a >= 240, 255, a).astype(np.uint8)  # 主体推满，边缘过渡保留
+                im.putalpha(Image.fromarray(a))
+                method = "rembg抠图"  # 自带柔边，不再二次羽化
             else:
-                im = flood_remove_white(im, fill_holes=src_name not in BUST_SOURCES)
-                method = "泛洪去白"
-            im = feather(im, FEATHER_HI)
+                im = Image.open(os.path.join(SRC_DIR, src_name))
+                if has_real_alpha(im):
+                    im = im.convert("RGBA")
+                    method = "自带alpha"
+                else:
+                    im = flood_remove_white(im, fill_holes=src_name not in BUST_SOURCES)
+                    method = "泛洪去白"
+                im = feather(im, FEATHER_HI)
             cache[src_name] = (im, method)
         im, method = cache[src_name]
         frame = to_frame(im.copy(), anchor)
