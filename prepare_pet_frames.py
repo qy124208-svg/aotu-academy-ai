@@ -40,6 +40,8 @@ FRAME_MAP = [
 WHITE_THRESH = 252  # 泛洪判白阈值(收紧：米白衬衫≈248会被240误判泛洪漏抠)
 RIM_THRESH = 235    # 抗锯齿白边吸收阈值
 RIM_ITER = 3        # 白边吸收最大扩张px
+HOLE_MIN_AREA = 1000  # 封闭白洞填除阈值(px)：胳膊-身体死角3000~11000，眼睛高光/线稿缝<700
+BUST_SOURCES = {"微笑图.png", "生气图.png", "闭眼图.png"}  # 胸像不填洞(眼睛高光1500+px会被误杀)
 FEATHER_HI = 3      # 高清阶段羽化半径(px)
 
 
@@ -51,7 +53,7 @@ def has_real_alpha(im):
     return a.min() < 250
 
 
-def flood_remove_white(im):
+def flood_remove_white(im, fill_holes=True):
     """从四边泛洪去白底，保留角色内部白色区域"""
     rgb = np.array(im.convert("RGB"))
     h, w = rgb.shape[:2]
@@ -73,6 +75,13 @@ def flood_remove_white(im):
             cv2.floodFill(work, mask, (sx, sy), 128,
                           loDiff=0, upDiff=0, flags=ff_flags)
     bg = mask[1:-1, 1:-1] > 0  # True=背景白
+    # 填除封闭白洞(泛洪够不到的胳膊-身体死角)；胸像跳过防误杀眼睛高光
+    if fill_holes:
+        holes = ((near_white > 0) & ~bg).astype(np.uint8)
+        n_cc, labels, stats, _ = cv2.connectedComponentsWithStats(holes, None, None, None, 8)
+        for ci in range(1, n_cc):
+            if stats[ci, cv2.CC_STAT_AREA] >= HOLE_MIN_AREA:
+                bg = bg | (labels == ci)
     # 受限扩张：只向"近白的抗锯齿边缘"扩张RIM_ITER像素，吃掉白边但不侵入米白衣物
     near_rim = rgb.min(axis=2) >= RIM_THRESH
     kernel = np.ones((3, 3), np.uint8)
@@ -121,7 +130,7 @@ def main():
                 im = im.convert("RGBA")
                 method = "自带alpha"
             else:
-                im = flood_remove_white(im)
+                im = flood_remove_white(im, fill_holes=src_name not in BUST_SOURCES)
                 method = "泛洪去白"
             im = feather(im, FEATHER_HI)
             cache[src_name] = (im, method)
