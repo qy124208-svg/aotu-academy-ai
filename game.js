@@ -7080,8 +7080,8 @@ var PET_DEFAULT_CONFIG = {
   // 动画配置 — 对应shimeji命名规范 (shimeN.png)
   animations: {
     Idle:    {type:'stay',   frames:['shime1.png','shime1b.png'], durations:[200,2,48]},
-    Walk:    {type:'move',   frames:['shime1.png','shime2.png','shime1.png','shime3.png'], durations:[6,6,6,6], velocity:-2},
-    Run:     {type:'move',   frames:['shime1.png','shime2.png','shime1.png','shime3.png'], durations:[2,2,2,2], velocity:-4},
+    Walk:    {type:'move',   frames:['shime1.png','shime2.png','shime1.png','shime3.png'], durations:[10,10,10,10], velocity:-2},
+    Run:     {type:'move',   frames:['shime1.png','shime2.png','shime1.png','shime3.png'], durations:[5,5,5,5], velocity:-4},
     Sit:     {type:'stay',   frames:['shime11.png','shime11b.png'], durations:[200,2,48]},
     Sleep:   {type:'stay',   frames:['shime18.png','shime21.png'], durations:[200,2,48]},
     Falling: {type:'fall',   frames:['shime4.png','shime4b.png'], durations:[2,2]},
@@ -7167,6 +7167,8 @@ function PetSprite(config, imgBasePath){
   // 物理更新
   this.update = function(dt){
     if(pet.isDragging) return;
+    // 动画计时按真实时间推进(60单位/秒)，不随屏幕刷新率变化
+    pet.animTimer += dt * 60;
     // 重力
     pet.vy += pet.config.gravity * dt * 60;
     pet.vx *= pet.config.friction;
@@ -7190,7 +7192,7 @@ function PetSprite(config, imgBasePath){
     // 如果在地面上且没有水平速度，可能触发状态切换
     if(pet.onFloor && Math.abs(pet.vx) < 0.5){
       pet.vx = 0;
-      pet.stateTimer += dt;
+      pet.stateTimer += dt * 60; // 帧单位累加(stateDuration按帧计)
       if(pet.stateTimer >= pet.stateDuration){
         pet.stateTimer = 0;
         pet.stateDuration = 300 + Math.random() * 700;
@@ -7205,8 +7207,8 @@ function PetSprite(config, imgBasePath){
     var anim = pet.getAnim();
     if(!anim) return;
     var frames = anim.frames;
-    // 动画帧更新
-    pet.animTimer++;
+    // 动画切换时重置帧序，防止残留计时导致快速跳帧
+    if(pet._lastAnim !== anim){ pet._lastAnim = anim; pet.animFrame = 0; pet.animTimer = 0; }
     var totalDur = 0;
     for(var i = 0; i <= pet.animFrame; i++) totalDur += (anim.durations[i] || 5);
     if(pet.animTimer >= totalDur){
@@ -7214,20 +7216,24 @@ function PetSprite(config, imgBasePath){
       if(pet.animFrame === 0) pet.animTimer = 0;
     }
     var img = pet.images[frames[pet.animFrame]];
-    if(!img || !img.complete) return;
-    var ax = pet.anchorX; var ay = pet.anchorY;
+    if(!img || !img.complete || !img.naturalWidth) return;
+    // 按原图长宽比绘制：size=显示尺寸上限(CSS px)，底部中心锚定在(pet.x, pet.y)
+    var size = pet.config.size || 225; // 默认显示尺寸(帧源256px，≤256均为缩小渲染保持锐利)
+    var sc = size / Math.max(img.naturalWidth, img.naturalHeight) * s;
+    var dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+    pet._dw = dw; pet._dh = dh;
     ctx.save();
     ctx.translate(pet.x, pet.y);
-    if(!pet.facingRight){ ctx.scale(-1, 1); ctx.translate(-ax*2*s, 0); }
-    ctx.drawImage(img, -ax*s, -ay*s, ax*2*s, ay*2*s);
+    if(!pet.facingRight) ctx.scale(-1, 1);
+    ctx.drawImage(img, -dw/2, -dh, dw, dh);
     ctx.restore();
   };
 
   // 检查点击
   this.hitTest = function(mx, my){
-    var s = pet.scale;
-    return mx >= pet.x - pet.anchorX*s && mx <= pet.x + pet.anchorX*s &&
-           my >= pet.y - pet.anchorY*s && my <= pet.y;
+    var dw = pet._dw || 128, dh = pet._dh || 128;
+    return mx >= pet.x - dw/2 && mx <= pet.x + dw/2 &&
+           my >= pet.y - dh && my <= pet.y;
   };
 
   this.preload();
@@ -7244,9 +7250,15 @@ var _petManager = {
     cv.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none';
     document.body.appendChild(cv);
     _petManager.canvas = cv;
+    // 高DPI适配：物理像素=CSS像素×dpr，避免高分屏画面发糊
+    var _petFit = function(){
+      var dpr = window.devicePixelRatio || 1;
+      cv.width = window.innerWidth * dpr; cv.height = window.innerHeight * dpr;
+      _petManager.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
     _petManager.ctx = cv.getContext('2d');
-    cv.width = window.innerWidth; cv.height = window.innerHeight;
-    window.addEventListener('resize', function(){ cv.width = window.innerWidth; cv.height = window.innerHeight; });
+    _petFit();
+    window.addEventListener('resize', _petFit);
 
     // 鼠标交互
     cv.style.pointerEvents = 'auto';
