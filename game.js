@@ -9108,5 +9108,15 @@ showToastMsg=function(msg,type){
 
 console.log('🚀 引擎已启动 — 快捷键: A好感 C CP M回忆 Q任务 J日记 S存档 L读档 ESC返回 空格推进');
 render('title');
+
+// 🐾 默认开启安迷修桌宠（移动端自适应尺寸）
+(function(){
+  var isMobile = window.innerWidth < 768;
+  var petSize = isMobile ? 120 : 225;
+  setTimeout(function(){
+    _addPet({name:'安迷修', size: petSize}, 'img/anmicius');
+    console.log('🐾 安迷修桌宠已就绪 (size:' + petSize + (isMobile ? ' 移动端' : ' 桌面端') + ')');
+  }, 500);
+})();
 //# sourceURL=game.js
 
